@@ -117,4 +117,31 @@ class ResourceExpandProcessorTest {
         assertThat(result).noneMatch(f -> f.path().startsWith("ms-platform/invoice/service-batch/"));
         assertThat(result).noneMatch(f -> f.path().startsWith("ms-platform/invoice/service-consumer/"));
     }
+
+    @Test
+    void h2_replaces_postgres_driver_in_pom() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("inventory", "Item", "/api/items", DatabaseType.H2, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile pom = result.stream()
+            .filter(f -> f.path().endsWith("inventory/pom.xml"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(pom)).contains("h2");
+        assertThat(contentOf(pom)).doesNotContain("postgresql");
+    }
+
+    @Test
+    void h2_replaces_datasource_in_application_yml() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("inventory", "Item", "/api/items", DatabaseType.H2, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile yml = result.stream()
+            .filter(f -> f.path().endsWith("inventory/src/main/resources/application.yml"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(yml)).contains("jdbc:h2:mem:");
+        assertThat(contentOf(yml)).contains("org.h2.Driver");
+        assertThat(contentOf(yml)).doesNotContain("org.postgresql.Driver");
+    }
 }

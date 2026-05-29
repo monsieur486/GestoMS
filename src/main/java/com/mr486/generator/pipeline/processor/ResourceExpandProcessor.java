@@ -134,7 +134,48 @@ public class ResourceExpandProcessor implements FileProcessor {
 
     protected byte[] applyDatabaseType(String path, byte[] content, ResourceModuleRequest res, String basePackage) {
         if (res.getDatabaseType() == null || res.getDatabaseType() == DatabaseType.POSTGRES) return content;
-        // H2 and MONGO implemented in Tasks 8 and 9
+        if (res.getDatabaseType() == DatabaseType.H2)    return applyH2(path, content, res);
+        if (res.getDatabaseType() == DatabaseType.MONGO) return applyMongo(path, content, res, basePackage);
+        return content;
+    }
+
+    private byte[] applyH2(String path, byte[] content, ResourceModuleRequest res) {
+        if (containsNullByte(content)) return content;
+        String text = new String(content, StandardCharsets.UTF_8);
+        String dbName = res.getServiceName().replace("-", "") + "db";
+
+        if (path.endsWith("pom.xml")) {
+            text = text.replace(
+                "<groupId>org.postgresql</groupId><artifactId>postgresql</artifactId>",
+                "<groupId>com.h2database</groupId><artifactId>h2</artifactId>"
+            );
+        }
+        if (path.endsWith("application.yml")) {
+            String serviceSnake = res.getServiceName().replace("-", "_").toUpperCase();
+            text = text.replace(
+                "url: ${" + serviceSnake + "_DATASOURCE_URL:jdbc:postgresql://localhost:5432/" + res.getServiceName().replace("-","_") + "_db}",
+                "url: jdbc:h2:mem:" + dbName + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE"
+            );
+            text = text.replace(
+                "username: ${" + serviceSnake + "_DB_USERNAME:" + res.getServiceName().replace("-","_") + "}",
+                "username: sa"
+            );
+            text = text.replace(
+                "password: ${" + serviceSnake + "_DB_PASSWORD:" + res.getServiceName().replace("-","_") + "}",
+                "password:"
+            );
+            text = text.replace("driver-class-name: org.postgresql.Driver", "driver-class-name: org.h2.Driver");
+            // Add H2 console config after datasource block
+            if (!text.contains("h2:") && text.contains("driver-class-name: org.h2.Driver")) {
+                text = text.replace("driver-class-name: org.h2.Driver",
+                    "driver-class-name: org.h2.Driver\n  h2:\n    console:\n      enabled: true");
+            }
+        }
+        return text.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private byte[] applyMongo(String path, byte[] content, ResourceModuleRequest res, String basePackage) {
+        // Implemented in Task 9
         return content;
     }
 
