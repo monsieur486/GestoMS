@@ -41,20 +41,12 @@ class FeatureFilterProcessorTest {
     }
 
     @Test
-    void excludes_keycloak_dir_when_keycloak_disabled() {
+    void excludes_keycloak_and_ms_auth_when_keycloak_disabled() {
         FeatureOptions f = new FeatureOptions();
         f.setKeycloak(false);
         GenerationContext ctx = ctxWithFeatures(f);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
         assertThat(result).noneMatch(e -> e.path().contains("/keycloak/"));
-    }
-
-    @Test
-    void excludes_ms_auth_when_keycloak_disabled() {
-        FeatureOptions f = new FeatureOptions();
-        f.setKeycloak(false);
-        GenerationContext ctx = ctxWithFeatures(f);
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
         assertThat(result).noneMatch(e -> e.path().contains("/ms-auth/"));
     }
 
