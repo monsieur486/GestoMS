@@ -144,4 +144,77 @@ class ResourceExpandProcessorTest {
         assertThat(contentOf(yml)).contains("org.h2.Driver");
         assertThat(contentOf(yml)).doesNotContain("org.postgresql.Driver");
     }
+
+    @Test
+    void mongo_renames_entity_dir_to_document() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        assertThat(result).anyMatch(f -> f.path().contains("/catalog/") && f.path().contains("/document/"));
+        assertThat(result).noneMatch(f -> f.path().contains("/catalog/") && f.path().contains("/entity/"));
+    }
+
+    @Test
+    void mongo_entity_uses_document_annotation() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile doc = result.stream()
+            .filter(f -> f.path().contains("/catalog/") && f.path().contains("/document/Product.java"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(doc)).contains("@Document");
+        assertThat(contentOf(doc)).doesNotContain("@Entity");
+        assertThat(contentOf(doc)).contains("private String id");
+    }
+
+    @Test
+    void mongo_repository_extends_MongoRepository() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile repo = result.stream()
+            .filter(f -> f.path().contains("/catalog/") && f.path().endsWith("Repository.java"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(repo)).contains("MongoRepository");
+        assertThat(contentOf(repo)).doesNotContain("JpaRepository");
+    }
+
+    @Test
+    void mongo_pom_contains_mongodb_not_jpa() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile pom = result.stream()
+            .filter(f -> f.path().endsWith("catalog/pom.xml"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(pom)).contains("spring-boot-starter-data-mongodb");
+        assertThat(contentOf(pom)).doesNotContain("spring-boot-starter-data-jpa");
+        assertThat(contentOf(pom)).doesNotContain("postgresql");
+    }
+
+    @Test
+    void mongo_application_yml_has_mongodb_uri_not_datasource() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile yml = result.stream()
+            .filter(f -> f.path().endsWith("catalog/src/main/resources/application.yml"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(yml)).contains("mongodb:");
+        assertThat(contentOf(yml)).doesNotContain("datasource:");
+    }
+
+    @Test
+    void mongo_removes_db_changelog_files() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        assertThat(result).noneMatch(f -> f.path().contains("/catalog/") && f.path().contains("/db/changelog/"));
+    }
 }

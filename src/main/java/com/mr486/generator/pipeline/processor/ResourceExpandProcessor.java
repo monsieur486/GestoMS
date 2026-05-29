@@ -174,9 +174,100 @@ public class ResourceExpandProcessor implements FileProcessor {
         return text.getBytes(StandardCharsets.UTF_8);
     }
 
+    // ── MongoDB templates ─────────────────────────────────────────────────────
+
+    private static final String MONGO_ENTITY_TEMPLATE =
+        "package {PKG}.document;\n" +
+        "import lombok.*;\n" +
+        "import org.springframework.data.annotation.Id;\n" +
+        "import org.springframework.data.mongodb.core.mapping.Document;\n" +
+        "@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder\n" +
+        "@Document(collection=\"{COLLECTION}\")\n" +
+        "public class {CLASS}{ @Id private String id; private String name; private String description; }";
+
+    private static final String MONGO_REPO_TEMPLATE =
+        "package {PKG}.repository;\n" +
+        "import {PKG}.document.{CLASS};\n" +
+        "import org.springframework.stereotype.Repository;\n" +
+        "import org.springframework.data.mongodb.repository.MongoRepository;\n" +
+        "@Repository\n" +
+        "public interface {CLASS}Repository extends MongoRepository<{CLASS},String> {}";
+
+    private static final String MONGO_APP_YML_TEMPLATE =
+        "server:\n" +
+        "  port: ${{{SERVICE_UPPER}_PORT:8080}}\n" +
+        "spring:\n" +
+        "  application:\n" +
+        "    name: {SERVICE_NAME}\n" +
+        "  data:\n" +
+        "    mongodb:\n" +
+        "      uri: ${{{SERVICE_UPPER}_MONGO_URI:mongodb://{SERVICE_SNAKE}:{SERVICE_SNAKE}@localhost:27017/{SERVICE_SNAKE}_db?authSource=admin}}\n" +
+        "  security:\n" +
+        "    oauth2:\n" +
+        "      resourceserver:\n" +
+        "        jwt:\n" +
+        "          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8089/realms/ms-realm}\n" +
+        "          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/ms-realm/protocol/openid-connect/certs}\n" +
+        "eureka:\n" +
+        "  client:\n" +
+        "    service-url:\n" +
+        "      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}\n" +
+        "management:\n" +
+        "  endpoints:\n" +
+        "    web:\n" +
+        "      exposure:\n" +
+        "        include: health,info\n";
+
+    private static final String MONGO_POM_DEPS =
+        "<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-mongodb</artifactId></dependency>" +
+        "<dependency><groupId>io.mongock</groupId><artifactId>mongock-springboot-v3</artifactId></dependency>" +
+        "<dependency><groupId>io.mongock</groupId><artifactId>mongodb-springdata-v4-driver</artifactId></dependency>";
+
     private byte[] applyMongo(String path, byte[] content, ResourceModuleRequest res, String basePackage) {
-        // Implemented in Task 9
-        return content;
+        String servicePackage = toConcatLower(res.getServiceName());
+        String serviceSnake   = res.getServiceName().replace("-", "_");
+        String serviceUpper   = serviceSnake.toUpperCase();
+        String collection     = res.getClassName().toLowerCase() + "s";
+        String pkg            = basePackage + "." + servicePackage;
+
+        // Remove Liquibase changelog files — return null signals generateService to skip
+        if (path.contains("/db/changelog/")) return null;
+
+        if (path.endsWith("application.yml")) {
+            String yml = MONGO_APP_YML_TEMPLATE
+                .replace("{SERVICE_UPPER}", serviceUpper)
+                .replace("{SERVICE_NAME}",  res.getServiceName())
+                .replace("{SERVICE_SNAKE}", serviceSnake);
+            return yml.getBytes(StandardCharsets.UTF_8);
+        }
+        if (path.endsWith("pom.xml") && !containsNullByte(content)) {
+            String text = new String(content, StandardCharsets.UTF_8);
+            text = text.replace(
+                "<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>",
+                MONGO_POM_DEPS);
+            text = text.replace(
+                "<dependency><groupId>org.liquibase</groupId><artifactId>liquibase-core</artifactId></dependency>", "");
+            text = text.replace(
+                "<dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId></dependency>", "");
+            return text.getBytes(StandardCharsets.UTF_8);
+        }
+        // Entity file → MongoDB document
+        if (path.contains("/entity/") && path.endsWith(".java")) {
+            String doc = MONGO_ENTITY_TEMPLATE
+                .replace("{PKG}", pkg)
+                .replace("{COLLECTION}", collection)
+                .replace("{CLASS}", res.getClassName());
+            return doc.getBytes(StandardCharsets.UTF_8);
+        }
+        // Repository file → MongoRepository
+        if (path.contains("/repository/") && path.endsWith("Repository.java")) {
+            String repo = MONGO_REPO_TEMPLATE
+                .replace("{PKG}", pkg)
+                .replace("{CLASS}", res.getClassName());
+            return repo.getBytes(StandardCharsets.UTF_8);
+        }
+        if (containsNullByte(content)) return content;
+        return new String(content, StandardCharsets.UTF_8).getBytes(StandardCharsets.UTF_8);
     }
 
     // ── IdType (Task 10) ──────────────────────────────────────────────────────
