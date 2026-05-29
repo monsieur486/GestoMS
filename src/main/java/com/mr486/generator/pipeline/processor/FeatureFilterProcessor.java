@@ -26,6 +26,7 @@ public class FeatureFilterProcessor implements FileProcessor {
     private boolean include(String path, String root, FeatureOptions f, BatchOptions b) {
         String rel = relative(path, root);
         if (!f.isKeycloak()   && rel.startsWith("keycloak/"))                          return false;
+        if (!f.isKeycloak()   && rel.startsWith("ms-auth/"))                           return false;
         if (!f.isAdmin()      && rel.startsWith("ms-admin/"))                          return false;
         if (!f.isGrafana()    && rel.startsWith("observability/grafana/"))             return false;
         if (!f.isLoki()       && (rel.startsWith("observability/loki/")

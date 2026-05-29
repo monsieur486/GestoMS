@@ -24,7 +24,8 @@ class FeatureFilterProcessorTest {
             file("ms-platform/service-consumer/src/main/java/x/RedisConfig.java", "class R{}"),
             file("ms-platform/service-consumer/src/main/java/x/WebSocketConfig.java", "class W{}"),
             file("ms-platform/service-consumer/src/main/resources/static/batch-notifications.html", "<html/>"),
-            file("ms-platform/docker-compose.yml", "services:")
+            file("ms-platform/docker-compose.yml", "services:"),
+            file("ms-platform/ms-auth/pom.xml", "<project/>")
         );
     }
 
@@ -46,6 +47,15 @@ class FeatureFilterProcessorTest {
         GenerationContext ctx = ctxWithFeatures(f);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
         assertThat(result).noneMatch(e -> e.path().contains("/keycloak/"));
+    }
+
+    @Test
+    void excludes_ms_auth_when_keycloak_disabled() {
+        FeatureOptions f = new FeatureOptions();
+        f.setKeycloak(false);
+        GenerationContext ctx = ctxWithFeatures(f);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
+        assertThat(result).noneMatch(e -> e.path().contains("/ms-auth/"));
     }
 
     @Test
