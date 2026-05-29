@@ -217,4 +217,70 @@ class ResourceExpandProcessorTest {
         List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
         assertThat(result).noneMatch(f -> f.path().contains("/catalog/") && f.path().contains("/db/changelog/"));
     }
+
+    @Test
+    void integer_replaces_Long_with_Integer_in_entity() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("order", "Order", "/api/orders", DatabaseType.POSTGRES, IdType.INTEGER)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile entity = result.stream()
+            .filter(f -> f.path().contains("/order/") && f.path().contains("/entity/"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(entity)).contains("private Integer id");
+        assertThat(contentOf(entity)).doesNotContain("private Long id");
+    }
+
+    @Test
+    void integer_replaces_Long_in_repository_generic() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("order", "Order", "/api/orders", DatabaseType.POSTGRES, IdType.INTEGER)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile repo = result.stream()
+            .filter(f -> f.path().contains("/order/") && f.path().endsWith("Repository.java"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(repo)).contains("JpaRepository<Order,Integer>");
+        assertThat(contentOf(repo)).doesNotContain("JpaRepository<Order,Long>");
+    }
+
+    @Test
+    void uuid_adds_UUID_type_and_generation_strategy() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("order", "Order", "/api/orders", DatabaseType.POSTGRES, IdType.UUID)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile entity = result.stream()
+            .filter(f -> f.path().contains("/order/") && f.path().contains("/entity/"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(entity)).contains("private UUID id");
+        assertThat(contentOf(entity)).contains("GenerationType.UUID");
+        assertThat(contentOf(entity)).contains("import java.util.UUID");
+    }
+
+    @Test
+    void uuid_replaces_BIGINT_with_UUID_in_sql() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("order", "Order", "/api/orders", DatabaseType.POSTGRES, IdType.UUID)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile sql = result.stream()
+            .filter(f -> f.path().contains("/order/") && f.path().endsWith("001-init.sql"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(sql)).contains("UUID DEFAULT gen_random_uuid() PRIMARY KEY");
+        assertThat(contentOf(sql)).doesNotContain("BIGINT");
+    }
+
+    @Test
+    void mongo_idType_is_always_string_regardless_of_request() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.UUID)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile doc = result.stream()
+            .filter(f -> f.path().contains("/catalog/") && f.path().contains("/document/"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(doc)).contains("private String id");
+        assertThat(contentOf(doc)).doesNotContain("private UUID id");
+    }
 }
