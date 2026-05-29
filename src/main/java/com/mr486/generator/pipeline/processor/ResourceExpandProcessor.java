@@ -279,19 +279,15 @@ public class ResourceExpandProcessor implements FileProcessor {
         if (containsNullByte(content)) return content;
 
         String text = new String(content, StandardCharsets.UTF_8);
-        if (res.getIdType() == IdType.INTEGER) text = applyIntegerType(text, path, res);
+        if (res.getIdType() == IdType.INTEGER) text = applyIntegerType(text, res);
         if (res.getIdType() == IdType.UUID)    text = applyUuidType(text, path, res);
         return text.getBytes(StandardCharsets.UTF_8);
     }
 
-    private String applyIntegerType(String text, String path, ResourceModuleRequest res) {
-        // Entity: Long id → Integer id
+    private String applyIntegerType(String text, ResourceModuleRequest res) {
         text = text.replace("private Long id", "private Integer id");
-        // Repository generic
         text = text.replace("JpaRepository<" + res.getClassName() + ",Long>",
                             "JpaRepository<" + res.getClassName() + ",Integer>");
-        // DTO
-        text = text.replace("private Long id", "private Integer id");
         return text;
     }
 
