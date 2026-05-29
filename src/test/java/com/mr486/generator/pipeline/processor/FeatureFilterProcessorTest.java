@@ -18,6 +18,7 @@ class FeatureFilterProcessorTest {
             file("ms-platform/ms-admin/pom.xml", "<project/>"),
             file("ms-platform/observability/grafana/dashboards/d.json", "{}"),
             file("ms-platform/observability/promtail/config.yml", ""),
+            file("ms-platform/observability/loki/config.yml", ""),
             file("ms-platform/service-batch/pom.xml", "<project/>"),
             file("ms-platform/service-consumer/src/main/java/x/RabbitConfig.java", "class R{}"),
             file("ms-platform/service-consumer/src/main/java/x/RedisConfig.java", "class R{}"),
@@ -64,11 +65,12 @@ class FeatureFilterProcessorTest {
     }
 
     @Test
-    void excludes_promtail_dir_when_loki_disabled() {
+    void excludes_loki_and_promtail_dirs_when_loki_disabled() {
         FeatureOptions f = new FeatureOptions();
         f.setLoki(false);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         assertThat(result).noneMatch(e -> e.path().contains("/promtail/"));
+        assertThat(result).noneMatch(e -> e.path().contains("/loki/"));
     }
 
     @Test
@@ -80,6 +82,14 @@ class FeatureFilterProcessorTest {
         req.setFeatures(f);
         req.setBatch(batch);
         List<GeneratedFile> result = processor.process(sampleFiles(), GenerationContext.from(req));
+        assertThat(result).noneMatch(e -> e.path().contains("/service-batch/"));
+    }
+
+    @Test
+    void excludes_service_batch_when_rabbitmq_disabled() {
+        FeatureOptions f = new FeatureOptions();
+        f.setRabbitmq(false);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         assertThat(result).noneMatch(e -> e.path().contains("/service-batch/"));
     }
 
