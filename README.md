@@ -5,8 +5,9 @@ This generator returns the validated V5.4 microservices platform ZIP.
 Generated platform includes:
 
 - Eureka
-- Gateway WebFlux
+- Gateway WebFlux (with reactive `TokenBlacklistFilter` for JWT revocation)
 - Keycloak
+- `ms-auth` — Spring Boot MVC service wrapping Keycloak password grant; exposes `/auth/login`, `/auth/refresh`, `/auth/logout` with opaque refresh tokens and Redis-backed JTI blacklist
 - Spring Boot Admin
 - `service-a`, `service-b`, `service-c`
 - `service-consumer`
