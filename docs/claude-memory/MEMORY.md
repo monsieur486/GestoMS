@@ -1,2 +1,3 @@
 - [ms-auth design rationale](ms_auth_design.md) — opaque refresh tokens, atomic GETDEL rotation, gateway JTI parsing without JWT lib, and why ms-auth gates on keycloak feature flag
 - [cross-cutting config pattern](cross_cutting_config_pattern.md) — why CrossCuttingConfigProcessor exists (path vs content gap), @Order(60) timing, line-based YAML block remover, docker-compose `volumes:` overload gotcha, and where to extend when adding a new feature flag
+- [sync memory to repo](sync_memory_to_repo.md) — feedback: after any memory file write, mirror to docs/claude-memory/ + commit/push without asking (durably authorized)
