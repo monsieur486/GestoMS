@@ -41,32 +41,96 @@ java -jar target/*.jar
 
 ## Generate platform
 
-MongoDB resources do not need `idType`. When `databaseType` is `MONGO`, the generated ID is `String` automatically. For SQL resources, use `INTEGER`, `LONG`, or `UUID`.
+### Request fields
+
+`POST /api/generate/platform` accepts a JSON body matching `PlatformGenerationRequest`. Every field is optional; defaults shown below.
+
+| Field | Type | Default | Effect |
+| ----- | ---- | ------- | ------ |
+| `name` | string | `ms-platform` | Top-level folder name in the ZIP |
+| `groupId` | string | `com.mr486` | Maven `<groupId>` in every generated pom |
+| `basePackage` | string | `com.mr486.msplatform` | Java root package for all services |
+| `javaVersion` | string | `17` | `<java.version>` in root pom |
+| `features` | object | see below | Toggle optional components on/off |
+| `batch` | object | see below | Configure `service-batch` runtime |
+| `resources` | array | `[]` | If non-empty, replaces `service-a/b/c` with custom services |
+
+#### `features` (defaults reflect the boxed platform)
+
+| Field | Default | When `false` excludes |
+| ----- | ------- | --------------------- |
+| `keycloak` | `true` | `keycloak/`, `ms-auth/`, both `docker-compose` blocks + `keycloak_db_data` volume |
+| `redis` | `true` | `RedisConfig.java`, `RedisJobStore.java`, `RedisKeys.java`, `redis:` block, `redis_data` volume |
+| `rabbitmq` | `true` | `RabbitConfig.java`, `BatchNotificationListener.java`, `service-batch/`, `rabbitmq:` block |
+| `websocket` | `true` | `WebSocketConfig.java`, `batch-notifications.html` |
+| `admin` | `true` | `ms-admin/` (Spring Boot Admin) |
+| `grafana` | `false` | `observability/grafana/` |
+| `loki` | `false` | `observability/loki/`, `observability/promtail/` |
+
+#### `batch` (defaults match the validated platform)
+
+```json
+{ "enabled": true, "replicas": 4, "fileConcurrency": 5,
+  "minDelayMs": 500, "maxDelayMs": 1500, "memoryLimit": "768m" }
+```
+
+When `enabled: false`, `service-batch/` is excluded the same way as `rabbitmq: false`.
+
+#### `resources[]` (`ResourceModuleRequest`)
+
+| Field | Type | Required | Notes |
+| ----- | ---- | -------- | ----- |
+| `serviceName` | string | yes | kebab-case, used as module name and folder (e.g. `order-service`) |
+| `className` | string | yes | PascalCase entity class (e.g. `Order`) |
+| `routePrefix` | string | no | Defaults to `/api/{classNameLower}s` (e.g. `Order` → `/api/orders`) |
+| `databaseType` | enum | no | `POSTGRES` (default), `H2` (in-memory, no db container), `MONGO` |
+| `idType` | enum | no | `LONG` (default), `INTEGER`, `UUID`. Ignored for `MONGO` (always `String`) |
+
+When `resources` is non-empty, the default `service-a/b/c` modules + their docker-compose blocks + volume entries are removed and replaced with one block per resource (POSTGRES/MONGO get a sibling `*-db` block and named volume; H2 gets neither).
+
+### Minimal example — 1 service, default everything
+
+```bash
+curl -X POST http://localhost:8080/api/generate/platform \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resources": [
+      { "serviceName": "order-service", "className": "Order" }
+    ]
+  }' \
+  --output ms-platform.zip
+```
+
+This emits a complete platform with Keycloak + ms-auth + Eureka + Gateway + Admin + a single `order-service` backed by PostgreSQL, with `/api/orders` routes.
+
+### Full example — 3 services, all flags explicit
 
 ```bash
 curl -X POST http://localhost:8080/api/generate/platform \
   -H "Content-Type: application/json" \
   -d '{
     "name": "ms-platform",
+    "groupId": "com.acme",
+    "basePackage": "com.acme.shop",
     "javaVersion": "17",
     "resources": [
       {
-        "serviceName": "service-a",
-        "className": "ResourceA",
-        "routePrefix": "resources-a",
+        "serviceName": "order-service",
+        "className": "Order",
+        "routePrefix": "/api/orders",
         "databaseType": "POSTGRES",
         "idType": "LONG"
       },
       {
-        "serviceName": "service-b",
-        "className": "ResourceB",
-        "routePrefix": "resources-b",
+        "serviceName": "product-service",
+        "className": "Product",
+        "routePrefix": "/api/products",
         "databaseType": "MONGO"
       },
       {
-        "serviceName": "service-c",
-        "className": "ResourceC",
-        "routePrefix": "resources-c",
+        "serviceName": "inventory-service",
+        "className": "Item",
+        "routePrefix": "/api/items",
         "databaseType": "H2",
         "idType": "UUID"
       }
@@ -85,8 +149,8 @@ curl -X POST http://localhost:8080/api/generate/platform \
       "rabbitmq": true,
       "websocket": true,
       "admin": true,
-      "grafana": false,
-      "loki": false
+      "grafana": true,
+      "loki": true
     }
   }' \
   --output ms-platform.zip
