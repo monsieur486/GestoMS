@@ -1,0 +1,52 @@
+package com.mr486.generator.pipeline.processor;
+
+import com.mr486.generator.dto.BatchOptions;
+import com.mr486.generator.dto.FeatureOptions;
+import com.mr486.generator.model.GenerationContext;
+import com.mr486.generator.pipeline.FileProcessor;
+import com.mr486.generator.zip.GeneratedFile;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import java.util.List;
+
+@Component
+@Order(20)
+public class FeatureFilterProcessor implements FileProcessor {
+
+    @Override
+    public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
+        FeatureOptions f = ctx.getRequest().getFeatures();
+        BatchOptions b = ctx.getRequest().getBatch();
+        String root = ctx.getTargetRoot();
+        return files.stream()
+            .filter(e -> include(e.path(), root, f, b))
+            .toList();
+    }
+
+    private boolean include(String path, String root, FeatureOptions f, BatchOptions b) {
+        String rel = relative(path, root);
+        if (!f.isKeycloak()   && rel.startsWith("keycloak/"))                          return false;
+        if (!f.isAdmin()      && rel.startsWith("ms-admin/"))                          return false;
+        if (!f.isGrafana()    && rel.startsWith("observability/grafana/"))             return false;
+        if (!f.isLoki()       && (rel.startsWith("observability/loki/")
+                               || rel.startsWith("observability/promtail/")))          return false;
+        if ((!f.isRabbitmq() || !b.isEnabled()) && rel.startsWith("service-batch/"))  return false;
+        if (!f.isRabbitmq()   && (contains(rel, "/RabbitConfig.java")
+                               || contains(rel, "/BatchNotificationListener.java")))   return false;
+        if (!f.isRedis()      && (contains(rel, "/RedisConfig.java")
+                               || contains(rel, "/RedisJobStore.java")
+                               || contains(rel, "/RedisKeys.java")))                   return false;
+        if (!f.isWebsocket()  && (contains(rel, "/WebSocketConfig.java")
+                               || rel.endsWith("batch-notifications.html")))           return false;
+        return true;
+    }
+
+    private String relative(String path, String root) {
+        String prefix = root + "/";
+        return path.startsWith(prefix) ? path.substring(prefix.length()) : path;
+    }
+
+    private boolean contains(String rel, String fragment) {
+        return rel.contains(fragment);
+    }
+}
