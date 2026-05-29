@@ -1,6 +1,7 @@
 package com.mr486.generator.pipeline.processor;
 
 import com.mr486.generator.dto.BatchOptions;
+import com.mr486.generator.dto.DatabaseType;
 import com.mr486.generator.dto.FeatureOptions;
 import com.mr486.generator.dto.PlatformGenerationRequest;
 import com.mr486.generator.dto.ResourceModuleRequest;
@@ -80,6 +81,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         for (String block : blocksToRemove(ctx)) {
             text = removeServiceBlock(text, block);
         }
+        text = addResourceBlocks(text, ctx);
         return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 
@@ -109,6 +111,107 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             blocks.add("service-c");
         }
         return blocks;
+    }
+
+    private String addResourceBlocks(String text, GenerationContext ctx) {
+        PlatformGenerationRequest req = ctx.getRequest();
+        if (req.getResources() == null || req.getResources().isEmpty()) return text;
+        boolean keycloak = req.getFeatures().isKeycloak();
+
+        StringBuilder newServices = new StringBuilder();
+        StringBuilder newVolumes = new StringBuilder();
+        for (ResourceModuleRequest r : req.getResources()) {
+            newServices.append(buildResourceServiceBlock(r, keycloak));
+            newVolumes.append(buildResourceVolumeEntry(r));
+        }
+
+        int volIdx = text.indexOf("\nvolumes:");
+        if (volIdx >= 0) {
+            text = text.substring(0, volIdx + 1) + newServices + text.substring(volIdx + 1);
+            if (newVolumes.length() > 0) {
+                if (!text.endsWith("\n")) text = text + "\n";
+                text = text + newVolumes;
+            }
+        } else {
+            text = (text.endsWith("\n") ? text : text + "\n") + newServices;
+            if (newVolumes.length() > 0) text = text + "\nvolumes:\n" + newVolumes;
+        }
+        return text;
+    }
+
+    private String buildResourceServiceBlock(ResourceModuleRequest r, boolean keycloak) {
+        DatabaseType db = r.getDatabaseType() == null ? DatabaseType.POSTGRES : r.getDatabaseType();
+        String name = r.getServiceName();
+        String snake = name.replace("-", "_");
+        String upper = snake.toUpperCase();
+        String depsApp = keycloak
+            ? (db == DatabaseType.H2 ? "[ms-eureka, keycloak]" : "[ms-eureka, keycloak, " + name + "-db]")
+            : (db == DatabaseType.H2 ? "[ms-eureka]" : "[ms-eureka, " + name + "-db]");
+        String kcEnv = keycloak
+            ? "      KEYCLOAK_ISSUER_URI: http://localhost:8089/realms/ms-realm\n"
+            : "";
+
+        StringBuilder sb = new StringBuilder();
+        switch (db) {
+            case MONGO -> sb
+                .append("  ").append(name).append("-db:\n")
+                .append("    image: mongo:7\n")
+                .append("    env_file: [.env]\n")
+                .append("    environment:\n")
+                .append("      MONGO_INITDB_ROOT_USERNAME: ").append(snake).append("\n")
+                .append("      MONGO_INITDB_ROOT_PASSWORD: ").append(snake).append("\n")
+                .append("      MONGO_INITDB_DATABASE: ").append(snake).append("_db\n")
+                .append("    volumes: [").append(snake).append("_db_data:/data/db]\n\n")
+                .append("  ").append(name).append(":\n")
+                .append("    build: ./").append(name).append("\n")
+                .append("    env_file: [.env]\n")
+                .append("    depends_on: ").append(depsApp).append("\n")
+                .append("    environment:\n")
+                .append("      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/\n")
+                .append(kcEnv)
+                .append("      ").append(upper).append("_MONGO_URI: mongodb://").append(snake).append(":").append(snake)
+                .append("@").append(name).append("-db:27017/").append(snake).append("_db?authSource=admin\n");
+            case H2 -> sb
+                .append("  ").append(name).append(":\n")
+                .append("    build: ./").append(name).append("\n")
+                .append("    env_file: [.env]\n")
+                .append("    depends_on: ").append(depsApp).append("\n")
+                .append("    environment:\n")
+                .append("      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/\n")
+                .append(kcEnv);
+            default -> sb     // POSTGRES
+                .append("  ").append(name).append("-db:\n")
+                .append("    image: postgres:16\n")
+                .append("    env_file: [.env]\n")
+                .append("    environment:\n")
+                .append("      POSTGRES_DB: ").append(snake).append("_db\n")
+                .append("      POSTGRES_USER: ").append(snake).append("\n")
+                .append("      POSTGRES_PASSWORD: ").append(snake).append("\n")
+                .append("    volumes: [").append(snake).append("_db_data:/var/lib/postgresql/data]\n")
+                .append("    healthcheck:\n")
+                .append("      test: [\"CMD-SHELL\", \"pg_isready -U ").append(snake).append("\"]\n")
+                .append("      interval: 5s\n")
+                .append("      timeout: 5s\n")
+                .append("      retries: 20\n\n")
+                .append("  ").append(name).append(":\n")
+                .append("    build: ./").append(name).append("\n")
+                .append("    env_file: [.env]\n")
+                .append("    depends_on: ").append(depsApp).append("\n")
+                .append("    environment:\n")
+                .append("      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/\n")
+                .append(kcEnv)
+                .append("      ").append(upper).append("_DATASOURCE_URL: jdbc:postgresql://").append(name).append("-db:5432/").append(snake).append("_db\n")
+                .append("      ").append(upper).append("_DB_USERNAME: ").append(snake).append("\n")
+                .append("      ").append(upper).append("_DB_PASSWORD: ").append(snake).append("\n");
+        }
+        sb.append("\n");
+        return sb.toString();
+    }
+
+    private String buildResourceVolumeEntry(ResourceModuleRequest r) {
+        DatabaseType db = r.getDatabaseType() == null ? DatabaseType.POSTGRES : r.getDatabaseType();
+        if (db == DatabaseType.H2) return "";
+        return "  " + r.getServiceName().replace("-", "_") + "_db_data:\n";
     }
 
     /**

@@ -200,4 +200,92 @@ class CrossCuttingConfigProcessorTest {
         GeneratedFile servicePom = result.stream().filter(g -> g.path().endsWith("service-a/pom.xml")).findFirst().orElseThrow();
         assertThat(contentOf(servicePom)).isEqualTo("<project/>");
     }
+
+    // ── docker-compose: add new resource service blocks ──────────────────────
+
+    private GenerationContext ctxWithResources(ResourceModuleRequest... rs) {
+        PlatformGenerationRequest req = new PlatformGenerationRequest();
+        req.setResources(List.of(rs));
+        return GenerationContext.from(req);
+    }
+
+    private static ResourceModuleRequest res(String serviceName, String className, DatabaseType db) {
+        ResourceModuleRequest r = new ResourceModuleRequest();
+        r.setServiceName(serviceName);
+        r.setClassName(className);
+        r.setDatabaseType(db);
+        return r;
+    }
+
+    @Test
+    void compose_adds_postgres_resource_with_db_block_and_volume() {
+        ResourceModuleRequest r = res("order-service", "Order", DatabaseType.POSTGRES);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+
+        assertThat(compose).contains("  order-service-db:")
+                           .contains("image: postgres:16")
+                           .contains("POSTGRES_DB: order_service_db")
+                           .contains("POSTGRES_USER: order_service");
+        assertThat(compose).contains("  order-service:")
+                           .contains("build: ./order-service")
+                           .contains("depends_on: [ms-eureka, keycloak, order-service-db]")
+                           .contains("ORDER_SERVICE_DATASOURCE_URL: jdbc:postgresql://order-service-db:5432/order_service_db");
+        assertThat(compose).contains("  order_service_db_data:");
+    }
+
+    @Test
+    void compose_adds_mongo_resource_with_mongo_db_block() {
+        ResourceModuleRequest r = res("product-service", "Product", DatabaseType.MONGO);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+
+        assertThat(compose).contains("  product-service-db:")
+                           .contains("image: mongo:7")
+                           .contains("MONGO_INITDB_ROOT_USERNAME: product_service")
+                           .contains("MONGO_INITDB_DATABASE: product_service_db");
+        assertThat(compose).contains("  product-service:")
+                           .contains("PRODUCT_SERVICE_MONGO_URI: mongodb://product_service:product_service@product-service-db:27017/product_service_db?authSource=admin");
+        assertThat(compose).contains("  product_service_db_data:");
+    }
+
+    @Test
+    void compose_adds_h2_resource_without_db_block_or_volume() {
+        ResourceModuleRequest r = res("light-service", "Light", DatabaseType.H2);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+
+        assertThat(compose).contains("  light-service:")
+                           .contains("build: ./light-service")
+                           .contains("depends_on: [ms-eureka, keycloak]");
+        assertThat(compose).doesNotContain("  light-service-db:")
+                           .doesNotContain("light_service_db_data:");
+    }
+
+    @Test
+    void compose_resource_blocks_omit_keycloak_dep_when_keycloak_disabled() {
+        ResourceModuleRequest r = res("order-service", "Order", DatabaseType.POSTGRES);
+        PlatformGenerationRequest req = new PlatformGenerationRequest();
+        req.setResources(List.of(r));
+        req.getFeatures().setKeycloak(false);
+        GenerationContext ctx = GenerationContext.from(req);
+
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+
+        assertThat(compose).contains("depends_on: [ms-eureka, order-service-db]");
+        assertThat(compose).doesNotContain("KEYCLOAK_ISSUER_URI");
+    }
+
+    @Test
+    void compose_resource_blocks_inserted_before_volumes_section() {
+        ResourceModuleRequest r = res("order-service", "Order", DatabaseType.POSTGRES);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+
+        // top-level volumes: section starts at column 0 (no leading space)
+        int orderIdx = compose.indexOf("  order-service:");
+        int volumesSectionIdx = compose.indexOf("\nvolumes:");
+        assertThat(orderIdx).isGreaterThan(0).isLessThan(volumesSectionIdx);
+    }
 }
