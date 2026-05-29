@@ -62,6 +62,7 @@ class BatchConfigProcessorTest {
         GenerationContext ctx = defaultCtx();
         List<GeneratedFile> input = List.of(file("ms-platform/.env", SAMPLE_ENV));
         List<GeneratedFile> result = processor.process(input, ctx);
-        assertThat(contentOf(result.get(0))).isEqualTo(SAMPLE_ENV);
+        // Same list reference proves the isDefault() guard fired (not just no-op replacements)
+        assertThat(result).isSameAs(input);
     }
 }
