@@ -183,7 +183,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         "import org.springframework.data.mongodb.core.mapping.Document;\n" +
         "@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder\n" +
         "@Document(collection=\"{COLLECTION}\")\n" +
-        "public class {CLASS}{ @Id private String id; private String name; private String description; }";
+        "public class {CLASS} { @Id private String id; private String name; private String description; }";
 
     private static final String MONGO_REPO_TEMPLATE =
         "package {PKG}.repository;\n" +
@@ -191,7 +191,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         "import org.springframework.stereotype.Repository;\n" +
         "import org.springframework.data.mongodb.repository.MongoRepository;\n" +
         "@Repository\n" +
-        "public interface {CLASS}Repository extends MongoRepository<{CLASS},String> {}";
+        "public interface {CLASS}Repository extends MongoRepository<{CLASS}, String> {}";
 
     private static final String MONGO_APP_YML_TEMPLATE =
         "server:\n" +
