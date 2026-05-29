@@ -77,7 +77,10 @@ class CrossCuttingConfigProcessorTest {
         "    build: ./ms-auth\n" +
         "\n" +
         "volumes:\n" +
-        "  keycloak_db_data:\n";
+        "  keycloak_db_data:\n" +
+        "  redis_data:\n" +
+        "  service_a_db_data:\n" +
+        "  service_b_db_data:\n";
 
     private List<GeneratedFile> sampleFiles() {
         return List.of(
@@ -275,6 +278,38 @@ class CrossCuttingConfigProcessorTest {
 
         assertThat(compose).contains("depends_on: [ms-eureka, order-service-db]");
         assertThat(compose).doesNotContain("KEYCLOAK_ISSUER_URI");
+    }
+
+    // ── stale volume cleanup ─────────────────────────────────────────────────
+
+    @Test
+    void compose_removes_keycloak_db_data_volume_when_keycloak_disabled() {
+        FeatureOptions f = new FeatureOptions(); f.setKeycloak(false);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        assertThat(compose).doesNotContain("  keycloak_db_data:");
+        assertThat(compose).contains("  redis_data:");           // unrelated volume preserved
+    }
+
+    @Test
+    void compose_removes_redis_data_volume_when_redis_disabled() {
+        FeatureOptions f = new FeatureOptions(); f.setRedis(false);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        assertThat(compose).doesNotContain("  redis_data:");
+        assertThat(compose).contains("  keycloak_db_data:");
+    }
+
+    @Test
+    void compose_removes_default_service_volumes_when_resources_provided() {
+        ResourceModuleRequest r = res("order-service", "Order", DatabaseType.POSTGRES);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        assertThat(compose).doesNotContain("  service_a_db_data:")
+                           .doesNotContain("  service_b_db_data:");
+        assertThat(compose).contains("  keycloak_db_data:")
+                           .contains("  redis_data:")
+                           .contains("  order_service_db_data:");
     }
 
     @Test

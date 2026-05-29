@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @Order(60)
@@ -81,8 +82,30 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         for (String block : blocksToRemove(ctx)) {
             text = removeServiceBlock(text, block);
         }
+        for (String vol : volumesToRemove(ctx)) {
+            text = removeVolumeEntry(text, vol);
+        }
         text = addResourceBlocks(text, ctx);
         return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
+    }
+
+    private List<String> volumesToRemove(GenerationContext ctx) {
+        PlatformGenerationRequest req = ctx.getRequest();
+        FeatureOptions f = req.getFeatures();
+        boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
+
+        List<String> vols = new ArrayList<>();
+        if (!f.isKeycloak()) vols.add("keycloak_db_data");
+        if (!f.isRedis())    vols.add("redis_data");
+        if (hasResources) {
+            vols.add("service_a_db_data");
+            vols.add("service_b_db_data");
+        }
+        return vols;
+    }
+
+    private String removeVolumeEntry(String text, String volumeName) {
+        return text.replaceAll("(?m)^  " + Pattern.quote(volumeName) + ":[^\\n]*\\n?", "");
     }
 
     private List<String> blocksToRemove(GenerationContext ctx) {
