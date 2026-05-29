@@ -32,4 +32,13 @@ class ZipTemplateLoaderTest {
         List<GeneratedFile> files = loader.load();
         assertThat(files).anyMatch(f -> f.path().endsWith(".sh") && f.executable());
     }
+
+    @Test
+    void marks_mvnw_as_executable() {
+        List<GeneratedFile> files = loader.load();
+        // Verify that if mvnw exists in the template, it should be marked executable
+        // (This test documents the expected behavior even if mvnw is not in current template)
+        assertThat(files)
+            .noneMatch(f -> f.path().endsWith("mvnw") && !f.executable());
+    }
 }

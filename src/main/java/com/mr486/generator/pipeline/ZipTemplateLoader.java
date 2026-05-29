@@ -4,6 +4,7 @@ import com.mr486.generator.zip.GeneratedFile;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +34,7 @@ public class ZipTemplateLoader {
         return files;
     }
 
-    private byte[] readAll(InputStream in) throws Exception {
+    private byte[] readAll(InputStream in) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buf = new byte[8192];
         int n;
