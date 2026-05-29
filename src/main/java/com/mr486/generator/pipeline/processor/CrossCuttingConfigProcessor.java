@@ -1,0 +1,158 @@
+package com.mr486.generator.pipeline.processor;
+
+import com.mr486.generator.dto.BatchOptions;
+import com.mr486.generator.dto.FeatureOptions;
+import com.mr486.generator.dto.PlatformGenerationRequest;
+import com.mr486.generator.dto.ResourceModuleRequest;
+import com.mr486.generator.model.GenerationContext;
+import com.mr486.generator.pipeline.FileProcessor;
+import com.mr486.generator.zip.GeneratedFile;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+
+@Component
+@Order(60)
+public class CrossCuttingConfigProcessor implements FileProcessor {
+
+    @Override
+    public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
+        String rootPomPath = ctx.getTargetRoot() + "/pom.xml";
+        String composePath = ctx.getTargetRoot() + "/docker-compose.yml";
+
+        List<GeneratedFile> result = new ArrayList<>(files.size());
+        for (GeneratedFile f : files) {
+            if (f.path().equals(rootPomPath))      result.add(rewriteRootPom(f, ctx));
+            else if (f.path().equals(composePath)) result.add(rewriteCompose(f, ctx));
+            else                                    result.add(f);
+        }
+        return result;
+    }
+
+    // ── Root pom <modules> ────────────────────────────────────────────────────
+
+    private GeneratedFile rewriteRootPom(GeneratedFile f, GenerationContext ctx) {
+        if (containsNullByte(f.content())) return f;
+        String text = new String(f.content(), StandardCharsets.UTF_8);
+        StringBuilder block = new StringBuilder("<modules>\n");
+        for (String m : desiredModules(ctx)) {
+            block.append("    <module>").append(m).append("</module>\n");
+        }
+        block.append("  </modules>");
+        String newText = text.replaceAll("(?s)<modules>.*?</modules>", Matcher.quoteReplacement(block.toString()));
+        return new GeneratedFile(f.path(), newText.getBytes(StandardCharsets.UTF_8), f.executable());
+    }
+
+    private List<String> desiredModules(GenerationContext ctx) {
+        PlatformGenerationRequest req = ctx.getRequest();
+        FeatureOptions f = req.getFeatures();
+        BatchOptions b = req.getBatch();
+        boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
+
+        List<String> modules = new ArrayList<>();
+        modules.add("common-lib");
+        modules.add("ms-eureka");
+        modules.add("ms-gateway");
+        if (f.isAdmin())                       modules.add("ms-admin");
+        if (!hasResources) {
+            modules.add("service-a");
+            modules.add("service-b");
+            modules.add("service-c");
+        }
+        modules.add("service-consumer");
+        if (f.isRabbitmq() && b.isEnabled())   modules.add("service-batch");
+        if (f.isKeycloak())                    modules.add("ms-auth");
+        if (hasResources) {
+            for (ResourceModuleRequest r : req.getResources()) modules.add(r.getServiceName());
+        }
+        return modules;
+    }
+
+    // ── docker-compose service blocks ─────────────────────────────────────────
+
+    private GeneratedFile rewriteCompose(GeneratedFile f, GenerationContext ctx) {
+        if (containsNullByte(f.content())) return f;
+        String text = new String(f.content(), StandardCharsets.UTF_8);
+        for (String block : blocksToRemove(ctx)) {
+            text = removeServiceBlock(text, block);
+        }
+        return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
+    }
+
+    private List<String> blocksToRemove(GenerationContext ctx) {
+        PlatformGenerationRequest req = ctx.getRequest();
+        FeatureOptions f = req.getFeatures();
+        BatchOptions b = req.getBatch();
+        boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
+
+        List<String> blocks = new ArrayList<>();
+        if (!f.isKeycloak()) {
+            blocks.add("keycloak-db");
+            blocks.add("keycloak");
+            blocks.add("ms-auth");
+        }
+        if (!f.isAdmin())                       blocks.add("ms-admin");
+        if (!f.isRabbitmq())                    blocks.add("rabbitmq");
+        if (!f.isRedis())                       blocks.add("redis");
+        if (!f.isRabbitmq() || !b.isEnabled())  blocks.add("service-batch");
+        if (!f.isLoki()) { blocks.add("loki"); blocks.add("promtail"); }
+        if (!f.isGrafana())                     blocks.add("grafana");
+        if (hasResources) {
+            blocks.add("service-a-db");
+            blocks.add("service-b-db");
+            blocks.add("service-a");
+            blocks.add("service-b");
+            blocks.add("service-c");
+        }
+        return blocks;
+    }
+
+    /**
+     * Remove a 2-space-indented top-level docker-compose service block (the block name
+     * line plus everything more deeply indented, including trailing blank lines).
+     */
+    private String removeServiceBlock(String text, String blockName) {
+        String[] lines = text.split("\n", -1);
+        String startMarker = "  " + blockName + ":";
+
+        int startIdx = -1;
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.equals(startMarker)
+                || (line.startsWith(startMarker)
+                    && line.length() > startMarker.length()
+                    && Character.isWhitespace(line.charAt(startMarker.length())))) {
+                startIdx = i;
+                break;
+            }
+        }
+        if (startIdx == -1) return text;
+
+        int endIdx = lines.length;
+        for (int i = startIdx + 1; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.isEmpty()) continue;
+            if (!line.startsWith(" ")) { endIdx = i; break; }
+            if (line.length() > 2 && line.charAt(0) == ' ' && line.charAt(1) == ' ' && line.charAt(2) != ' ') {
+                endIdx = i; break;
+            }
+        }
+
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            if (i >= startIdx && i < endIdx) continue;
+            out.append(lines[i]);
+            if (i < lines.length - 1) out.append("\n");
+        }
+        return out.toString();
+    }
+
+    private boolean containsNullByte(byte[] content) {
+        for (byte b : content) if (b == 0) return true;
+        return false;
+    }
+}
