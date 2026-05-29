@@ -1,18 +1,18 @@
-# Keycloak ms-auth Implementation Plan
+# Plan d'implémentation Keycloak ms-auth
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Pour les workers agentiques :** SOUS-COMPÉTENCE REQUISE : Utiliser superpowers:subagent-driven-development (recommandé) ou superpowers:executing-plans pour implémenter ce plan tâche par tâche. Les étapes utilisent la syntaxe checkbox (`- [ ]`) pour le suivi.
 
-**Goal:** Add `ms-auth` service to the template ZIP — exposes `/auth/login`, `/auth/refresh`, `/auth/logout` backed by Keycloak; stores opaque refresh tokens in Redis; blacklists revoked JWT JTIs in Redis; gateway filter enforces the blacklist before routing.
+**Objectif :** Ajouter le service `ms-auth` au template ZIP — expose `/auth/login`, `/auth/refresh`, `/auth/logout` appuyés sur Keycloak ; stocke les refresh tokens opaques dans Redis ; blackliste les JTI des JWT révoqués dans Redis ; le filtre gateway applique la blacklist avant le routage.
 
-**Architecture:** `ms-auth` is a Spring Boot MVC service (port 9200) that wraps Keycloak's password grant flow, issuing opaque UUIDs instead of raw Keycloak refresh tokens. The gateway adds a `TokenBlacklistFilter` (reactive, `Ordered.HIGHEST_PRECEDENCE`) that checks `auth:blacklist:{jti}` in Redis and returns 401 if the token was revoked. All changes are made inside the extracted template ZIP and then repackaged.
+**Architecture :** `ms-auth` est un service Spring Boot MVC (port 9200) qui encapsule le flow password grant de Keycloak, en émettant des UUID opaques à la place des refresh tokens Keycloak bruts. Le gateway ajoute un `TokenBlacklistFilter` (réactif, `Ordered.HIGHEST_PRECEDENCE`) qui vérifie `auth:blacklist:{jti}` dans Redis et retourne 401 si le token est révoqué. Toutes les modifications sont faites dans le template ZIP extrait puis repackagé.
 
-**Tech Stack:** Spring Boot 3.5.5, Spring Security OAuth2 Resource Server, Spring Data Redis (blocking for ms-auth, reactive for gateway), RestTemplate for Keycloak HTTP calls, JUnit 5 + AssertJ for the generator-side FeatureFilterProcessor test.
+**Stack technique :** Spring Boot 3.5.5, Spring Security OAuth2 Resource Server, Spring Data Redis (bloquant pour ms-auth, réactif pour le gateway), RestTemplate pour les appels HTTP Keycloak, JUnit 5 + AssertJ pour le test FeatureFilterProcessor côté générateur.
 
 ---
 
-## File Map
+## Cartographie des fichiers
 
-**Template ZIP — new files:**
+**Template ZIP — nouveaux fichiers :**
 - `ms-platform/ms-auth/Dockerfile`
 - `ms-platform/ms-auth/pom.xml`
 - `ms-platform/ms-auth/src/main/resources/application.yml`
@@ -29,7 +29,7 @@
 - `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/KeycloakTokenResponse.java`
 - `ms-platform/ms-gateway/src/main/java/com/mr486/msplatform/gateway/filter/TokenBlacklistFilter.java`
 
-**Template ZIP — modified files:**
+**Template ZIP — fichiers modifiés :**
 - `ms-platform/common-lib/src/main/java/com/mr486/msplatform/common/constants/RedisKeys.java`
 - `ms-platform/ms-gateway/pom.xml`
 - `ms-platform/ms-gateway/src/main/resources/application.yml`
@@ -39,19 +39,19 @@
 - `ms-platform/keycloak/import/ms-realm-realm.json`
 - `ms-platform/test-all.sh`
 
-**Generator source — modified:**
+**Source du générateur — modifié :**
 - `src/main/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessor.java`
 - `src/test/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessorTest.java`
 
 ---
 
-## Task 1: Extract template ZIP to working directory
+## Tâche 1 : Extraire le template ZIP dans un répertoire de travail
 
-**Files:**
-- Read: `src/main/resources/templates/ms-platform-template.zip`
-- Working dir: `/tmp/ms-auth-work/`
+**Fichiers :**
+- Lecture : `src/main/resources/templates/ms-platform-template.zip`
+- Répertoire de travail : `/tmp/ms-auth-work/`
 
-- [ ] **Step 1: Extract ZIP**
+- [ ] **Étape 1 : Extraire le ZIP**
 
 ```bash
 rm -rf /tmp/ms-auth-work
@@ -60,9 +60,9 @@ cd /tmp/ms-auth-work
 unzip /home/mr486/Developpement/Projets/GestoMS/src/main/resources/templates/ms-platform-template.zip
 ```
 
-Expected: `ms-platform/` directory with all template files.
+Résultat attendu : répertoire `ms-platform/` avec tous les fichiers du template.
 
-- [ ] **Step 2: Verify key files exist**
+- [ ] **Étape 2 : Vérifier les fichiers clés**
 
 ```bash
 ls /tmp/ms-auth-work/ms-platform/
@@ -70,12 +70,12 @@ ls /tmp/ms-auth-work/ms-platform/ms-gateway/
 ls /tmp/ms-auth-work/ms-platform/common-lib/src/main/java/com/mr486/msplatform/common/constants/
 ```
 
-Expected:
-- `ms-platform/` contains: common-lib, ms-eureka, ms-gateway, ms-admin, service-a, service-b, service-c, service-consumer, service-batch, docker-compose.yml, pom.xml, .env, test-all.sh
-- `ms-gateway/` contains: Dockerfile, pom.xml, src/
-- `constants/` contains: RedisKeys.java, RabbitQueues.java
+Résultat attendu :
+- `ms-platform/` contient : common-lib, ms-eureka, ms-gateway, ms-admin, service-a, service-b, service-c, service-consumer, service-batch, docker-compose.yml, pom.xml, .env, test-all.sh
+- `ms-gateway/` contient : Dockerfile, pom.xml, src/
+- `constants/` contient : RedisKeys.java, RabbitQueues.java
 
-- [ ] **Step 3: Commit**
+- [ ] **Étape 3 : Commit**
 
 ```bash
 cd /home/mr486/Developpement/Projets/GestoMS
@@ -85,12 +85,12 @@ git commit -m "chore: extract ZIP for ms-auth additions (no file changes yet)"
 
 ---
 
-## Task 2: RedisKeys — add auth key methods
+## Tâche 2 : RedisKeys — ajouter les méthodes de clés auth
 
-**Files:**
-- Modify: `ms-platform/common-lib/src/main/java/com/mr486/msplatform/common/constants/RedisKeys.java`
+**Fichiers :**
+- Modifier : `ms-platform/common-lib/src/main/java/com/mr486/msplatform/common/constants/RedisKeys.java`
 
-Current content:
+Contenu actuel :
 ```java
 package com.mr486.msplatform.common.constants;
 
@@ -110,9 +110,9 @@ public final class RedisKeys {
 }
 ```
 
-- [ ] **Step 1: Overwrite RedisKeys.java**
+- [ ] **Étape 1 : Réécrire RedisKeys.java**
 
-Replace the file `/tmp/ms-auth-work/ms-platform/common-lib/src/main/java/com/mr486/msplatform/common/constants/RedisKeys.java` with:
+Remplacer le fichier `/tmp/ms-auth-work/ms-platform/common-lib/src/main/java/com/mr486/msplatform/common/constants/RedisKeys.java` par :
 
 ```java
 package com.mr486.msplatform.common.constants;
@@ -141,13 +141,13 @@ public final class RedisKeys {
 }
 ```
 
-- [ ] **Step 2: Verify**
+- [ ] **Étape 2 : Vérifier**
 
 ```bash
 grep -n "authBlacklist\|authRefresh" /tmp/ms-auth-work/ms-platform/common-lib/src/main/java/com/mr486/msplatform/common/constants/RedisKeys.java
 ```
 
-Expected:
+Résultat attendu :
 ```
 17:    public static String authBlacklist(String jti) {
 21:    public static String authRefresh(String opaqueToken) {
@@ -155,21 +155,21 @@ Expected:
 
 ---
 
-## Task 3: ms-auth — Dockerfile, pom.xml, AuthApplication.java
+## Tâche 3 : ms-auth — Dockerfile, pom.xml, AuthApplication.java
 
-**Files:**
-- Create: `ms-platform/ms-auth/Dockerfile`
-- Create: `ms-platform/ms-auth/pom.xml`
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/AuthApplication.java`
+**Fichiers :**
+- Créer : `ms-platform/ms-auth/Dockerfile`
+- Créer : `ms-platform/ms-auth/pom.xml`
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/AuthApplication.java`
 
-- [ ] **Step 1: Create directory structure**
+- [ ] **Étape 1 : Créer l'arborescence**
 
 ```bash
 mkdir -p /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/{controller,service,configuration,dto}
 mkdir -p /tmp/ms-auth-work/ms-platform/ms-auth/src/main/resources
 ```
 
-- [ ] **Step 2: Create Dockerfile**
+- [ ] **Étape 2 : Créer le Dockerfile**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/Dockerfile << 'EOF'
@@ -180,7 +180,7 @@ ENTRYPOINT ["java","-jar","/app/app.jar"]
 EOF
 ```
 
-- [ ] **Step 3: Create pom.xml**
+- [ ] **Étape 3 : Créer le pom.xml**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/pom.xml << 'EOF'
@@ -202,7 +202,7 @@ cat > /tmp/ms-auth-work/ms-platform/ms-auth/pom.xml << 'EOF'
 EOF
 ```
 
-- [ ] **Step 4: Create AuthApplication.java**
+- [ ] **Étape 4 : Créer AuthApplication.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/AuthApplication.java << 'EOF'
@@ -213,27 +213,27 @@ public class AuthApplication{public static void main(String[] args){SpringApplic
 EOF
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **Étape 5 : Vérifier**
 
 ```bash
 ls /tmp/ms-auth-work/ms-platform/ms-auth/
 cat /tmp/ms-auth-work/ms-platform/ms-auth/pom.xml | grep artifactId
 ```
 
-Expected: `ms-auth/Dockerfile`, `ms-auth/pom.xml`, `ms-auth/src/` present; pom has `ms-auth` and `common-lib` artifactIds.
+Résultat attendu : `ms-auth/Dockerfile`, `ms-auth/pom.xml`, `ms-auth/src/` présents ; le pom contient les artifactIds `ms-auth` et `common-lib`.
 
 ---
 
-## Task 4: ms-auth DTOs
+## Tâche 4 : ms-auth DTOs
 
-**Files:**
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LoginRequest.java`
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LoginResponse.java`
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/RefreshRequest.java`
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LogoutRequest.java`
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/KeycloakTokenResponse.java`
+**Fichiers :**
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LoginRequest.java`
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LoginResponse.java`
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/RefreshRequest.java`
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LogoutRequest.java`
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/KeycloakTokenResponse.java`
 
-- [ ] **Step 1: Create LoginRequest.java**
+- [ ] **Étape 1 : Créer LoginRequest.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LoginRequest.java << 'EOF'
@@ -247,7 +247,7 @@ public class LoginRequest {
 EOF
 ```
 
-- [ ] **Step 2: Create LoginResponse.java**
+- [ ] **Étape 2 : Créer LoginResponse.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LoginResponse.java << 'EOF'
@@ -263,7 +263,7 @@ public class LoginResponse {
 EOF
 ```
 
-- [ ] **Step 3: Create RefreshRequest.java**
+- [ ] **Étape 3 : Créer RefreshRequest.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/RefreshRequest.java << 'EOF'
@@ -277,7 +277,7 @@ public class RefreshRequest {
 EOF
 ```
 
-- [ ] **Step 4: Create LogoutRequest.java**
+- [ ] **Étape 4 : Créer LogoutRequest.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/LogoutRequest.java << 'EOF'
@@ -291,7 +291,7 @@ public class LogoutRequest {
 EOF
 ```
 
-- [ ] **Step 5: Create KeycloakTokenResponse.java**
+- [ ] **Étape 5 : Créer KeycloakTokenResponse.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/KeycloakTokenResponse.java << 'EOF'
@@ -308,22 +308,22 @@ public class KeycloakTokenResponse {
 EOF
 ```
 
-- [ ] **Step 6: Verify**
+- [ ] **Étape 6 : Vérifier**
 
 ```bash
 ls /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/dto/
 ```
 
-Expected: 5 `.java` files.
+Résultat attendu : 5 fichiers `.java`.
 
 ---
 
-## Task 5: ms-auth TokenBlacklistService
+## Tâche 5 : ms-auth TokenBlacklistService
 
-**Files:**
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/service/TokenBlacklistService.java`
+**Fichiers :**
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/service/TokenBlacklistService.java`
 
-- [ ] **Step 1: Create TokenBlacklistService.java**
+- [ ] **Étape 1 : Créer TokenBlacklistService.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/service/TokenBlacklistService.java << 'EOF'
@@ -360,22 +360,22 @@ public class TokenBlacklistService {
 EOF
 ```
 
-- [ ] **Step 2: Verify**
+- [ ] **Étape 2 : Vérifier**
 
 ```bash
 grep -n "authBlacklist\|authRefresh\|StringRedisTemplate" /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/service/TokenBlacklistService.java
 ```
 
-Expected: all three present.
+Résultat attendu : les 3 présents.
 
 ---
 
-## Task 6: ms-auth AuthService
+## Tâche 6 : ms-auth AuthService
 
-**Files:**
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/service/AuthService.java`
+**Fichiers :**
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/service/AuthService.java`
 
-- [ ] **Step 1: Create AuthService.java**
+- [ ] **Étape 1 : Créer AuthService.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/service/AuthService.java << 'EOF'
@@ -496,32 +496,32 @@ public class AuthService {
             String url = keycloakInternalUrl + "/realms/" + realm + "/protocol/openid-connect/revoke";
             restTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
         } catch (Exception ignored) {
-            // best-effort: revocation failure doesn't roll back logout
+            // best-effort : l'échec de révocation ne rollback pas le logout
         }
     }
 }
 EOF
 ```
 
-- [ ] **Step 2: Verify**
+- [ ] **Étape 2 : Vérifier**
 
 ```bash
 grep -n "public LoginResponse login\|public LoginResponse refresh\|public void logout" /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/service/AuthService.java
 ```
 
-Expected: 3 lines with public method signatures.
+Résultat attendu : 3 lignes avec les signatures de méthodes publiques.
 
 ---
 
-## Task 7: ms-auth AuthController, SecurityConfig, RedisConfig, application.yml
+## Tâche 7 : ms-auth AuthController, SecurityConfig, RedisConfig, application.yml
 
-**Files:**
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/controller/AuthController.java`
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/configuration/SecurityConfig.java`
-- Create: `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/configuration/RedisConfig.java`
-- Create: `ms-platform/ms-auth/src/main/resources/application.yml`
+**Fichiers :**
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/controller/AuthController.java`
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/configuration/SecurityConfig.java`
+- Créer : `ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/configuration/RedisConfig.java`
+- Créer : `ms-platform/ms-auth/src/main/resources/application.yml`
 
-- [ ] **Step 1: Create AuthController.java**
+- [ ] **Étape 1 : Créer AuthController.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/controller/AuthController.java << 'EOF'
@@ -561,7 +561,7 @@ public class AuthController {
 EOF
 ```
 
-- [ ] **Step 2: Create SecurityConfig.java**
+- [ ] **Étape 2 : Créer SecurityConfig.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/configuration/SecurityConfig.java << 'EOF'
@@ -593,7 +593,7 @@ public class SecurityConfig {
 EOF
 ```
 
-- [ ] **Step 3: Create RedisConfig.java**
+- [ ] **Étape 3 : Créer RedisConfig.java**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/configuration/RedisConfig.java << 'EOF'
@@ -613,7 +613,7 @@ public class RedisConfig {
 EOF
 ```
 
-- [ ] **Step 4: Create application.yml**
+- [ ] **Étape 4 : Créer application.yml**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-auth/src/main/resources/application.yml << 'EOF'
@@ -649,23 +649,23 @@ management:
 EOF
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **Étape 5 : Vérifier**
 
 ```bash
 grep -n "permitAll\|oauth2ResourceServer\|RestTemplate" /tmp/ms-auth-work/ms-platform/ms-auth/src/main/java/com/mr486/msplatform/auth/configuration/SecurityConfig.java
 grep -n "AUTH_PORT\|REDIS_HOST\|keycloak:" /tmp/ms-auth-work/ms-platform/ms-auth/src/main/resources/application.yml
 ```
 
-Expected: SecurityConfig has `permitAll` for `/auth/login`, `/auth/refresh`. application.yml has all three keys.
+Résultat attendu : SecurityConfig a `permitAll` pour `/auth/login`, `/auth/refresh`. application.yml contient les 3 clés.
 
 ---
 
-## Task 8: Gateway — TokenBlacklistFilter
+## Tâche 8 : Gateway — TokenBlacklistFilter
 
-**Files:**
-- Create: `ms-platform/ms-gateway/src/main/java/com/mr486/msplatform/gateway/filter/TokenBlacklistFilter.java`
+**Fichiers :**
+- Créer : `ms-platform/ms-gateway/src/main/java/com/mr486/msplatform/gateway/filter/TokenBlacklistFilter.java`
 
-- [ ] **Step 1: Create filter directory and file**
+- [ ] **Étape 1 : Créer le répertoire filter et le fichier**
 
 ```bash
 mkdir -p /tmp/ms-auth-work/ms-platform/ms-gateway/src/main/java/com/mr486/msplatform/gateway/filter
@@ -741,23 +741,23 @@ public class TokenBlacklistFilter implements GlobalFilter, Ordered {
 EOF
 ```
 
-- [ ] **Step 2: Verify**
+- [ ] **Étape 2 : Vérifier**
 
 ```bash
 grep -n "GlobalFilter\|Ordered.HIGHEST_PRECEDENCE\|auth:blacklist:" /tmp/ms-auth-work/ms-platform/ms-gateway/src/main/java/com/mr486/msplatform/gateway/filter/TokenBlacklistFilter.java
 ```
 
-Expected: all 3 present.
+Résultat attendu : les 3 présents.
 
 ---
 
-## Task 9: Gateway — pom.xml + application.yml
+## Tâche 9 : Gateway — pom.xml + application.yml
 
-**Files:**
-- Modify: `ms-platform/ms-gateway/pom.xml`
-- Modify: `ms-platform/ms-gateway/src/main/resources/application.yml`
+**Fichiers :**
+- Modifier : `ms-platform/ms-gateway/pom.xml`
+- Modifier : `ms-platform/ms-gateway/src/main/resources/application.yml`
 
-Current gateway pom.xml content:
+Contenu actuel du pom.xml gateway :
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project ...>
@@ -773,7 +773,7 @@ Current gateway pom.xml content:
 </project>
 ```
 
-- [ ] **Step 1: Overwrite gateway pom.xml to add Redis reactive**
+- [ ] **Étape 1 : Réécrire le pom.xml gateway pour ajouter Redis réactif**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-gateway/pom.xml << 'EOF'
@@ -793,9 +793,7 @@ cat > /tmp/ms-auth-work/ms-platform/ms-gateway/pom.xml << 'EOF'
 EOF
 ```
 
-- [ ] **Step 2: Overwrite gateway application.yml to add ms-auth route and Redis config**
-
-Current gateway application.yml ends at line 48 (`include: health,info`). Replace with:
+- [ ] **Étape 2 : Réécrire l'application.yml gateway pour ajouter la route ms-auth et la config Redis**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/ms-gateway/src/main/resources/application.yml << 'EOF'
@@ -858,48 +856,48 @@ management:
 EOF
 ```
 
-- [ ] **Step 3: Verify**
+- [ ] **Étape 3 : Vérifier**
 
 ```bash
 grep -n "redis-reactive\|ms-auth\|REDIS_HOST" /tmp/ms-auth-work/ms-platform/ms-gateway/pom.xml /tmp/ms-auth-work/ms-platform/ms-gateway/src/main/resources/application.yml
 ```
 
-Expected: `redis-reactive` in pom.xml; `ms-auth` and `REDIS_HOST` in application.yml.
+Résultat attendu : `redis-reactive` dans le pom.xml ; `ms-auth` et `REDIS_HOST` dans application.yml.
 
 ---
 
-## Task 10: Root pom.xml + docker-compose.yml + .env
+## Tâche 10 : pom.xml racine + docker-compose.yml + .env
 
-**Files:**
-- Modify: `ms-platform/pom.xml`
-- Modify: `ms-platform/docker-compose.yml`
-- Modify: `ms-platform/.env`
+**Fichiers :**
+- Modifier : `ms-platform/pom.xml`
+- Modifier : `ms-platform/docker-compose.yml`
+- Modifier : `ms-platform/.env`
 
-- [ ] **Step 1: Add ms-auth module to root pom.xml**
+- [ ] **Étape 1 : Ajouter le module ms-auth au pom.xml racine**
 
-Edit `/tmp/ms-auth-work/ms-platform/pom.xml`. The `<modules>` block currently ends with:
+Éditer `/tmp/ms-auth-work/ms-platform/pom.xml`. Le bloc `<modules>` se termine actuellement par :
 ```xml
     <module>service-batch</module>
   </modules>
 ```
 
-Change it to:
+Le changer en :
 ```xml
     <module>service-batch</module>
     <module>ms-auth</module>
   </modules>
 ```
 
-Verify:
+Vérifier :
 ```bash
 grep "ms-auth" /tmp/ms-auth-work/ms-platform/pom.xml
 ```
 
-Expected: `<module>ms-auth</module>` present.
+Résultat attendu : `<module>ms-auth</module>` présent.
 
-- [ ] **Step 2: Add ms-auth service to docker-compose.yml**
+- [ ] **Étape 2 : Ajouter le service ms-auth dans docker-compose.yml**
 
-Append the `ms-auth` service block before the `volumes:` section. Find the line `volumes:` at the end of `docker-compose.yml` and insert before it:
+Insérer le bloc service `ms-auth` avant la section `volumes:` en fin de fichier :
 
 ```yaml
   ms-auth:
@@ -913,41 +911,41 @@ Append the `ms-auth` service block before the `volumes:` section. Find the line 
     ports: ["9200:9200"]
 ```
 
-Using sed to insert before `^volumes:`:
+Via sed :
 ```bash
 sed -i '/^volumes:/i\  ms-auth:\n    build: ./ms-auth\n    env_file: [.env]\n    depends_on: [ms-eureka, keycloak, redis]\n    environment:\n      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/\n      KEYCLOAK_INTERNAL_URL: http://keycloak:8080\n      REDIS_HOST: redis\n    ports: ["9200:9200"]\n' /tmp/ms-auth-work/ms-platform/docker-compose.yml
 ```
 
-Verify:
+Vérifier :
 ```bash
 grep -A 8 "ms-auth:" /tmp/ms-auth-work/ms-platform/docker-compose.yml
 ```
 
-Expected: `ms-auth` service block with `depends_on`, `KEYCLOAK_INTERNAL_URL`, and `ports: ["9200:9200"]`.
+Résultat attendu : bloc service `ms-auth` avec `depends_on`, `KEYCLOAK_INTERNAL_URL` et `ports: ["9200:9200"]`.
 
-- [ ] **Step 3: Add AUTH_PORT to .env**
+- [ ] **Étape 3 : Ajouter AUTH_PORT dans .env**
 
 ```bash
 echo "AUTH_PORT=9200" >> /tmp/ms-auth-work/ms-platform/.env
 ```
 
-Verify:
+Vérifier :
 ```bash
 grep "AUTH_PORT" /tmp/ms-auth-work/ms-platform/.env
 ```
 
-Expected: `AUTH_PORT=9200`.
+Résultat attendu : `AUTH_PORT=9200`.
 
 ---
 
-## Task 11: Keycloak realm JSON — token lifespans
+## Tâche 11 : Realm Keycloak JSON — durées de vie des tokens
 
-**Files:**
-- Modify: `ms-platform/keycloak/import/ms-realm-realm.json`
+**Fichiers :**
+- Modifier : `ms-platform/keycloak/import/ms-realm-realm.json`
 
-- [ ] **Step 1: Add accessTokenLifespan and ssoSessionMaxLifespan**
+- [ ] **Étape 1 : Ajouter accessTokenLifespan, ssoSessionMaxLifespan et refreshTokenMaxReuse**
 
-The realm JSON currently has neither field at top level. Add them. Use Python to update the JSON cleanly:
+Le JSON du realm ne contient actuellement aucun de ces champs au niveau racine. Les ajouter via Python :
 
 ```bash
 python3 << 'PYEOF'
@@ -967,13 +965,13 @@ print("Done")
 PYEOF
 ```
 
-- [ ] **Step 2: Verify**
+- [ ] **Étape 2 : Vérifier**
 
 ```bash
 python3 -c "import json; d=json.load(open('/tmp/ms-auth-work/ms-platform/keycloak/import/ms-realm-realm.json')); print('accessTokenLifespan:', d['accessTokenLifespan']); print('ssoSessionMaxLifespan:', d['ssoSessionMaxLifespan']); print('refreshTokenMaxReuse:', d['refreshTokenMaxReuse'])"
 ```
 
-Expected:
+Résultat attendu :
 ```
 accessTokenLifespan: 300
 ssoSessionMaxLifespan: 1800
@@ -982,14 +980,14 @@ refreshTokenMaxReuse: 0
 
 ---
 
-## Task 12: Update test-all.sh
+## Tâche 12 : Mettre à jour test-all.sh
 
-**Files:**
-- Modify: `ms-platform/test-all.sh`
+**Fichiers :**
+- Modifier : `ms-platform/test-all.sh`
 
-The current script uses `get_token()` that calls Keycloak directly. Replace with auth via ms-auth gateway endpoint. Also add refresh and logout tests.
+Le script actuel utilise `get_token()` qui appelle Keycloak directement. Remplacer par l'auth via l'endpoint ms-auth du gateway. Ajouter les tests de refresh et de logout.
 
-- [ ] **Step 1: Overwrite test-all.sh**
+- [ ] **Étape 1 : Réécrire test-all.sh**
 
 ```bash
 cat > /tmp/ms-auth-work/ms-platform/test-all.sh << 'EOF'
@@ -1182,52 +1180,52 @@ EOF
 chmod +x /tmp/ms-auth-work/ms-platform/test-all.sh
 ```
 
-- [ ] **Step 2: Verify**
+- [ ] **Étape 2 : Vérifier**
 
 ```bash
 grep -n "auth_login\|auth_refresh\|Blacklisted token\|stale refresh" /tmp/ms-auth-work/ms-platform/test-all.sh
 ```
 
-Expected: all 4 patterns present.
+Résultat attendu : les 4 patterns présents.
 
 ---
 
-## Task 13: Repackage ZIP and verify generator tests pass
+## Tâche 13 : Repackager le ZIP et vérifier que les tests du générateur passent
 
-**Files:**
-- Overwrite: `src/main/resources/templates/ms-platform-template.zip`
+**Fichiers :**
+- Écraser : `src/main/resources/templates/ms-platform-template.zip`
 
-- [ ] **Step 1: Repackage ZIP**
+- [ ] **Étape 1 : Repackager le ZIP**
 
 ```bash
 cd /tmp/ms-auth-work
 zip -r /home/mr486/Developpement/Projets/GestoMS/src/main/resources/templates/ms-platform-template.zip ms-platform/
 ```
 
-- [ ] **Step 2: Verify ZIP contains new files**
+- [ ] **Étape 2 : Vérifier que le ZIP contient les nouveaux fichiers**
 
 ```bash
 unzip -l /home/mr486/Developpement/Projets/GestoMS/src/main/resources/templates/ms-platform-template.zip | grep "ms-auth"
 ```
 
-Expected: ms-auth/ entries including AuthApplication.java, AuthController.java, AuthService.java, TokenBlacklistService.java, application.yml, pom.xml, Dockerfile.
+Résultat attendu : entrées ms-auth/ incluant AuthApplication.java, AuthController.java, AuthService.java, TokenBlacklistService.java, application.yml, pom.xml, Dockerfile.
 
 ```bash
 unzip -l /home/mr486/Developpement/Projets/GestoMS/src/main/resources/templates/ms-platform-template.zip | grep "TokenBlacklistFilter"
 ```
 
-Expected: `ms-platform/ms-gateway/src/main/java/.../gateway/filter/TokenBlacklistFilter.java` present.
+Résultat attendu : `ms-platform/ms-gateway/src/main/java/.../gateway/filter/TokenBlacklistFilter.java` présent.
 
-- [ ] **Step 3: Run generator tests**
+- [ ] **Étape 3 : Lancer les tests du générateur**
 
 ```bash
 cd /home/mr486/Developpement/Projets/GestoMS
 mvn test
 ```
 
-Expected: BUILD SUCCESS, all existing tests pass (53 tests or more, 0 failures).
+Résultat attendu : BUILD SUCCESS, tous les tests existants passent (53 tests ou plus, 0 échec).
 
-- [ ] **Step 4: Commit**
+- [ ] **Étape 4 : Commit**
 
 ```bash
 cd /home/mr486/Developpement/Projets/GestoMS
@@ -1237,37 +1235,35 @@ git commit -m "feat: add ms-auth service + gateway TokenBlacklistFilter to templ
 
 ---
 
-## Task 14: FeatureFilterProcessor — exclude ms-auth when keycloak=false (TDD)
+## Tâche 14 : FeatureFilterProcessor — exclure ms-auth quand keycloak=false (TDD)
 
-**Files:**
-- Modify: `src/main/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessor.java`
-- Modify: `src/test/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessorTest.java`
+**Fichiers :**
+- Modifier : `src/main/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessor.java`
+- Modifier : `src/test/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessorTest.java`
 
-Context: `FeatureFilterProcessor` filters files based on feature flags from the request. When `keycloak=false`, the `keycloak/` directory is excluded. `ms-auth` depends on Keycloak (it wraps Keycloak login), so `ms-auth/` should also be excluded when `keycloak=false`.
+Contexte : `FeatureFilterProcessor` filtre les fichiers en fonction des feature flags de la requête. Quand `keycloak=false`, le répertoire `keycloak/` est exclu. `ms-auth` dépend de Keycloak (il encapsule le login Keycloak), donc `ms-auth/` doit aussi être exclu quand `keycloak=false`.
 
-Current file structure (read `FeatureFilterProcessorTest.java` to find where to add the test):
-
-- [ ] **Step 1: Read the current test file**
+- [ ] **Étape 1 : Lire le fichier de test actuel**
 
 ```bash
 cat src/test/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessorTest.java
 ```
 
-Note the pattern for existing exclusion tests. They typically look like:
+Observer le pattern des tests d'exclusion existants :
 
 ```java
 @Test
 void excludes_keycloak_when_disabled() {
     FeatureOptions features = FeatureOptions.builder().keycloak(false).build();
-    // ... test setup ...
+    // ... setup ...
     List<GeneratedFile> result = processor.process(files, ctx);
     assertThat(result).noneMatch(f -> f.path().contains("/keycloak/"));
 }
 ```
 
-- [ ] **Step 2: Add failing test for ms-auth exclusion**
+- [ ] **Étape 2 : Ajouter le test en échec pour l'exclusion ms-auth**
 
-Open `src/test/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessorTest.java` and add the following test after the existing `excludes_keycloak_when_disabled` test:
+Ouvrir `src/test/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessorTest.java` et ajouter après le test `excludes_keycloak_when_disabled` existant :
 
 ```java
 @Test
@@ -1286,29 +1282,29 @@ void excludes_ms_auth_when_keycloak_disabled() {
     List<GeneratedFile> result = processor.process(files, ctx);
 
     assertThat(result).noneMatch(f -> f.path().contains("/ms-auth/"));
-    assertThat(result).hasSize(2); // gateway filter and service-a remain
+    assertThat(result).hasSize(2); // le filtre gateway et service-a restent
 }
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [ ] **Étape 3 : Lancer le test pour vérifier qu'il échoue**
 
 ```bash
 mvn test -pl . -Dtest=FeatureFilterProcessorTest#excludes_ms_auth_when_keycloak_disabled -q 2>&1 | tail -20
 ```
 
-Expected: FAIL — `ms-auth` paths are currently not filtered out.
+Résultat attendu : FAIL — les chemins `ms-auth` ne sont pas encore filtrés.
 
-- [ ] **Step 4: Read FeatureFilterProcessor to find where to add the rule**
+- [ ] **Étape 4 : Lire FeatureFilterProcessor pour trouver où ajouter la règle**
 
 ```bash
 cat src/main/java/com/mr486/generator/pipeline/processor/FeatureFilterProcessor.java
 ```
 
-Find the `isExcluded` or `shouldExclude` method that handles the `keycloak` feature flag. It currently excludes `keycloak/`. Add `ms-auth/` to the same condition.
+Trouver le bloc qui gère `keycloak=false`. Il exclut actuellement `keycloak/`. Ajouter `ms-auth/` à la même condition.
 
-- [ ] **Step 5: Add ms-auth exclusion rule**
+- [ ] **Étape 5 : Ajouter la règle d'exclusion ms-auth**
 
-In `FeatureFilterProcessor.java`, find the block that handles `keycloak=false`. It currently reads something like:
+Dans `FeatureFilterProcessor.java`, trouver le bloc qui gère `keycloak=false` :
 
 ```java
 if (!features.isKeycloak()) {
@@ -1316,7 +1312,7 @@ if (!features.isKeycloak()) {
 }
 ```
 
-Add the `ms-auth/` check to the same condition:
+Ajouter le check `ms-auth/` dans la même condition :
 
 ```java
 if (!features.isKeycloak()) {
@@ -1325,25 +1321,25 @@ if (!features.isKeycloak()) {
 }
 ```
 
-(Exact location depends on the current file structure — read it in Step 4.)
+(L'emplacement exact dépend de la structure actuelle du fichier — voir étape 4.)
 
-- [ ] **Step 6: Run test to verify it passes**
+- [ ] **Étape 6 : Lancer le test pour vérifier qu'il passe**
 
 ```bash
 mvn test -pl . -Dtest=FeatureFilterProcessorTest#excludes_ms_auth_when_keycloak_disabled -q 2>&1 | tail -10
 ```
 
-Expected: BUILD SUCCESS, test passes.
+Résultat attendu : BUILD SUCCESS, le test passe.
 
-- [ ] **Step 7: Run all tests**
+- [ ] **Étape 7 : Lancer tous les tests**
 
 ```bash
 mvn test
 ```
 
-Expected: BUILD SUCCESS, all tests pass (no regressions).
+Résultat attendu : BUILD SUCCESS, tous les tests passent (aucune régression).
 
-- [ ] **Step 8: Commit**
+- [ ] **Étape 8 : Commit**
 
 ```bash
 cd /home/mr486/Developpement/Projets/GestoMS
@@ -1354,30 +1350,30 @@ git commit -m "feat: exclude ms-auth from generated output when keycloak=false"
 
 ---
 
-## Self-Review
+## Auto-revue
 
-**Spec coverage check:**
+**Couverture de la spec :**
 
-| Spec requirement | Task |
+| Exigence spec | Tâche |
 |---|---|
-| POST /auth/login with opaque refresh token | Task 6 (AuthService.login) |
-| POST /auth/refresh with token rotation | Task 6 (AuthService.refresh) |
-| POST /auth/logout with JTI blacklist + revoke | Task 6 (AuthService.logout) |
-| Redis: auth:blacklist:{jti} with TTL | Task 5 (TokenBlacklistService.blacklist) |
-| Redis: auth:refresh:{uuid} with TTL | Task 5 (TokenBlacklistService.storeRefreshToken) |
-| RedisKeys.authBlacklist + authRefresh | Task 2 |
-| Gateway TokenBlacklistFilter reactive | Task 8 |
-| Gateway Redis reactive dep + route ms-auth | Task 9 |
-| ms-auth security: login+refresh public, logout authenticated | Task 7 (SecurityConfig) |
-| Keycloak realm: accessTokenLifespan=300, ssoSessionMaxLifespan=1800, refreshTokenMaxReuse=0 | Task 11 |
-| docker-compose ms-auth service | Task 10 |
-| root pom.xml ms-auth module | Task 10 |
-| .env AUTH_PORT=9200 | Task 10 |
-| test-all.sh via ms-auth + refresh test + logout+blacklist test | Task 12 |
-| FeatureFilterProcessor: exclude ms-auth when keycloak=false | Task 14 |
+| POST /auth/login avec opaque refresh token | Tâche 6 (AuthService.login) |
+| POST /auth/refresh avec rotation de token | Tâche 6 (AuthService.refresh) |
+| POST /auth/logout avec blacklist JTI + révocation | Tâche 6 (AuthService.logout) |
+| Redis : auth:blacklist:{jti} avec TTL | Tâche 5 (TokenBlacklistService.blacklist) |
+| Redis : auth:refresh:{uuid} avec TTL | Tâche 5 (TokenBlacklistService.storeRefreshToken) |
+| RedisKeys.authBlacklist + authRefresh | Tâche 2 |
+| Gateway TokenBlacklistFilter réactif | Tâche 8 |
+| Gateway dépendance Redis réactive + route ms-auth | Tâche 9 |
+| ms-auth sécurité : login+refresh publics, logout authentifié | Tâche 7 (SecurityConfig) |
+| Realm Keycloak : accessTokenLifespan=300, ssoSessionMaxLifespan=1800, refreshTokenMaxReuse=0 | Tâche 11 |
+| docker-compose service ms-auth | Tâche 10 |
+| pom.xml racine module ms-auth | Tâche 10 |
+| .env AUTH_PORT=9200 | Tâche 10 |
+| test-all.sh via ms-auth + test refresh + test logout/blacklist | Tâche 12 |
+| FeatureFilterProcessor : exclure ms-auth quand keycloak=false | Tâche 14 |
 
-All spec requirements are covered.
+Toutes les exigences de la spec sont couvertes.
 
-**Placeholder scan:** No TBDs, no "add error handling later", no incomplete sections.
+**Scan des placeholders :** Aucun TBD, aucun "ajouter la gestion d'erreurs plus tard", aucune section incomplète.
 
-**Type consistency:** `LoginResponse`, `RefreshRequest`, `LogoutRequest`, `KeycloakTokenResponse` are used consistently across Tasks 4, 6, 7. `TokenBlacklistService` method names (`blacklist`, `storeRefreshToken`, `getRefreshToken`, `deleteRefreshToken`) are called correctly in Task 6. `RedisKeys.authBlacklist(jti)` and `RedisKeys.authRefresh(opaqueToken)` defined in Task 2 and used in Tasks 5, 8.
+**Cohérence des types :** `LoginResponse`, `RefreshRequest`, `LogoutRequest`, `KeycloakTokenResponse` utilisés de façon cohérente dans les tâches 4, 6, 7. Les noms de méthodes de `TokenBlacklistService` (`blacklist`, `storeRefreshToken`, `getRefreshToken`, `deleteRefreshToken`) sont appelés correctement dans la tâche 6. `RedisKeys.authBlacklist(jti)` et `RedisKeys.authRefresh(opaqueToken)` définis en tâche 2 et utilisés en tâches 5, 8.
