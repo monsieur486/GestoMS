@@ -83,6 +83,22 @@ class ResourceExpandProcessorTest {
     }
 
     @Test
+    void null_routePrefix_defaults_to_api_plural() {
+        ResourceModuleRequest r = new ResourceModuleRequest();
+        r.setServiceName("order-service"); r.setClassName("Order");
+        // routePrefix left null
+        r.setDatabaseType(DatabaseType.POSTGRES); r.setIdType(IdType.LONG);
+        GenerationContext ctx = ctxWithResources(List.of(r));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        result.stream()
+            .filter(f -> f.path().endsWith("OrderController.java"))
+            .forEach(f -> {
+                assertThat(contentOf(f)).contains("/api/orders");
+                assertThat(contentOf(f)).doesNotContain("/api/resources-a");
+            });
+    }
+
+    @Test
     void replaces_ResourceA_with_className_in_content() {
         GenerationContext ctx = ctxWithResources(List.of(
             resource("invoice", "Invoice", "/api/invoices", DatabaseType.POSTGRES, IdType.LONG)

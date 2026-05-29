@@ -115,13 +115,16 @@ public class ResourceExpandProcessor implements FileProcessor {
         String serviceScream  = serviceSnake.toUpperCase();
         String entityPlural   = res.getClassName().toLowerCase() + "s";
         String entityLower    = res.getClassName().toLowerCase();
+        String routePrefix    = (res.getRoutePrefix() == null || res.getRoutePrefix().isBlank())
+                                ? "/api/" + entityPlural
+                                : res.getRoutePrefix();
 
         // Longest/most-specific first
         text = text.replace("USER_SERVICE_A",    "USER_" + serviceScream);
         text = text.replace("SERVICE_A",          serviceScream);
         text = text.replace("resources_a",        entityPlural);
         text = text.replace("resource_a",         entityLower);
-        text = text.replace("/api/resources-a",   res.getRoutePrefix());
+        text = text.replace("/api/resources-a",   routePrefix);
         text = text.replace("service-a",          res.getServiceName());
         text = text.replace("service_a",          serviceSnake);
         text = text.replace("servicea",           servicePackage);
