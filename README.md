@@ -144,3 +144,17 @@ Dashboard : `Batch / Batch Dashboard`.
 ## Timezone
 
 Les projets générés configurent `TZ=Europe/Paris` pour Loki, Promtail et Grafana. Dans Grafana, utiliser de préférence `Browser Time`.
+
+
+## Project notes (Claude memory)
+
+`docs/claude-memory/` contains a versioned snapshot of the persistent notes
+Claude Code maintains while working on this project. Useful when reviewing
+PRs or onboarding to understand *why* certain design choices were made
+(e.g. the gateway parses JWT JTI without a JWT library, or why
+`CrossCuttingConfigProcessor` runs at `@Order(60)`).
+
+Start with [`docs/claude-memory/README.md`](docs/claude-memory/README.md) and
+[`docs/claude-memory/MEMORY.md`](docs/claude-memory/MEMORY.md) (the index).
+The snapshot is auto-synced from the live Claude memory at
+`~/.claude/projects/.../memory/`; the live copy is the source of truth.
