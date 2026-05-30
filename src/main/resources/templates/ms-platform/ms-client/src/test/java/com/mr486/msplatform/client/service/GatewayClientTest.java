@@ -86,4 +86,23 @@ class GatewayClientTest {
         assertThatThrownBy(() -> gatewayClient.get(session, PATH))
                 .isInstanceOf(GatewayClient.BackendForbiddenException.class);
     }
+
+    @Test
+    void post_returns_body_on_success() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.POST), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"id\":1}"));
+        assertThat(gatewayClient.post(session, PATH, "{\"name\":\"x\"}")).isEqualTo("{\"id\":1}");
+    }
+
+    @Test
+    void post_refreshes_and_retries_once_on_401() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.POST), any(), eq(String.class)))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "401", null, null, null))
+                .thenReturn(ResponseEntity.ok("created"));
+        when(msAuthClient.refresh("old-refresh"))
+                .thenReturn(new MsAuthTokens("new-access", "new-refresh", 300));
+
+        assertThat(gatewayClient.post(session, PATH, "{}")).isEqualTo("created");
+        assertThat(session.getAttribute(SessionKeys.ACCESS_TOKEN)).isEqualTo("new-access");
+    }
 }

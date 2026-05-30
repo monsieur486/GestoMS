@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -34,9 +35,18 @@ public class GatewayClient {
 
     /** GET {@code path} via le gateway avec l'access token de session ; refresh + rejeu sur 401. */
     public String get(HttpSession session, String path) {
+        return exchangeWithRefresh(session, path, HttpMethod.GET, null);
+    }
+
+    /** POST {@code jsonBody} vers {@code path} via le gateway ; refresh + rejeu sur 401. */
+    public String post(HttpSession session, String path, String jsonBody) {
+        return exchangeWithRefresh(session, path, HttpMethod.POST, jsonBody);
+    }
+
+    private String exchangeWithRefresh(HttpSession session, String path, HttpMethod method, String body) {
         String accessToken = (String) session.getAttribute(SessionKeys.ACCESS_TOKEN);
         try {
-            return doGet(path, accessToken);
+            return doExchange(path, method, body, accessToken);
         } catch (UnauthorizedSignal first) {
             MsAuthTokens fresh;
             try {
@@ -48,19 +58,22 @@ public class GatewayClient {
             session.setAttribute(SessionKeys.ACCESS_TOKEN, fresh.accessToken());
             session.setAttribute(SessionKeys.REFRESH_TOKEN, fresh.opaqueRefreshToken());
             try {
-                return doGet(path, fresh.accessToken());
+                return doExchange(path, method, body, fresh.accessToken());
             } catch (UnauthorizedSignal second) {
                 throw new SessionExpiredException();
             }
         }
     }
 
-    private String doGet(String path, String accessToken) {
+    private String doExchange(String path, HttpMethod method, String body, String accessToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken == null ? "" : accessToken);
+        if (body != null) {
+            headers.setContentType(MediaType.APPLICATION_JSON);
+        }
         try {
             ResponseEntity<String> resp = restTemplate.exchange(
-                    gatewayUrl + path, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+                    gatewayUrl + path, method, new HttpEntity<>(body, headers), String.class);
             return resp.getBody();
         } catch (HttpClientErrorException.Unauthorized e) {
             throw new UnauthorizedSignal();
