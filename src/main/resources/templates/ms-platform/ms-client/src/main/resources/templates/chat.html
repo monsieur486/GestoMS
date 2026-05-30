@@ -1,0 +1,57 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat — ms-client</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <p><a th:href="@{/}">← Accueil</a></p>
+  <h1>Chat</h1>
+  <p id="status" class="info">Connexion…</p>
+  <ul id="messages">
+    <li th:each="m : ${history}"><strong th:text="${m.user}">user</strong>: <span th:text="${m.text}">text</span></li>
+  </ul>
+  <form id="chat-form">
+    <input type="text" id="chat-text" placeholder="Votre message" autocomplete="off" required/>
+    <button type="submit">Envoyer</button>
+  </form>
+</main>
+<script>
+  const list = document.getElementById('messages');
+  const statusEl = document.getElementById('status');
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('chat-text');
+  const client = new StompJs.Client({
+    webSocketFactory: () => new SockJS('/ws'),
+    reconnectDelay: 2000,
+    onConnect: () => {
+      statusEl.textContent = 'Connecté';
+      client.subscribe('/topic/chat', message => {
+        const m = JSON.parse(message.body);
+        const li = document.createElement('li');
+        const who = document.createElement('strong');
+        who.textContent = m.user;
+        li.appendChild(who);
+        li.appendChild(document.createTextNode(': ' + m.text));
+        list.appendChild(li);
+      });
+    },
+    onWebSocketClose: () => { statusEl.textContent = 'Déconnecté — reconnexion…'; }
+  });
+  client.activate();
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    client.publish({ destination: '/app/chat.send', body: JSON.stringify({ text }) });
+    input.value = '';
+  });
+</script>
+</body>
+</html>
