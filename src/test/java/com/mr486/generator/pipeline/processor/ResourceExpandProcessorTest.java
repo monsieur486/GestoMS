@@ -25,7 +25,7 @@ class ResourceExpandProcessorTest {
             file(javaPkg + "repository/ResourceARepository.java", "package com.mr486.msplatform.servicea.repository;\nimport org.springframework.data.jpa.repository.JpaRepository;\npublic interface ResourceARepository extends JpaRepository<ResourceA,Long> {}"),
             file(javaPkg + "dto/ResourceADto.java", "package com.mr486.msplatform.servicea.dto;\npublic class ResourceADto{ private Long id; private String name; }"),
             file(javaPkg + "controller/ResourceAController.java", "package com.mr486.msplatform.servicea.controller;\n@RequestMapping(\"/api/resources-a\")\npublic class ResourceAController{}"),
-            file(javaPkg + "service/ResourceAService.java", "package com.mr486.msplatform.servicea.service;\npublic class ResourceAService{}"),
+            file(javaPkg + "service/ResourceAService.java", "package com.mr486.msplatform.servicea.service;\nimport com.mr486.msplatform.servicea.entity.ResourceA;\nimport com.mr486.msplatform.servicea.repository.ResourceARepository;\npublic class ResourceAService{ ResourceA build(){return ResourceA.builder().build();} }"),
             file(base + "src/main/resources/application.yml",
                 "spring:\n  application:\n    name: service-a\n  datasource:\n    url: ${SERVICE_A_DATASOURCE_URL:jdbc:postgresql://localhost:5432/service_a_db}\n    driver-class-name: org.postgresql.Driver"),
             file(base + "src/main/resources/db/changelog/001-init.sql",
@@ -291,6 +291,32 @@ class ResourceExpandProcessorTest {
     }
 
     @Test
+    void uuid_adds_UUID_import_to_dto() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("order", "Order", "/api/orders", DatabaseType.POSTGRES, IdType.UUID)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile dto = result.stream()
+            .filter(f -> f.path().contains("/order/") && f.path().endsWith("Dto.java"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(dto)).contains("private UUID id");
+        assertThat(contentOf(dto)).contains("import java.util.UUID");
+    }
+
+    @Test
+    void uuid_adds_UUID_import_to_repository() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("order", "Order", "/api/orders", DatabaseType.POSTGRES, IdType.UUID)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile repo = result.stream()
+            .filter(f -> f.path().contains("/order/") && f.path().endsWith("Repository.java"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(repo)).contains("JpaRepository<Order,UUID>");
+        assertThat(contentOf(repo)).contains("import java.util.UUID");
+    }
+
+    @Test
     void uuid_replaces_BIGINT_with_UUID_in_sql() {
         GenerationContext ctx = ctxWithResources(List.of(
             resource("order", "Order", "/api/orders", DatabaseType.POSTGRES, IdType.UUID)
@@ -301,6 +327,32 @@ class ResourceExpandProcessorTest {
             .findFirst().orElseThrow();
         assertThat(contentOf(sql)).contains("UUID DEFAULT gen_random_uuid() PRIMARY KEY");
         assertThat(contentOf(sql)).doesNotContain("BIGINT");
+    }
+
+    @Test
+    void mongo_service_imports_document_not_entity() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile svc = result.stream()
+            .filter(f -> f.path().contains("/catalog/") && f.path().endsWith("ProductService.java"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(svc)).contains(".document.Product");
+        assertThat(contentOf(svc)).doesNotContain(".entity.");
+    }
+
+    @Test
+    void mongo_dto_uses_string_id_not_long() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile dto = result.stream()
+            .filter(f -> f.path().contains("/catalog/") && f.path().endsWith("Dto.java"))
+            .findFirst().orElseThrow();
+        assertThat(contentOf(dto)).contains("private String id");
+        assertThat(contentOf(dto)).doesNotContain("private Long id");
     }
 
     @Test
