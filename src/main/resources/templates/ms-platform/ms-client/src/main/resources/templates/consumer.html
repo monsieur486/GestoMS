@@ -1,0 +1,21 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agrégat consumer — ms-client</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <p><a th:href="@{/}">← Accueil</a></p>
+  <h1>Agrégat consumer</h1>
+  <p th:if="${error}" class="error" th:text="${error}">erreur</p>
+  <div th:each="svc : ${services}" class="service-block">
+    <h2 th:text="${svc.key}">service</h2>
+    <pre th:text="${svc.value}">{}</pre>
+  </div>
+</main>
+</body>
+</html>
