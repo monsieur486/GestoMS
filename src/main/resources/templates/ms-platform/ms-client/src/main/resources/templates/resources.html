@@ -1,0 +1,22 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resources — ms-client</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <p><a th:href="@{/}">← Accueil</a></p>
+  <h1>Resources</h1>
+  <p th:if="${resources.isEmpty()}">Aucune resource accessible.</p>
+  <ul class="links">
+    <li th:each="r : ${resources}">
+      <a th:href="@{/resources/{s}(s=${r.serviceName})}" th:text="${r.label}">label</a>
+    </li>
+  </ul>
+</main>
+</body>
+</html>

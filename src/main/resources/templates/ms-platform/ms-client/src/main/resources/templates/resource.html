@@ -1,0 +1,35 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${entry.label} + ' — ms-client'">Resource</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <p><a th:href="@{/resources}">← Resources</a></p>
+  <h1 th:text="${entry.label}">Resource</h1>
+  <p th:if="${param.error}" class="error">Échec de la création.</p>
+  <p th:if="${error}" class="error" th:text="${error}">erreur</p>
+  <table th:if="${rows}">
+    <thead><tr><th>id</th><th>name</th><th>description</th></tr></thead>
+    <tbody>
+      <tr th:each="row : ${rows}">
+        <td th:text="${row.id}">1</td>
+        <td th:text="${row.name}">name</td>
+        <td th:text="${row.description}">desc</td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Ajouter</h2>
+  <form th:action="@{/resources/{s}(s=${entry.serviceName})}" method="post">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    <label>Name <input type="text" name="name" required/></label>
+    <label>Description <input type="text" name="description" required/></label>
+    <button type="submit">Créer</button>
+  </form>
+</main>
+</body>
+</html>
