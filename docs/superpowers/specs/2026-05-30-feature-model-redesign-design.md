@@ -14,8 +14,8 @@ une nouvelle réalité produit :
 
 - **Toujours installés** (plus aucun toggle) : keycloak (+ ms-auth), redis, rabbitmq, websocket.
 - **Toujours installé** : `admin-application` (nouveau module CRUD users/roles — *créé en Phase 3*).
-- **Optionnels** : `springboot-admin` (= l'actuel module `ms-admin`, monitoring Spring Boot Admin) et
-  `client` (= nouveau module `ms-client`, UI Thymeleaf — *créé en Phase 2*).
+- **Optionnels** : `springbootAdmin` (= l'actuel module `ms-admin`, monitoring Spring Boot Admin) et
+  `clientWebUI` (= nouveau module `ms-client`, UI Thymeleaf — *créé en Phase 2*).
 - **Observabilité** (loki + promtail + grafana) : installée si `batch.grafana = true`.
 
 Cette Phase 1 ne câble QUE ce qui a un support réel dans le template aujourd'hui. Les références aux
@@ -28,7 +28,7 @@ référence orpheline (un module/route pointant vers un dossier absent casse `mv
 
 - **Phase 1 (ce spec)** : refonte du modèle de features. Fondation.
 - **Phase 2** : module `ms-client` (UI Thymeleaf+JS, auth BFF via ms-auth, CRUD générique runtime,
-  page consumer, chat salon public, notifs batch temps réel). Activé par `features.client`.
+  page consumer, chat salon public, notifs batch temps réel). Activé par `features.clientWebUI`.
 - **Phase 3** : module `admin-application` (UI Thymeleaf+JS réservée `ROLE_ADMIN`, CRUD roles/users via
   la Keycloak Admin REST API). Toujours installé.
 
@@ -44,15 +44,14 @@ Chaque phase a son propre spec → plan → implémentation.
 @Data
 public class FeatureOptions {
     /** Module ms-admin (monitoring Spring Boot Admin). Optionnel. */
-    @JsonProperty("springboot-admin")
     private boolean springbootAdmin = false;
     /** Module ms-client (UI Thymeleaf). Optionnel. [le module arrive en Phase 2] */
-    private boolean client = false;
+    private boolean clientWebUI = false;
 }
 ```
 
 - Les champs `keycloak/redis/rabbitmq/websocket/admin/grafana/loki` sont **supprimés**.
-- `@JsonProperty("springboot-admin")` mappe exactement la clé kebab-case de la commande utilisateur.
+- La clé JSON est `springbootAdmin` en camelCase (mappée nativement par Jackson, sans annotation).
 - Jackson est configuré pour **ignorer les propriétés inconnues** (`FAIL_ON_UNKNOWN_PROPERTIES=false`,
   comportement Spring Boot par défaut) : une ancienne commande contenant les anciens flags ne plante pas,
   elle perd simplement ces toggles. À vérifier explicitement par un test.
@@ -80,7 +79,7 @@ Passe de 8 règles à 3 (+ batch) :
 private boolean include(String path, String root, FeatureOptions f, BatchOptions b) {
     String rel = relative(path, root);
     if (!f.isSpringbootAdmin() && rel.startsWith("ms-admin/"))      return false;
-    if (!f.isClient()          && rel.startsWith("ms-client/"))     return false; // module absent en P1
+    if (!f.isClientWebUI()     && rel.startsWith("ms-client/"))     return false; // module absent en P1
     if (!b.isGrafana()         && rel.startsWith("observability/")) return false;
     if (!b.isEnabled()         && rel.startsWith("service-batch/")) return false;
     return true;
@@ -139,7 +138,7 @@ Retiré : `keycloak_db_data`, `redis_data` (keycloak/redis permanents).
 
 Les modules `ms-client` et `admin-application` n'existent pas encore dans le template en Phase 1.
 Pour éviter toute référence orpheline, la Phase 1 ne câble dans `CrossCuttingConfigProcessor` que ce qui
-a un support réel dans le template du jour. La logique `springbootAdmin`/`client` vit dès la Phase 1 dans
+a un support réel dans le template du jour. La logique `springbootAdmin`/`clientWebUI` vit dès la Phase 1 dans
 les DTOs et le filtre (un `client=true` ne fait simplement rien tant que le module n'existe pas), mais le
 processor transverse ne référence `ms-client`/`admin-application` qu'à partir de leur phase. Chaque phase
 reste verte (`mvn package` du projet généré OK).
@@ -154,14 +153,14 @@ reste verte (`mvn package` du projet généré OK).
   - `batch.enabled=false` retire `service-batch/`.
   - keycloak/ms-auth/redis/rabbitmq/websocket **toujours présents** quel que soit l'input
     (tests de non-régression positifs).
-  - `client` : neutre en Phase 1 (module absent).
+  - `clientWebUI` : neutre en Phase 1 (module absent).
 - `CrossCuttingConfigProcessorTest` — `desiredModules` inclut toujours `ms-auth` ; assertions
   « keycloak/redis retirés » remplacées par « jamais retirés » ; route `ms-auth` toujours présente.
   `admin-application` **pas** attendu dans les modules en Phase 1 (Option 1).
 - `TemplateLoaderTest` — compteur de parité **inchangé (112)** : aucun fichier template ajouté/retiré
   en Phase 1.
-- Test Jackson : un JSON contenant les anciens flags (`keycloak`, `loki`, …) + `springboot-admin`
-  désérialise sans erreur et mappe correctement `springbootAdmin`.
+- Test Jackson : un JSON contenant les anciens flags (`keycloak`, `loki`, …) + `springbootAdmin`
+  désérialise sans erreur et mappe correctement `springbootAdmin` (camelCase).
 
 **Vérification end-to-end :** générer avec la commande de référence (ci-dessous), puis :
 - `mvn package` du projet généré passe (aucun module/route orphelin) ;
@@ -178,7 +177,7 @@ buildé.
 ## Commande de référence (JSON corrigé)
 
 La commande fournie par l'utilisateur contenait deux erreurs JSON (virgule finale après `"grafana": true`
-et virgule manquante entre `"springboot-admin"` et `"client"`). Version valide :
+et virgule manquante entre les deux features). Clé features en camelCase. Version valide :
 
 ```bash
 curl -X POST http://localhost:8080/api/generate/platform \
@@ -199,8 +198,8 @@ curl -X POST http://localhost:8080/api/generate/platform \
       "grafana": true
     },
     "features": {
-      "springboot-admin": true,
-      "client": true
+      "springbootAdmin": true,
+      "clientWebUI": true
     }
   }' \
   --output ms-platform.zip
