@@ -521,6 +521,27 @@ class CrossCuttingConfigProcessorTest {
         assertThat(f.executable()).isTrue();
     }
 
+    @Test
+    void test_all_includes_ms_client_smoke_when_client_web_ui_enabled() {
+        PlatformGenerationRequest req = new PlatformGenerationRequest();
+        req.setResources(List.of(res("order-service", "Order", DatabaseType.POSTGRES)));
+        req.getFeatures().setClientWebUI(true);
+        List<GeneratedFile> result = processor.process(
+                List.of(file(TESTALL_PATH, "old", true)), GenerationContext.from(req));
+        String s = testAllOf(result);
+        assertThat(s).contains("wait_for 'ms-client'").contains("Client OK");
+    }
+
+    @Test
+    void test_all_omits_ms_client_smoke_when_client_web_ui_disabled() {
+        PlatformGenerationRequest req = new PlatformGenerationRequest();
+        req.setResources(List.of(res("order-service", "Order", DatabaseType.POSTGRES)));
+        List<GeneratedFile> result = processor.process(
+                List.of(file(TESTALL_PATH, "old", true)), GenerationContext.from(req));
+        String s = testAllOf(result);
+        assertThat(s).doesNotContain("ms-client").doesNotContain("Client OK");
+    }
+
     // ── AggregateController regeneration ─────────────────────────────────────
 
     private static final String AGG_PATH =

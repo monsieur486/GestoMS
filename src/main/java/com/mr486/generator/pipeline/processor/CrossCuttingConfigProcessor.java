@@ -522,6 +522,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         }
         sb.append("wait_for 'service-consumer' routed_up service-consumer/api/aggregate\n");
         if (feat.isSpringbootAdmin()) sb.append("wait_for 'ms-admin' curl -fs http://localhost:9100\n");
+        if (feat.isClientWebUI()) sb.append("wait_for 'ms-client' curl -fs http://localhost:8090/login\n");
         sb.append("echo 'Stack is ready.'\n");
         sb.append("echo\n\n");
 
@@ -569,6 +570,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("echo 'Testing infrastructure...'\n");
         sb.append("curl -fs http://localhost:8761 >/dev/null && echo 'Eureka OK'\n");
         if (feat.isSpringbootAdmin()) sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
+        if (feat.isClientWebUI()) sb.append("curl -fs http://localhost:8090/login >/dev/null && echo 'Client OK'\n");
         sb.append("\n");
 
         sb.append("echo 'Testing service-consumer aggregation...'\n");
