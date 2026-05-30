@@ -4,6 +4,41 @@ set -euo pipefail
 KEYCLOAK_URL=${KEYCLOAK_URL:-http://localhost:8089}
 GATEWAY_URL=${GATEWAY_URL:-http://localhost:9000}
 
+# Full stack startup takes ~60s; poll until everything actually serves so this script
+# can be launched right after ./prod-start.sh. Override on a slow host with
+# WAIT_TIMEOUT / WAIT_INTERVAL (seconds).
+WAIT_TIMEOUT=${WAIT_TIMEOUT:-180}
+WAIT_INTERVAL=${WAIT_INTERVAL:-3}
+
+wait_for(){
+  # $1=label, $2...=predicate command (exit 0 = ready). Polls until ready or WAIT_TIMEOUT.
+  local label=$1; shift
+  local deadline=$(( SECONDS + WAIT_TIMEOUT ))
+  printf 'Waiting for %s ' "$label"
+  until "$@" >/dev/null 2>&1; do
+    if (( SECONDS >= deadline )); then
+      printf '\nFAIL %s not ready after %ss\n' "$label" "$WAIT_TIMEOUT"; exit 1
+    fi
+    printf '.'; sleep "$WAIT_INTERVAL"
+  done
+  printf ' OK\n'
+}
+
+auth_ready(){
+  # ms-auth + Keycloak realm: a real login returning an access_token.
+  local t
+  t=$(curl -s -X POST "$GATEWAY_URL/auth/login" -H "Content-Type: application/json" \
+        -d '{"username":"test-admin","password":"admin123"}' | jq -r '.access_token // empty')
+  [ -n "$t" ]
+}
+
+routed_up(){
+  # A gateway-routed endpoint that answers (200/401/403) is up and registered in Eureka.
+  local code
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$GATEWAY_URL/$1" || true)
+  [[ "$code" =~ ^(200|401|403)$ ]]
+}
+
 auth_login(){
   curl -s -X POST "$GATEWAY_URL/auth/login" \
     -H "Content-Type: application/json" \
@@ -64,6 +99,17 @@ assert_contains(){
     exit 1
   fi
 }
+
+echo 'Waiting for the full stack to be ready (~60s on first start)...'
+wait_for 'ms-eureka'              curl -fs http://localhost:8761
+wait_for 'ms-auth + keycloak'    auth_ready
+wait_for 'service-a'             routed_up service-a/api/resources-a
+wait_for 'service-b'             routed_up service-b/api/resources-b
+wait_for 'service-c'             routed_up service-c/api/resources-c
+wait_for 'service-consumer'      routed_up service-consumer/api/aggregate
+wait_for 'ms-admin'              curl -fs http://localhost:9100
+echo 'Stack is ready.'
+echo
 
 echo 'Getting tokens via ms-auth...'
 ADMIN_LOGIN=$(auth_login test-admin admin123)
