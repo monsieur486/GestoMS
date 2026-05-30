@@ -1,6 +1,7 @@
 package com.mr486.msplatform.adminapp.service;
 
 import com.mr486.msplatform.adminapp.dto.KeycloakUser;
+import com.mr486.msplatform.adminapp.dto.KeycloakRole;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +14,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +87,113 @@ public class KeycloakAdminClient {
         try {
             restTemplate.exchange(internalUrl + "/admin/realms/" + realm + "/users/" + id,
                     HttpMethod.DELETE, new HttpEntity<>(headers), Void.class);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public KeycloakUser getUser(String id) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(adminToken());
+        try {
+            ResponseEntity<KeycloakUser> resp = restTemplate.exchange(
+                    internalUrl + "/admin/realms/" + realm + "/users/" + id,
+                    HttpMethod.GET, new HttpEntity<>(headers), KeycloakUser.class);
+            return resp.getBody();
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public List<KeycloakRole> listRealmRoles() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(adminToken());
+        try {
+            ResponseEntity<KeycloakRole[]> resp = restTemplate.exchange(
+                    internalUrl + "/admin/realms/" + realm + "/roles",
+                    HttpMethod.GET, new HttpEntity<>(headers), KeycloakRole[].class);
+            KeycloakRole[] body = resp.getBody();
+            if (body == null) return List.of();
+            List<KeycloakRole> result = new ArrayList<>();
+            for (KeycloakRole r : body) {
+                String n = r.name();
+                if (n == null || n.equals("offline_access") || n.equals("uma_authorization") || n.startsWith("default-roles-")) {
+                    continue;
+                }
+                result.add(r);
+            }
+            return result;
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public List<KeycloakRole> listUserRealmRoles(String userId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(adminToken());
+        try {
+            ResponseEntity<KeycloakRole[]> resp = restTemplate.exchange(
+                    internalUrl + "/admin/realms/" + realm + "/users/" + userId + "/role-mappings/realm",
+                    HttpMethod.GET, new HttpEntity<>(headers), KeycloakRole[].class);
+            KeycloakRole[] body = resp.getBody();
+            return body == null ? List.of() : List.of(body);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public void addRealmRole(String userId, String roleName) {
+        KeycloakRole role = roleByName(roleName);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(adminToken());
+        try {
+            restTemplate.postForEntity(
+                    internalUrl + "/admin/realms/" + realm + "/users/" + userId + "/role-mappings/realm",
+                    new HttpEntity<>(List.of(role), headers), Void.class);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public void removeRealmRole(String userId, String roleName) {
+        KeycloakRole role = roleByName(roleName);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(adminToken());
+        try {
+            restTemplate.exchange(
+                    internalUrl + "/admin/realms/" + realm + "/users/" + userId + "/role-mappings/realm",
+                    HttpMethod.DELETE, new HttpEntity<>(List.of(role), headers), Void.class);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    private KeycloakRole roleByName(String name) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(adminToken());
+        try {
+            ResponseEntity<KeycloakRole> resp = restTemplate.exchange(
+                    internalUrl + "/admin/realms/" + realm + "/roles/" + name,
+                    HttpMethod.GET, new HttpEntity<>(headers), KeycloakRole.class);
+            KeycloakRole role = resp.getBody();
+            if (role == null) {
+                throw new KeycloakUnavailableException();
+            }
+            return role;
         } catch (KeycloakUnavailableException e) {
             throw e;
         } catch (Exception e) {

@@ -28,7 +28,7 @@ class TemplateLoaderTest {
     @Test
     void loads_every_template_file() {
         // Parity guard: number of non-directory files shipped in templates/ms-platform/.
-        assertThat(loader.load()).hasSize(169);
+        assertThat(loader.load()).hasSize(170);
     }
 
     @Test
