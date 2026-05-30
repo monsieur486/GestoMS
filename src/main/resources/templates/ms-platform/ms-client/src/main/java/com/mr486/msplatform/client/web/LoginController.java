@@ -53,6 +53,10 @@ public class LoginController {
             return "login";
         }
 
+        // Régénère l'identifiant de session à l'authentification (protection anti-fixation de session).
+        HttpSession session = request.getSession(true);
+        request.changeSessionId();
+
         List<SimpleGrantedAuthority> authorities = JwtRoles.realmRoles(tokens.accessToken()).stream()
                 .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
                 .toList();
@@ -63,7 +67,6 @@ public class LoginController {
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, request, response);
 
-        HttpSession session = request.getSession(true);
         session.setAttribute(SessionKeys.ACCESS_TOKEN, tokens.accessToken());
         session.setAttribute(SessionKeys.REFRESH_TOKEN, tokens.opaqueRefreshToken());
 
