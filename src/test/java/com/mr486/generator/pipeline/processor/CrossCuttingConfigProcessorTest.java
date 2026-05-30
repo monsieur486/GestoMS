@@ -581,4 +581,52 @@ class CrossCuttingConfigProcessorTest {
         List<GeneratedFile> result = processor.process(List.of(file(AGG_PATH, SAMPLE_AGG)), defaultCtx());
         assertThat(aggOf(result)).isEqualTo(SAMPLE_AGG);
     }
+
+    // ── ms-client application.yml catalog rewrite ─────────────────────────────
+
+    private static final String CLIENT_YML_PATH =
+        "ms-platform/ms-client/src/main/resources/application.yml";
+
+    private static final String SAMPLE_CLIENT_YML =
+        "server:\n  port: 8090\n" +
+        "client:\n" +
+        "  resources:\n" +
+        "    - serviceName: service-a\n" +
+        "      routePrefix: /api/resources-a\n" +
+        "      label: Service A\n" +
+        "      role: USER_SERVICE_A\n" +
+        "    - serviceName: service-b\n" +
+        "      routePrefix: /api/resources-b\n" +
+        "      label: Service B\n" +
+        "      role: USER_SERVICE_B\n";
+
+    @Test
+    void client_catalog_rewritten_for_resources() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(CLIENT_YML_PATH, SAMPLE_CLIENT_YML)),
+            ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES),
+                             res("product-service", "Product", DatabaseType.MONGO)));
+        String yml = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-client/src/main/resources/application.yml"))
+            .findFirst().orElseThrow());
+        assertThat(yml).contains("serviceName: order-service")
+                       .contains("routePrefix: /api/orders")
+                       .contains("role: USER_ORDER_SERVICE")
+                       .contains("label: Order")
+                       .contains("serviceName: product-service")
+                       .contains("routePrefix: /api/products")
+                       .contains("role: USER_PRODUCT_SERVICE");
+        assertThat(yml).doesNotContain("service-a").doesNotContain("USER_SERVICE_A");
+        assertThat(yml).contains("server:\n  port: 8090"); // section avant client: préservée
+    }
+
+    @Test
+    void client_catalog_untouched_when_no_resources() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(CLIENT_YML_PATH, SAMPLE_CLIENT_YML)), defaultCtx());
+        String yml = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-client/src/main/resources/application.yml"))
+            .findFirst().orElseThrow());
+        assertThat(yml).isEqualTo(SAMPLE_CLIENT_YML);
+    }
 }

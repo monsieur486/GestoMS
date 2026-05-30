@@ -59,6 +59,8 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
                                                     result.add(rewriteTestAll(f, ctx));
             else if (hasResources && f.path().contains("/service-consumer/") && f.path().endsWith("AggregateController.java"))
                                                     result.add(rewriteAggregate(f, ctx));
+            else if (hasResources && f.path().endsWith("/ms-client/src/main/resources/application.yml"))
+                                                    result.add(rewriteClientCatalog(f, ctx));
             else                                    result.add(f);
         }
         return result;
@@ -732,6 +734,26 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             "@RestController @RequiredArgsConstructor @RequestMapping(\"/api\")\n" +
             "public class AggregateController{ private final WebClient.Builder webClientBuilder; @GetMapping(\"/aggregate\") @PreAuthorize(\"hasRole('ADMIN')\") public Mono<Map<String,String>> aggregate(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization){ return Mono.zip(List.of(" + calls + "), results->{ Map<String,String> result=new LinkedHashMap<>(); " + puts + " return result; }); }}";
         return new GeneratedFile(f.path(), body.getBytes(StandardCharsets.UTF_8), f.executable());
+    }
+
+    /**
+     * Réécrit le bloc {@code client:} (dernière section de l'application.yml de ms-client) avec le
+     * catalogue construit depuis {@code resources[]}. Le bloc étant en fin de fichier, on remplace de
+     * {@code ^client:} jusqu'à la fin du contenu — pas de chirurgie d'indentation.
+     */
+    private GeneratedFile rewriteClientCatalog(GeneratedFile f, GenerationContext ctx) {
+        if (containsNullByte(f.content())) return f;
+        String text = new String(f.content(), StandardCharsets.UTF_8);
+        StringBuilder block = new StringBuilder("client:\n  resources:\n");
+        for (ResourceModuleRequest r : ctx.getRequest().getResources()) {
+            block.append("    - serviceName: ").append(r.getServiceName()).append("\n");
+            block.append("      routePrefix: ").append(routePrefix(r)).append("\n");
+            block.append("      label: ").append(r.getClassName()).append("\n");
+            block.append("      role: ").append(roleName(r)).append("\n");
+        }
+        String newText = text.replaceAll("(?ms)^client:.*\\z",
+                Matcher.quoteReplacement(block.toString().stripTrailing() + "\n"));
+        return new GeneratedFile(f.path(), newText.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 
     private String firstPackage(String text) {
