@@ -1,0 +1,29 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administration — admin-application</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <h1>Administration</h1>
+  <p>Connecté : <span th:text="${username}">user</span></p>
+  <h2>Vos rôles</h2>
+  <ul>
+    <li th:each="role : ${roles}" th:text="${role}">ROLE</li>
+  </ul>
+  <h2>Gestion</h2>
+  <ul class="links">
+    <li><a th:href="@{/users}">Utilisateurs</a></li>
+    <li>Rôles <em>(à venir — 3c)</em></li>
+  </ul>
+  <form th:action="@{/logout}" method="post">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    <button type="submit">Se déconnecter</button>
+  </form>
+</main>
+</body>
+</html>

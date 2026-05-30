@@ -1,0 +1,29 @@
+server:
+  port: ${ADMIN_APP_PORT:9300}
+spring:
+  application:
+    name: admin-application
+  session:
+    store-type: redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  thymeleaf:
+    cache: false
+gateway:
+  url: ${GATEWAY_URL:http://localhost:9000}
+keycloak:
+  internal-url: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}
+  realm: ms-realm
+  admin-username: ${KEYCLOAK_ADMIN:admin}
+  admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
