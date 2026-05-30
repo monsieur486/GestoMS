@@ -135,6 +135,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         modules.add("ms-eureka");
         modules.add("ms-gateway");
         modules.add("ms-auth");                 // keycloak permanent
+        modules.add("admin-application");        // toujours installé
         if (!hasResources) {
             modules.add("service-a");
             modules.add("service-b");
@@ -525,6 +526,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("wait_for 'service-consumer' routed_up service-consumer/api/aggregate\n");
         if (feat.isSpringbootAdmin()) sb.append("wait_for 'ms-admin' curl -fs http://localhost:9100\n");
         if (feat.isClientWebUI()) sb.append("wait_for 'ms-client' curl -fs http://localhost:8090/login\n");
+        sb.append("wait_for 'admin-application' curl -fs http://localhost:9300/login\n"); // toujours installé
         sb.append("echo 'Stack is ready.'\n");
         sb.append("echo\n\n");
 
@@ -573,6 +575,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("curl -fs http://localhost:8761 >/dev/null && echo 'Eureka OK'\n");
         if (feat.isSpringbootAdmin()) sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
         if (feat.isClientWebUI()) sb.append("curl -fs http://localhost:8090/login >/dev/null && echo 'Client OK'\n");
+        sb.append("curl -fs http://localhost:9300/login >/dev/null && echo 'Admin-app OK'\n"); // toujours installé
         sb.append("\n");
 
         sb.append("echo 'Testing service-consumer aggregation...'\n");

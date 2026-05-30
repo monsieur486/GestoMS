@@ -83,6 +83,9 @@ class CrossCuttingConfigProcessorTest {
         "  ms-auth:\n" +
         "    build: ./ms-auth\n" +
         "\n" +
+        "  admin-application:\n" +
+        "    build: ./admin-application\n" +
+        "\n" +
         "volumes:\n" +
         "  keycloak_db_data:\n" +
         "  redis_data:\n" +
@@ -163,6 +166,26 @@ class CrossCuttingConfigProcessorTest {
                        .contains("<module>service-consumer</module>")
                        .contains("<module>service-batch</module>")
                        .contains("<module>ms-auth</module>");
+    }
+
+    @Test
+    void root_pom_always_includes_admin_application() {
+        // sans features ni resources
+        List<GeneratedFile> a = processor.process(sampleFiles(), defaultCtx());
+        assertThat(contentOf(a.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow()))
+                .contains("<module>admin-application</module>");
+        // avec resources
+        List<GeneratedFile> b = processor.process(sampleFiles(),
+                ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES)));
+        assertThat(contentOf(b.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow()))
+                .contains("<module>admin-application</module>");
+    }
+
+    @Test
+    void compose_always_keeps_admin_application_block() {
+        List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        assertThat(compose).contains("  admin-application:");
     }
 
     @Test

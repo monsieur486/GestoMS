@@ -219,6 +219,18 @@ services:
       REDIS_HOST: redis
     ports: ["9200:9200"]
 
+  admin-application:
+    build: ./admin-application
+    env_file: [.env]
+    depends_on: [ms-eureka, ms-gateway, keycloak, redis, ms-auth]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+      REDIS_HOST: redis
+      GATEWAY_URL: http://ms-gateway:9000
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      ADMIN_APP_PORT: 9300
+    ports: ["9300:9300"]
+
 volumes:
   keycloak_db_data:
   redis_data:
