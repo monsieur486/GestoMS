@@ -1,0 +1,45 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rôles — admin-application</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <p><a th:href="@{/users}">← Utilisateurs</a></p>
+  <p th:if="${error}" class="error" th:text="${error}">erreur</p>
+  <p th:if="${param.error}" class="error">Keycloak indisponible.</p>
+  <div th:if="${user}">
+    <h1>Rôles de <span th:text="${user.username}">user</span></h1>
+
+    <h2>Rôles actuels</h2>
+    <ul>
+      <li th:each="r : ${userRoles}">
+        <span th:text="${r.name}">ROLE</span>
+        <form th:unless="${r.name == 'ADMIN' and user.username == currentUsername}"
+              th:action="@{/users/{id}/roles/remove(id=${userId})}" method="post" style="display:inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="roleName" th:value="${r.name}"/>
+          <button type="submit">Retirer</button>
+        </form>
+      </li>
+    </ul>
+
+    <h2>Assigner un rôle</h2>
+    <ul>
+      <li th:each="r : ${assignableRoles}">
+        <span th:text="${r.name}">ROLE</span>
+        <form th:action="@{/users/{id}/roles/add(id=${userId})}" method="post" style="display:inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="roleName" th:value="${r.name}"/>
+          <button type="submit">Assigner</button>
+        </form>
+      </li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>
