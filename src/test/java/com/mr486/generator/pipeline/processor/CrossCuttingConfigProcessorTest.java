@@ -69,6 +69,7 @@ class CrossCuttingConfigProcessorTest {
         "\n" +
         "  service-consumer:\n" +
         "    build: ./service-consumer\n" +
+        "    depends_on: [ms-eureka, keycloak, rabbitmq, redis]\n" +
         "\n" +
         "  service-batch:\n" +
         "    build: ./service-batch\n" +
@@ -310,6 +311,25 @@ class CrossCuttingConfigProcessorTest {
         assertThat(compose).contains("  keycloak_db_data:")
                            .contains("  redis_data:")
                            .contains("  order_service_db_data:");
+    }
+
+    @Test
+    void compose_cleans_dangling_depends_on_when_rabbitmq_disabled() {
+        FeatureOptions f = new FeatureOptions(); f.setRabbitmq(false);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        // service-consumer's depends_on must no longer mention the removed rabbitmq service
+        assertThat(compose).contains("depends_on: [ms-eureka, keycloak, redis]");
+        assertThat(compose).doesNotContain("depends_on: [ms-eureka, keycloak, rabbitmq, redis]");
+    }
+
+    @Test
+    void compose_cleans_dangling_depends_on_when_keycloak_disabled() {
+        FeatureOptions f = new FeatureOptions(); f.setKeycloak(false);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        // No remaining depends_on line should reference keycloak
+        assertThat(compose).doesNotContain(", keycloak,").doesNotContain(", keycloak]").doesNotContain("[keycloak,").doesNotContain("[keycloak]");
     }
 
     @Test

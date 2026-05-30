@@ -174,6 +174,11 @@ public class ResourceExpandProcessor implements FileProcessor {
                     "driver-class-name: org.h2.Driver\n  h2:\n    console:\n      enabled: true");
             }
         }
+        if (path.contains("/db/changelog/") && path.endsWith(".sql")) {
+            // H2 (even with MODE=PostgreSQL) does not support ON CONFLICT — Liquibase changeset
+            // history already prevents duplicate runs, so the clause is safe to drop.
+            text = text.replaceAll(" ON CONFLICT\\([^)]+\\) DO NOTHING", "");
+        }
         return text.getBytes(StandardCharsets.UTF_8);
     }
 

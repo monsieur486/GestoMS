@@ -79,14 +79,42 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     private GeneratedFile rewriteCompose(GeneratedFile f, GenerationContext ctx) {
         if (containsNullByte(f.content())) return f;
         String text = new String(f.content(), StandardCharsets.UTF_8);
-        for (String block : blocksToRemove(ctx)) {
+        List<String> removedBlocks = blocksToRemove(ctx);
+        for (String block : removedBlocks) {
             text = removeServiceBlock(text, block);
         }
+        text = cleanDependsOnReferences(text, removedBlocks);
         for (String vol : volumesToRemove(ctx)) {
             text = removeVolumeEntry(text, vol);
         }
         text = addResourceBlocks(text, ctx);
         return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
+    }
+
+    /**
+     * For every `depends_on: [a, b, c]` line, drop entries that match a removed service.
+     * Only handles the inline-array form; multi-line `depends_on:\n  x:\n    condition: ...`
+     * is left untouched (in this template it appears only for keycloak depending on keycloak-db,
+     * which is removed as a whole block when keycloak=false).
+     */
+    private String cleanDependsOnReferences(String text, List<String> removedBlocks) {
+        if (removedBlocks.isEmpty()) return text;
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile("(depends_on: \\[)([^\\]]+)(\\])");
+        java.util.regex.Matcher m = p.matcher(text);
+        StringBuffer sb = new StringBuffer();
+        while (m.find()) {
+            String[] deps = m.group(2).split(",\\s*");
+            List<String> kept = new ArrayList<>();
+            for (String dep : deps) {
+                String trimmed = dep.trim();
+                if (!removedBlocks.contains(trimmed)) kept.add(trimmed);
+            }
+            m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(
+                m.group(1) + String.join(", ", kept) + m.group(3)
+            ));
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     private List<String> volumesToRemove(GenerationContext ctx) {
