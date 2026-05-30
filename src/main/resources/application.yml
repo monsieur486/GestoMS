@@ -1,0 +1,15 @@
+platform:
+  versions:
+    java-image: eclipse-temurin:17-jre
+    spring-boot: 3.5.5
+    spring-cloud: 2025.0.0
+    mongock: 5.5.1
+    spring-boot-admin: 3.5.5
+    postgres: "16"
+    keycloak: 26.5.6
+    rabbitmq: 3.13-management
+    redis: 7-alpine
+    mongo: "7"
+    loki: 3.2.1
+    promtail: 3.2.1
+    grafana: 11.2.2
