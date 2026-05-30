@@ -76,6 +76,17 @@ services:
       EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
     ports: ["9100:9100"]
 
+  ms-client:
+    build: ./ms-client
+    env_file: [.env]
+    depends_on: [ms-eureka, ms-gateway, redis, ms-auth]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+      REDIS_HOST: redis
+      GATEWAY_URL: http://ms-gateway:9000
+      MS_CLIENT_PORT: 8090
+    ports: ["8090:8090"]
+
   service-a-db:
     image: postgres:16
     env_file: [.env]
