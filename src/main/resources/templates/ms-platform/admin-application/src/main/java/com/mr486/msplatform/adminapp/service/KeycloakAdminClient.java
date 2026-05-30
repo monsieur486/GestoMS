@@ -10,8 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -53,6 +55,43 @@ public class KeycloakAdminClient {
         }
     }
 
+    public void createUser(String username, String email, String firstName, String lastName, String password) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(adminToken());
+        Map<String, Object> credential = Map.of("type", "password", "value", password, "temporary", false);
+        Map<String, Object> body = new HashMap<>();
+        body.put("username", username);
+        body.put("email", email);
+        body.put("firstName", firstName);
+        body.put("lastName", lastName);
+        body.put("enabled", true);
+        body.put("credentials", List.of(credential));
+        try {
+            restTemplate.postForEntity(internalUrl + "/admin/realms/" + realm + "/users",
+                    new HttpEntity<>(body, headers), Void.class);
+        } catch (HttpClientErrorException.Conflict e) {
+            throw new UserConflictException();
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public void deleteUser(String id) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(adminToken());
+        try {
+            restTemplate.exchange(internalUrl + "/admin/realms/" + realm + "/users/" + id,
+                    HttpMethod.DELETE, new HttpEntity<>(headers), Void.class);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
     @SuppressWarnings("rawtypes")
     private String adminToken() {
         HttpHeaders headers = new HttpHeaders();
@@ -80,4 +119,6 @@ public class KeycloakAdminClient {
     }
 
     public static class KeycloakUnavailableException extends RuntimeException {}
+
+    public static class UserConflictException extends RuntimeException {}
 }
