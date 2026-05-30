@@ -34,4 +34,20 @@ class PlatformVersionsTest {
         assertThat(new PlatformVersions().getPostgres()).isEqualTo("16");
         assertThat(new PlatformVersions().getJavaImage()).isEqualTo("eclipse-temurin:17-jre");
     }
+
+    @org.junit.jupiter.api.Nested
+    @org.springframework.boot.test.context.SpringBootTest(
+        properties = {"platform.versions.postgres=99", "platform.versions.java-image=custom:tag"})
+    class OverrideBindingTest {
+
+        @org.springframework.beans.factory.annotation.Autowired
+        PlatformVersions versions;
+
+        @org.junit.jupiter.api.Test
+        void overridden_values_come_from_binding_not_field_defaults() {
+            // Si le binding YAML/properties était cassé, on retomberait sur les défauts ("16", "eclipse-temurin:17-jre").
+            org.assertj.core.api.Assertions.assertThat(versions.getPostgres()).isEqualTo("99");
+            org.assertj.core.api.Assertions.assertThat(versions.getJavaImage()).isEqualTo("custom:tag");
+        }
+    }
 }
