@@ -28,9 +28,10 @@ public class UsersController {
         model.addAttribute("search", search == null ? "" : search);
         model.addAttribute("page", page);
         try {
-            model.addAttribute("users", keycloakAdminClient.listUsers(search, first, size));
+            var users = keycloakAdminClient.listUsers(search, first, size);
             int total = keycloakAdminClient.countUsers(search);
             int totalPages = total == 0 ? 1 : (int) Math.ceil((double) total / size);
+            model.addAttribute("users", users);
             model.addAttribute("totalPages", totalPages);
             model.addAttribute("hasPrev", page > 0);
             model.addAttribute("hasNext", (page + 1) < totalPages);
