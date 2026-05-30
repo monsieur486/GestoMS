@@ -139,7 +139,7 @@ Retiré : `keycloak_db_data`, `redis_data` (keycloak/redis permanents).
 Les modules `ms-client` et `admin-application` n'existent pas encore dans le template en Phase 1.
 Pour éviter toute référence orpheline, la Phase 1 ne câble dans `CrossCuttingConfigProcessor` que ce qui
 a un support réel dans le template du jour. La logique `springbootAdmin`/`clientWebUI` vit dès la Phase 1 dans
-les DTOs et le filtre (un `client=true` ne fait simplement rien tant que le module n'existe pas), mais le
+les DTOs et le filtre (un `clientWebUI=true` ne fait simplement rien tant que le module n'existe pas), mais le
 processor transverse ne référence `ms-client`/`admin-application` qu'à partir de leur phase. Chaque phase
 reste verte (`mvn package` du projet généré OK).
 
@@ -167,7 +167,7 @@ reste verte (`mvn package` du projet généré OK).
 - `docker compose config` valide le `docker-compose.yml` ;
 - observability présente (grafana=true), service-batch présent, ms-admin présent ;
 - keycloak/ms-auth/redis/rabbitmq toujours présents ;
-- `client=true` n'a encore aucun effet (normal en Phase 1).
+- `clientWebUI=true` n'a encore aucun effet (normal en Phase 1).
 
 Vérification faite sur le **zip réellement servi par l'endpoint** (pas seulement la sortie statique), en
 prenant garde au piège connu : un serveur `java -jar` zombie sur le port 8080 sert un jar périmé — lancer
