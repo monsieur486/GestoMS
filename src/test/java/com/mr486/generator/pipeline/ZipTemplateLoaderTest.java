@@ -34,6 +34,15 @@ class ZipTemplateLoaderTest {
     }
 
     @Test
+    void template_has_no_dev_artifacts() {
+        List<GeneratedFile> files = loader.load();
+        assertThat(files).noneMatch(f -> f.path().contains("/benchmark-results/"));
+        assertThat(files).noneMatch(f -> f.path().endsWith("/apply-v5.5-step1-loki-promtail.sh"));
+        assertThat(files).noneMatch(f -> f.path().endsWith("/go.sh"));
+        assertThat(files).noneMatch(f -> f.path().contains(".kate-swp"));
+    }
+
+    @Test
     void marks_mvnw_as_executable() {
         List<GeneratedFile> files = loader.load();
         // Verify that if mvnw exists in the template, it should be marked executable

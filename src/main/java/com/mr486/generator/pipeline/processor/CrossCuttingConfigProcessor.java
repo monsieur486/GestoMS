@@ -1,5 +1,9 @@
 package com.mr486.generator.pipeline.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mr486.generator.dto.BatchOptions;
 import com.mr486.generator.dto.DatabaseType;
 import com.mr486.generator.dto.FeatureOptions;
@@ -14,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,20 +39,68 @@ import java.util.regex.Pattern;
 @Order(60)
 public class CrossCuttingConfigProcessor implements FileProcessor {
 
+    private final ObjectMapper mapper = new ObjectMapper();
+
     @Override
     public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
         String rootPomPath  = ctx.getTargetRoot() + "/pom.xml";
         String composePath  = ctx.getTargetRoot() + "/docker-compose.yml";
         String gatewayYml   = ctx.getTargetRoot() + "/ms-gateway/src/main/resources/application.yml";
+        boolean hasResources = hasResources(ctx);
 
         List<GeneratedFile> result = new ArrayList<>(files.size());
         for (GeneratedFile f : files) {
             if (f.path().equals(rootPomPath))      result.add(rewriteRootPom(f, ctx));
             else if (f.path().equals(composePath)) result.add(rewriteCompose(f, ctx));
             else if (f.path().equals(gatewayYml))  result.add(rewriteGatewayYml(f, ctx));
+            else if (hasResources && f.path().endsWith("/keycloak/import/ms-realm-realm.json"))
+                                                    result.add(rewriteRealm(f, ctx));
+            else if (hasResources && f.path().endsWith("/test-all.sh"))
+                                                    result.add(rewriteTestAll(f, ctx));
+            else if (hasResources && f.path().contains("/service-consumer/") && f.path().endsWith("AggregateController.java"))
+                                                    result.add(rewriteAggregate(f, ctx));
             else                                    result.add(f);
         }
         return result;
+    }
+
+    private boolean hasResources(GenerationContext ctx) {
+        List<ResourceModuleRequest> r = ctx.getRequest().getResources();
+        return r != null && !r.isEmpty();
+    }
+
+    // ── Per-resource naming helpers ───────────────────────────────────────────
+
+    private String roleName(ResourceModuleRequest r) {
+        return "USER_" + r.getServiceName().replace("-", "_").toUpperCase();
+    }
+
+    private String tokenVar(ResourceModuleRequest r) {
+        return "TOKEN_" + r.getServiceName().replace("-", "_").toUpperCase();
+    }
+
+    private String testUser(ResourceModuleRequest r) {
+        return "test-" + r.getServiceName();
+    }
+
+    /** routePrefix as requested, else the ResourceExpandProcessor default {@code /api/<class>s}. */
+    private String routePrefix(ResourceModuleRequest r) {
+        String p = r.getRoutePrefix();
+        if (p != null && !p.isBlank()) return p;
+        return "/api/" + r.getClassName().toLowerCase() + "s";
+    }
+
+    /** Full gateway URL a client hits: {@code $GATEWAY_URL/<service><routePrefix>} (Path=/<service>/** + StripPrefix=1). */
+    private String gatewayUrl(ResourceModuleRequest r) {
+        return "$GATEWAY_URL/" + r.getServiceName() + routePrefix(r);
+    }
+
+    private String pascalCase(String kebab) {
+        StringBuilder sb = new StringBuilder();
+        for (String part : kebab.split("[-_]")) {
+            if (!part.isEmpty()) sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1).toLowerCase());
+        }
+        return sb.toString();
     }
 
     // ── Root pom <modules> ────────────────────────────────────────────────────
@@ -390,6 +443,269 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             if (i < lines.length - 1) out.append("\n");
         }
         return out.toString();
+    }
+
+    // ── Keycloak realm (roles + test users per resource) ──────────────────────
+
+    private static final Set<String> DEFAULT_SERVICE_ROLES = Set.of("USER_SERVICE_A", "USER_SERVICE_B", "USER_SERVICE_C");
+    private static final Set<String> DEFAULT_SERVICE_USERS = Set.of("test-service-a", "test-service-b", "test-service-c");
+
+    private GeneratedFile rewriteRealm(GeneratedFile f, GenerationContext ctx) {
+        if (containsNullByte(f.content())) return f;
+        List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
+        try {
+            ObjectNode root = (ObjectNode) mapper.readTree(f.content());
+
+            // roles.realm: drop the three demo service roles, add one per resource
+            ArrayNode roles = (ArrayNode) root.path("roles").path("realm");
+            for (int i = roles.size() - 1; i >= 0; i--) {
+                if (DEFAULT_SERVICE_ROLES.contains(roles.get(i).path("name").asText())) roles.remove(i);
+            }
+            for (ResourceModuleRequest r : resources) {
+                roles.add(mapper.createObjectNode().put("name", roleName(r)));
+            }
+
+            // users: drop demo service users, re-point test-admin's roles
+            ArrayNode users = (ArrayNode) root.get("users");
+            for (int i = users.size() - 1; i >= 0; i--) {
+                ObjectNode u = (ObjectNode) users.get(i);
+                String username = u.path("username").asText();
+                if (DEFAULT_SERVICE_USERS.contains(username)) { users.remove(i); continue; }
+                if ("test-admin".equals(username)) {
+                    ArrayNode rr = (ArrayNode) u.get("realmRoles");
+                    for (int j = rr.size() - 1; j >= 0; j--) {
+                        if (DEFAULT_SERVICE_ROLES.contains(rr.get(j).asText())) rr.remove(j);
+                    }
+                    for (ResourceModuleRequest r : resources) rr.add(roleName(r));
+                }
+            }
+            // add one test user per resource
+            for (ResourceModuleRequest r : resources) users.add(buildRealmUser(r));
+
+            byte[] out = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
+            return new GeneratedFile(f.path(), out, f.executable());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to rewrite Keycloak realm " + f.path(), e);
+        }
+    }
+
+    private ObjectNode buildRealmUser(ResourceModuleRequest r) {
+        ObjectNode u = mapper.createObjectNode();
+        u.put("username", testUser(r));
+        u.put("enabled", true);
+        u.put("emailVerified", true);
+        u.put("firstName", "Test");
+        u.put("lastName", pascalCase(r.getServiceName()));
+        u.put("email", r.getServiceName() + "@example.local");
+        u.set("requiredActions", mapper.createArrayNode());
+        ArrayNode creds = mapper.createArrayNode();
+        creds.add(mapper.createObjectNode().put("type", "password").put("value", "user123").put("temporary", false));
+        u.set("credentials", creds);
+        ArrayNode rr = mapper.createArrayNode();
+        rr.add(roleName(r));
+        u.set("realmRoles", rr);
+        return u;
+    }
+
+    // ── test-all.sh (role matrix + URLs derived from resources[]) ─────────────
+
+    private GeneratedFile rewriteTestAll(GeneratedFile f, GenerationContext ctx) {
+        PlatformGenerationRequest req = ctx.getRequest();
+        List<ResourceModuleRequest> resources = req.getResources();
+        FeatureOptions feat = req.getFeatures();
+        BatchOptions batch = req.getBatch();
+        boolean batchEnabled = feat.isRabbitmq() && batch != null && batch.isEnabled();
+
+        StringBuilder sb = new StringBuilder(TEST_ALL_PROLOGUE);
+
+        sb.append("echo 'Getting tokens via ms-auth...'\n");
+        sb.append("ADMIN_LOGIN=$(auth_login test-admin admin123)\n");
+        sb.append("TOKEN_ADMIN=$(echo \"$ADMIN_LOGIN\" | jq -r '.access_token // empty')\n");
+        sb.append("OPAQUE_ADMIN=$(echo \"$ADMIN_LOGIN\" | jq -r '.opaque_refresh_token // empty')\n\n");
+        sb.append("BATCH_LOGIN=$(auth_login test-batch user123)\n");
+        sb.append("TOKEN_BATCH=$(echo \"$BATCH_LOGIN\" | jq -r '.access_token // empty')\n\n");
+        for (ResourceModuleRequest r : resources) {
+            String var = tokenVar(r);
+            sb.append(var).append("_LOGIN=$(auth_login ").append(testUser(r)).append(" user123)\n");
+            sb.append(var).append("=$(echo \"$").append(var).append("_LOGIN\" | jq -r '.access_token // empty')\n\n");
+        }
+
+        sb.append("check_token TOKEN_ADMIN ADMIN\n");
+        sb.append("check_token TOKEN_BATCH BATCH\n");
+        for (ResourceModuleRequest r : resources) {
+            sb.append("check_token ").append(tokenVar(r)).append(" ").append(tokenVar(r).substring("TOKEN_".length())).append("\n");
+        }
+        sb.append("\n");
+
+        sb.append("cat > tokens.env <<TEOF\n");
+        sb.append("TOKEN_ADMIN=${TOKEN_ADMIN}\n");
+        sb.append("TOKEN_BATCH=${TOKEN_BATCH}\n");
+        for (ResourceModuleRequest r : resources) {
+            sb.append(tokenVar(r)).append("=${").append(tokenVar(r)).append("}\n");
+        }
+        sb.append("TEOF\n");
+        sb.append("chmod 600 tokens.env\n\n");
+
+        sb.append("echo 'Testing resource role matrix...'\n");
+        for (ResourceModuleRequest target : resources) {
+            String url = gatewayUrl(target);
+            sb.append(assertHttp("ADMIN can access " + target.getServiceName(), "200", "$TOKEN_ADMIN", url));
+            sb.append(assertHttp(target.getServiceName() + " user can access own resource", "200", "$" + tokenVar(target), url));
+            for (ResourceModuleRequest other : resources) {
+                if (other == target) continue;
+                sb.append(assertHttp(other.getServiceName() + " user cannot access " + target.getServiceName(),
+                                     "403", "$" + tokenVar(other), url));
+            }
+            sb.append("\n");
+        }
+
+        sb.append("echo 'Testing infrastructure...'\n");
+        sb.append("curl -fs http://localhost:8761 >/dev/null && echo 'Eureka OK'\n");
+        if (feat.isAdmin()) sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
+        sb.append("\n");
+
+        sb.append("echo 'Testing service-consumer aggregation...'\n");
+        sb.append("AGG_RESPONSE=$(curl -s \\\n  -H \"Authorization: Bearer $TOKEN_ADMIN\" \\\n  \"$GATEWAY_URL/service-consumer/api/aggregate\")\n\n");
+        sb.append("AGG_STATUS=$(curl -s -o /tmp/aggregate-response.txt -w \"%{http_code}\" \\\n  -H \"Authorization: Bearer $TOKEN_ADMIN\" \\\n  \"$GATEWAY_URL/service-consumer/api/aggregate\")\n\n");
+        sb.append("if [ \"$AGG_STATUS\" != \"200\" ]; then\n  echo \"FAIL ADMIN aggregate expected 200 got $AGG_STATUS\"\n  cat /tmp/aggregate-response.txt\n  exit 1\nfi\n");
+        sb.append("echo 'OK ADMIN aggregate -> 200'\n");
+        for (ResourceModuleRequest r : resources) {
+            sb.append("assert_contains 'aggregate response' \"$AGG_RESPONSE\" '").append(r.getServiceName()).append("'\n");
+        }
+        sb.append("\n");
+
+        ResourceModuleRequest first = resources.get(0);
+        String firstUrl = gatewayUrl(first);
+        if (batchEnabled) {
+            sb.append("echo 'Testing batch jobs...'\n");
+            sb.append(assertHttp("BATCH user cannot access " + first.getServiceName(), "403", "$TOKEN_BATCH", firstUrl));
+            sb.append(assertHttp("BATCH job accepted", "202", "$TOKEN_BATCH", "$GATEWAY_URL/service-consumer/api/users/1/batch-jobs", "POST"));
+            sb.append("\n");
+        }
+
+        sb.append("echo 'Testing refresh token...'\n");
+        sb.append("REFRESH_RESPONSE=$(auth_refresh \"$OPAQUE_ADMIN\")\n");
+        sb.append("TOKEN_ADMIN_REFRESHED=$(echo \"$REFRESH_RESPONSE\" | jq -r '.access_token // empty')\n");
+        sb.append("if [ -z \"$TOKEN_ADMIN_REFRESHED\" ]; then\n  echo \"FAIL refresh token — no access_token in response\"\n  echo \"$REFRESH_RESPONSE\"\n  exit 1\nfi\n");
+        sb.append("echo \"OK refresh token -> new access_token received\"\n");
+        sb.append(assertHttp("Refreshed token works on " + first.getServiceName(), "200", "$TOKEN_ADMIN_REFRESHED", firstUrl));
+        sb.append("\n");
+
+        sb.append("echo 'Testing logout and blacklist...'\n");
+        sb.append("LOGOUT_LOGIN=$(auth_login ").append(testUser(first)).append(" user123)\n");
+        sb.append("LOGOUT_ACCESS=$(echo \"$LOGOUT_LOGIN\" | jq -r '.access_token // empty')\n");
+        sb.append("LOGOUT_OPAQUE=$(echo \"$LOGOUT_LOGIN\" | jq -r '.opaque_refresh_token // empty')\n\n");
+        sb.append(assertHttp("Token works before logout", "200", "$LOGOUT_ACCESS", firstUrl));
+        sb.append("LOGOUT_STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" \\\n  -X POST \"$GATEWAY_URL/auth/logout\" \\\n  -H \"Authorization: Bearer $LOGOUT_ACCESS\" \\\n  -H \"Content-Type: application/json\" \\\n  -d \"{\\\"opaque_refresh_token\\\":\\\"$LOGOUT_OPAQUE\\\"}\")\n");
+        sb.append("if [ \"$LOGOUT_STATUS\" != \"204\" ]; then\n  echo \"FAIL logout expected 204 got $LOGOUT_STATUS\"\n  exit 1\nfi\n");
+        sb.append("echo \"OK logout -> 204\"\n");
+        sb.append(assertHttp("Blacklisted token rejected by gateway", "401", "$LOGOUT_ACCESS", firstUrl));
+        sb.append("STALE_REFRESH_STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" \\\n  -X POST \"$GATEWAY_URL/auth/refresh\" \\\n  -H \"Content-Type: application/json\" \\\n  -d \"{\\\"opaque_refresh_token\\\":\\\"$LOGOUT_OPAQUE\\\"}\")\n");
+        sb.append("if [ \"$STALE_REFRESH_STATUS\" != \"401\" ]; then\n  echo \"FAIL stale refresh expected 401 got $STALE_REFRESH_STATUS\"\n  exit 1\nfi\n");
+        sb.append("echo \"OK stale refresh token -> 401\"\n\n");
+
+        sb.append("echo 'All tests passed. tokens.env generated.'\n");
+
+        return new GeneratedFile(f.path(), sb.toString().getBytes(StandardCharsets.UTF_8), f.executable());
+    }
+
+    private String assertHttp(String label, String expected, String token, String url) {
+        return assertHttp(label, expected, token, url, "GET");
+    }
+
+    private String assertHttp(String label, String expected, String token, String url, String method) {
+        return "assert_http '" + label + "' " + expected + " " + method + " \"" + token + "\" \"" + url + "\"\n";
+    }
+
+    private static final String TEST_ALL_PROLOGUE =
+        "#!/usr/bin/env bash\n" +
+        "set -euo pipefail\n\n" +
+        "KEYCLOAK_URL=${KEYCLOAK_URL:-http://localhost:8089}\n" +
+        "GATEWAY_URL=${GATEWAY_URL:-http://localhost:9000}\n\n" +
+        "auth_login(){\n" +
+        "  curl -s -X POST \"$GATEWAY_URL/auth/login\" \\\n" +
+        "    -H \"Content-Type: application/json\" \\\n" +
+        "    -d \"{\\\"username\\\":\\\"$1\\\",\\\"password\\\":\\\"$2\\\"}\"\n" +
+        "}\n\n" +
+        "auth_refresh(){\n" +
+        "  curl -s -X POST \"$GATEWAY_URL/auth/refresh\" \\\n" +
+        "    -H \"Content-Type: application/json\" \\\n" +
+        "    -d \"{\\\"opaque_refresh_token\\\":\\\"$1\\\"}\"\n" +
+        "}\n\n" +
+        "check_token(){\n" +
+        "  if [ -z \"${!1}\" ]; then\n" +
+        "    echo \"Unable to get $2 token\"\n" +
+        "    exit 1\n" +
+        "  fi\n" +
+        "}\n\n" +
+        "assert_http(){\n" +
+        "  local label=$1\n" +
+        "  local expected=$2\n" +
+        "  local method=$3\n" +
+        "  local token=$4\n" +
+        "  local url=$5\n\n" +
+        "  local response_file\n" +
+        "  response_file=$(mktemp)\n\n" +
+        "  local status\n" +
+        "  status=$(curl -s -o \"$response_file\" -w \"%{http_code}\" \\\n" +
+        "    -X \"$method\" \\\n" +
+        "    -H \"Authorization: Bearer $token\" \\\n" +
+        "    \"$url\")\n\n" +
+        "  if [ \"$status\" = \"$expected\" ]; then\n" +
+        "    echo \"OK $label -> $status\"\n" +
+        "  else\n" +
+        "    echo \"FAIL $label expected $expected got $status\"\n" +
+        "    cat \"$response_file\"\n" +
+        "    rm -f \"$response_file\"\n" +
+        "    exit 1\n" +
+        "  fi\n\n" +
+        "  rm -f \"$response_file\"\n" +
+        "}\n\n" +
+        "assert_contains(){\n" +
+        "  local label=$1\n" +
+        "  local haystack=$2\n" +
+        "  local needle=$3\n\n" +
+        "  if echo \"$haystack\" | grep -q \"$needle\"; then\n" +
+        "    echo \"OK $label contains $needle\"\n" +
+        "  else\n" +
+        "    echo \"FAIL $label missing $needle\"\n" +
+        "    echo \"$haystack\"\n" +
+        "    exit 1\n" +
+        "  fi\n" +
+        "}\n\n";
+
+    // ── service-consumer AggregateController (zip over N resources) ────────────
+
+    private GeneratedFile rewriteAggregate(GeneratedFile f, GenerationContext ctx) {
+        if (containsNullByte(f.content())) return f;
+        String original = new String(f.content(), StandardCharsets.UTF_8);
+        String pkg = firstPackage(original);
+        List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
+
+        StringBuilder calls = new StringBuilder();
+        StringBuilder puts = new StringBuilder();
+        for (int i = 0; i < resources.size(); i++) {
+            ResourceModuleRequest r = resources.get(i);
+            if (i > 0) calls.append(",");
+            calls.append("webClientBuilder.build().get().uri(\"lb://").append(r.getServiceName()).append(routePrefix(r))
+                 .append("\").header(HttpHeaders.AUTHORIZATION, authorization).retrieve().bodyToMono(String.class)");
+            puts.append("result.put(\"").append(r.getServiceName()).append("\",(String)results[").append(i).append("]);");
+        }
+
+        String body =
+            "package " + pkg + ";\n" +
+            "import lombok.RequiredArgsConstructor;import org.springframework.http.HttpHeaders;import org.springframework.security.access.prepost.PreAuthorize;import org.springframework.web.bind.annotation.*;import org.springframework.web.reactive.function.client.WebClient;import reactor.core.publisher.Mono;import java.util.*;\n" +
+            "@RestController @RequiredArgsConstructor @RequestMapping(\"/api\")\n" +
+            "public class AggregateController{ private final WebClient.Builder webClientBuilder; @GetMapping(\"/aggregate\") @PreAuthorize(\"hasRole('ADMIN')\") public Mono<Map<String,String>> aggregate(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization){ return Mono.zip(List.of(" + calls + "), results->{ Map<String,String> result=new LinkedHashMap<>(); " + puts + " return result; }); }}";
+        return new GeneratedFile(f.path(), body.getBytes(StandardCharsets.UTF_8), f.executable());
+    }
+
+    private String firstPackage(String text) {
+        for (String line : text.split("\n", -1)) {
+            String t = line.trim();
+            if (t.startsWith("package ") && t.endsWith(";")) return t.substring("package ".length(), t.length() - 1).trim();
+        }
+        return "consumer.controller";
     }
 
     private boolean containsNullByte(byte[] content) {

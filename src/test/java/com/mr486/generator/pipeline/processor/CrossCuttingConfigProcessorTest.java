@@ -3,7 +3,10 @@ package com.mr486.generator.pipeline.processor;
 import com.mr486.generator.dto.*;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.zip.GeneratedFile;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import java.util.ArrayList;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
@@ -438,5 +441,174 @@ class CrossCuttingConfigProcessorTest {
         int orderIdx = compose.indexOf("  order-service:");
         int volumesSectionIdx = compose.indexOf("\nvolumes:");
         assertThat(orderIdx).isGreaterThan(0).isLessThan(volumesSectionIdx);
+    }
+
+    // ── Keycloak realm regeneration ──────────────────────────────────────────
+
+    private static final String REALM_PATH = "ms-platform/keycloak/import/ms-realm-realm.json";
+
+    private static final String SAMPLE_REALM =
+        "{\n" +
+        "  \"realm\": \"ms-realm\",\n" +
+        "  \"roles\": { \"realm\": [\n" +
+        "    {\"name\":\"USER_SERVICE_A\"},\n" +
+        "    {\"name\":\"USER_SERVICE_B\"},\n" +
+        "    {\"name\":\"USER_SERVICE_C\"},\n" +
+        "    {\"name\":\"USER_BATCH\"},\n" +
+        "    {\"name\":\"ADMIN\"},\n" +
+        "    {\"name\":\"SERVICE\"}\n" +
+        "  ] },\n" +
+        "  \"users\": [\n" +
+        "    {\"username\":\"test-admin\",\"credentials\":[{\"type\":\"password\",\"value\":\"admin123\",\"temporary\":false}],\"realmRoles\":[\"ADMIN\",\"USER_BATCH\",\"USER_SERVICE_A\",\"USER_SERVICE_B\",\"USER_SERVICE_C\"]},\n" +
+        "    {\"username\":\"test-batch\",\"credentials\":[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_BATCH\"]},\n" +
+        "    {\"username\":\"test-service-a\",\"credentials\":[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_SERVICE_A\"]},\n" +
+        "    {\"username\":\"test-service-b\",\"credentials\":[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_SERVICE_B\"]},\n" +
+        "    {\"username\":\"test-service-c\",\"credentials\":[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_SERVICE_C\"]}\n" +
+        "  ]\n" +
+        "}\n";
+
+    private String realmOf(List<GeneratedFile> result) {
+        return contentOf(result.stream().filter(g -> g.path().endsWith("ms-realm-realm.json")).findFirst().orElseThrow());
+    }
+
+    private static JsonNode parse(String json) {
+        try { return new ObjectMapper().readTree(json); }
+        catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    private static JsonNode userNamed(JsonNode realm, String username) {
+        for (JsonNode u : realm.get("users")) if (username.equals(u.path("username").asText())) return u;
+        return null;
+    }
+
+    @Test
+    void realm_generates_role_and_user_per_resource() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(REALM_PATH, SAMPLE_REALM)),
+            ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES),
+                             res("product-service", "Product", DatabaseType.MONGO),
+                             res("inventory-service", "Item", DatabaseType.H2)));
+        String realm = realmOf(result);
+        assertThat(realm).contains("USER_ORDER_SERVICE", "USER_PRODUCT_SERVICE", "USER_INVENTORY_SERVICE");
+        assertThat(realm).doesNotContain("USER_SERVICE_A", "USER_SERVICE_B", "USER_SERVICE_C");
+        assertThat(realm).contains("test-order-service", "test-product-service", "test-inventory-service");
+        assertThat(realm).doesNotContain("test-service-a", "test-service-b", "test-service-c");
+    }
+
+    @Test
+    void realm_admin_user_gets_all_resource_roles() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(REALM_PATH, SAMPLE_REALM)),
+            ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES),
+                             res("product-service", "Product", DatabaseType.MONGO)));
+        JsonNode admin = userNamed(parse(realmOf(result)), "test-admin");
+        assertThat(admin).isNotNull();
+        List<String> roles = new ArrayList<>();
+        admin.get("realmRoles").forEach(n -> roles.add(n.asText()));
+        assertThat(roles).contains("ADMIN", "USER_BATCH", "USER_ORDER_SERVICE", "USER_PRODUCT_SERVICE")
+                         .doesNotContain("USER_SERVICE_A", "USER_SERVICE_B", "USER_SERVICE_C");
+    }
+
+    @Test
+    void realm_new_user_has_password_and_single_role() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(REALM_PATH, SAMPLE_REALM)),
+            ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES)));
+        JsonNode user = userNamed(parse(realmOf(result)), "test-order-service");
+        assertThat(user).isNotNull();
+        assertThat(user.get("credentials").get(0).get("value").asText()).isEqualTo("user123");
+        List<String> roles = new ArrayList<>();
+        user.get("realmRoles").forEach(n -> roles.add(n.asText()));
+        assertThat(roles).containsExactly("USER_ORDER_SERVICE");
+    }
+
+    @Test
+    void realm_untouched_when_no_resources() {
+        List<GeneratedFile> result = processor.process(List.of(file(REALM_PATH, SAMPLE_REALM)), defaultCtx());
+        assertThat(realmOf(result)).isEqualTo(SAMPLE_REALM);
+    }
+
+    // ── test-all.sh regeneration ─────────────────────────────────────────────
+
+    private static final String TESTALL_PATH = "ms-platform/test-all.sh";
+
+    private String testAllOf(List<GeneratedFile> result) {
+        return contentOf(result.stream().filter(g -> g.path().endsWith("/test-all.sh")).findFirst().orElseThrow());
+    }
+
+    @Test
+    void test_all_uses_resource_urls_and_users() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(TESTALL_PATH, "#!/usr/bin/env bash\nold service-a resources-a test-service-a\n", true)),
+            ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES),
+                             res("product-service", "Product", DatabaseType.MONGO),
+                             res("inventory-service", "Item", DatabaseType.H2)));
+        String s = testAllOf(result);
+        assertThat(s).contains("$GATEWAY_URL/order-service/api/orders")
+                     .contains("$GATEWAY_URL/product-service/api/products")
+                     .contains("$GATEWAY_URL/inventory-service/api/items")
+                     .contains("auth_login test-order-service");
+        assertThat(s).doesNotContain("resources-a").doesNotContain("/service-a/").doesNotContain("test-service-a");
+    }
+
+    @Test
+    void test_all_denies_cross_service_access() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(TESTALL_PATH, "old", true)),
+            ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES),
+                             res("product-service", "Product", DatabaseType.MONGO)));
+        String s = testAllOf(result);
+        assertThat(s).contains("403 GET \"$TOKEN_PRODUCT_SERVICE\" \"$GATEWAY_URL/order-service/api/orders\"");
+        assertThat(s).contains("200 GET \"$TOKEN_ADMIN\" \"$GATEWAY_URL/order-service/api/orders\"");
+        assertThat(s).contains("200 GET \"$TOKEN_ORDER_SERVICE\" \"$GATEWAY_URL/order-service/api/orders\"");
+    }
+
+    @Test
+    void test_all_preserves_executable_flag() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(TESTALL_PATH, "old", true)),
+            ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES)));
+        GeneratedFile f = result.stream().filter(g -> g.path().endsWith("/test-all.sh")).findFirst().orElseThrow();
+        assertThat(f.executable()).isTrue();
+    }
+
+    // ── AggregateController regeneration ─────────────────────────────────────
+
+    private static final String AGG_PATH =
+        "ms-platform/service-consumer/src/main/java/com/acme/shop/consumer/controller/AggregateController.java";
+
+    private static final String SAMPLE_AGG =
+        "package com.acme.shop.consumer.controller;\n" +
+        "import lombok.RequiredArgsConstructor;import org.springframework.web.bind.annotation.*;import reactor.core.publisher.Mono;import java.util.*;\n" +
+        "@RestController @RequiredArgsConstructor @RequestMapping(\"/api\")\n" +
+        "public class AggregateController{ return Mono.zip(uri(\"lb://service-a/api/resources-a\"),uri(\"lb://service-b/api/resources-b\")); }";
+
+    private String aggOf(List<GeneratedFile> result) {
+        return contentOf(result.stream().filter(g -> g.path().endsWith("AggregateController.java")).findFirst().orElseThrow());
+    }
+
+    @Test
+    void aggregate_zips_all_resource_services() {
+        List<GeneratedFile> result = processor.process(
+            List.of(file(AGG_PATH, SAMPLE_AGG)),
+            ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES),
+                             res("product-service", "Product", DatabaseType.MONGO),
+                             res("inventory-service", "Item", DatabaseType.H2)));
+        String s = aggOf(result);
+        assertThat(s).contains("package com.acme.shop.consumer.controller;");
+        assertThat(s).contains("Mono.zip(");
+        assertThat(s).contains("lb://order-service/api/orders")
+                     .contains("lb://product-service/api/products")
+                     .contains("lb://inventory-service/api/items");
+        assertThat(s).contains("result.put(\"order-service\"")
+                     .contains("result.put(\"product-service\"")
+                     .contains("result.put(\"inventory-service\"");
+        assertThat(s).doesNotContain("service-a").doesNotContain("resources-a");
+    }
+
+    @Test
+    void aggregate_untouched_when_no_resources() {
+        List<GeneratedFile> result = processor.process(List.of(file(AGG_PATH, SAMPLE_AGG)), defaultCtx());
+        assertThat(aggOf(result)).isEqualTo(SAMPLE_AGG);
     }
 }
