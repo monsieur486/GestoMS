@@ -1,0 +1,30 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accueil — ms-client</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <h1>Bienvenue, <span th:text="${username}">user</span></h1>
+  <h2>Vos rôles</h2>
+  <ul>
+    <li th:each="role : ${roles}" th:text="${role}">ROLE</li>
+  </ul>
+  <h2>Pages</h2>
+  <ul class="links">
+    <li>Page consumer <em>(à venir — 2b)</em></li>
+    <li>CRUD <em>(à venir — 2c)</em></li>
+    <li>Notifications batch <em>(à venir — 2d)</em></li>
+    <li>Chat <em>(à venir — 2e)</em></li>
+  </ul>
+  <form th:action="@{/logout}" method="post">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    <button type="submit">Se déconnecter</button>
+  </form>
+</main>
+</body>
+</html>
