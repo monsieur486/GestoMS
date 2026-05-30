@@ -95,6 +95,11 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         return "$GATEWAY_URL/" + r.getServiceName() + routePrefix(r);
     }
 
+    /** Path under the gateway (no host), as fed to the routed_up readiness probe. */
+    private String routePath(ResourceModuleRequest r) {
+        return r.getServiceName() + routePrefix(r);
+    }
+
     private String pascalCase(String kebab) {
         StringBuilder sb = new StringBuilder();
         for (String part : kebab.split("[-_]")) {
@@ -518,6 +523,20 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
         StringBuilder sb = new StringBuilder(TEST_ALL_PROLOGUE);
 
+        // Block until the whole stack actually serves, so this script can be run right after
+        // ./prod-start.sh (full startup ~60s). Probes are real signals: a successful admin login
+        // for ms-auth+Keycloak, and a routed 200/401/403 for each service (= registered in Eureka).
+        sb.append("echo 'Waiting for the full stack to be ready (~60s on first start)...'\n");
+        sb.append("wait_for 'ms-eureka' curl -fs http://localhost:8761\n");
+        if (feat.isKeycloak()) sb.append("wait_for 'ms-auth + keycloak' auth_ready\n");
+        for (ResourceModuleRequest r : resources) {
+            sb.append("wait_for '").append(r.getServiceName()).append("' routed_up ").append(routePath(r)).append("\n");
+        }
+        sb.append("wait_for 'service-consumer' routed_up service-consumer/api/aggregate\n");
+        if (feat.isAdmin()) sb.append("wait_for 'ms-admin' curl -fs http://localhost:9100\n");
+        sb.append("echo 'Stack is ready.'\n");
+        sb.append("echo\n\n");
+
         sb.append("echo 'Getting tokens via ms-auth...'\n");
         sb.append("ADMIN_LOGIN=$(auth_login test-admin admin123)\n");
         sb.append("TOKEN_ADMIN=$(echo \"$ADMIN_LOGIN\" | jq -r '.access_token // empty')\n");
@@ -622,6 +641,31 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         "set -euo pipefail\n\n" +
         "KEYCLOAK_URL=${KEYCLOAK_URL:-http://localhost:8089}\n" +
         "GATEWAY_URL=${GATEWAY_URL:-http://localhost:9000}\n\n" +
+        "WAIT_TIMEOUT=${WAIT_TIMEOUT:-180}\n" +
+        "WAIT_INTERVAL=${WAIT_INTERVAL:-3}\n\n" +
+        "wait_for(){\n" +
+        "  local label=$1; shift\n" +
+        "  local deadline=$(( SECONDS + WAIT_TIMEOUT ))\n" +
+        "  printf 'Waiting for %s ' \"$label\"\n" +
+        "  until \"$@\" >/dev/null 2>&1; do\n" +
+        "    if (( SECONDS >= deadline )); then\n" +
+        "      printf '\\nFAIL %s not ready after %ss\\n' \"$label\" \"$WAIT_TIMEOUT\"; exit 1\n" +
+        "    fi\n" +
+        "    printf '.'; sleep \"$WAIT_INTERVAL\"\n" +
+        "  done\n" +
+        "  printf ' OK\\n'\n" +
+        "}\n\n" +
+        "auth_ready(){\n" +
+        "  local t\n" +
+        "  t=$(curl -s -X POST \"$GATEWAY_URL/auth/login\" -H \"Content-Type: application/json\" \\\n" +
+        "        -d '{\"username\":\"test-admin\",\"password\":\"admin123\"}' | jq -r '.access_token // empty')\n" +
+        "  [ -n \"$t\" ]\n" +
+        "}\n\n" +
+        "routed_up(){\n" +
+        "  local code\n" +
+        "  code=$(curl -s -o /dev/null -w '%{http_code}' \"$GATEWAY_URL/$1\" || true)\n" +
+        "  [[ \"$code\" =~ ^(200|401|403)$ ]]\n" +
+        "}\n\n" +
         "auth_login(){\n" +
         "  curl -s -X POST \"$GATEWAY_URL/auth/login\" \\\n" +
         "    -H \"Content-Type: application/json\" \\\n" +
