@@ -55,26 +55,25 @@ java -jar target/*.jar
 | `batch` | object | see below | Configure `service-batch` runtime |
 | `resources` | array | `[]` | If non-empty, replaces `service-a/b/c` with custom services |
 
-#### `features` (defaults reflect the boxed platform)
+#### `features`
 
-| Field | Default | When `false` excludes |
-| ----- | ------- | --------------------- |
-| `keycloak` | `true` | `keycloak/`, `ms-auth/`, both `docker-compose` blocks + `keycloak_db_data` volume |
-| `redis` | `true` | `RedisConfig.java`, `RedisJobStore.java`, `RedisKeys.java`, `redis:` block, `redis_data` volume |
-| `rabbitmq` | `true` | `RabbitConfig.java`, `BatchNotificationListener.java`, `service-batch/`, `rabbitmq:` block |
-| `websocket` | `true` | `WebSocketConfig.java`, `batch-notifications.html` |
-| `admin` | `true` | `ms-admin/` (Spring Boot Admin) |
-| `grafana` | `false` | `observability/grafana/` |
-| `loki` | `false` | `observability/loki/`, `observability/promtail/` |
+Keycloak (+ `ms-auth`), Redis, RabbitMQ and WebSocket are **always installed** — they no longer have toggles. `admin-application` (the Keycloak users/roles admin UI, `ROLE_ADMIN`-only) is **always installed** too. Only the two modules below are optional; full observability (loki + promtail + grafana) is driven by `batch.grafana`.
+
+| Field | Default | When `true` includes |
+| ----- | ------- | -------------------- |
+| `springbootAdmin` | `false` | `ms-admin/` — Spring Boot Admin monitoring UI (`:9100`) |
+| `clientWebUI` | `false` | `ms-client/` — Thymeleaf BFF UI (`:8090`): login via ms-auth, consumer aggregate, generic CRUD, live batch notifications, public chat |
+
+Legacy/unknown flags (`keycloak`, `redis`, `rabbitmq`, `websocket`, `admin`, `grafana`, `loki`) are **ignored** — a request carrying them deserializes fine (Jackson `FAIL_ON_UNKNOWN_PROPERTIES=false`), it just loses those toggles.
 
 #### `batch` (defaults match the validated platform)
 
 ```json
-{ "enabled": true, "replicas": 4, "fileConcurrency": 5,
+{ "enabled": true, "grafana": false, "replicas": 4, "fileConcurrency": 5,
   "minDelayMs": 500, "maxDelayMs": 1500, "memoryLimit": "768m" }
 ```
 
-When `enabled: false`, `service-batch/` is excluded the same way as `rabbitmq: false`.
+When `enabled: false`, `service-batch/` (module + docker-compose block) is excluded. When `grafana: true`, the full observability stack is installed (`observability/` = loki + promtail + grafana, plus their compose blocks).
 
 #### `resources[]` (`ResourceModuleRequest`)
 
@@ -101,7 +100,7 @@ curl -X POST http://localhost:8080/api/generate/platform \
   --output ms-platform.zip
 ```
 
-This emits a complete platform with Keycloak + ms-auth + Eureka + Gateway + Admin + a single `order-service` backed by PostgreSQL, with `/api/orders` routes.
+This emits a complete platform with Keycloak + ms-auth + Eureka + Gateway + `admin-application` (always installed) + a single `order-service` backed by PostgreSQL, with `/api/orders` routes. `ms-admin` and `ms-client` are absent (both default off); observability is absent (`batch.grafana` default false).
 
 ### Full example — 3 services, all flags explicit
 
@@ -137,6 +136,7 @@ curl -X POST http://localhost:8080/api/generate/platform \
     ],
     "batch": {
       "enabled": true,
+      "grafana": true,
       "replicas": 4,
       "fileConcurrency": 5,
       "minDelayMs": 500,
@@ -144,17 +144,14 @@ curl -X POST http://localhost:8080/api/generate/platform \
       "memoryLimit": "768m"
     },
     "features": {
-      "keycloak": true,
-      "redis": true,
-      "rabbitmq": true,
-      "websocket": true,
-      "admin": true,
-      "grafana": true,
-      "loki": true
+      "springbootAdmin": true,
+      "clientWebUI": true
     }
   }' \
   --output ms-platform.zip
 ```
+
+This emits the full platform: permanent core (keycloak/ms-auth/redis/rabbitmq/eureka/gateway/service-consumer + `admin-application`), the three custom services, `service-batch`, full observability (`batch.grafana=true`), plus the two optional modules `ms-admin` and `ms-client`.
 
 ## Test generated platform
 
