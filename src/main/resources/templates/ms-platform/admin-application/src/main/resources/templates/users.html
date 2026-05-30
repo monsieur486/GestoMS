@@ -14,6 +14,10 @@
   <p th:if="${error}" class="error" th:text="${error}">erreur</p>
   <p th:if="${param.error != null and param.error[0] == 'conflict'}" class="error">Nom d'utilisateur déjà pris.</p>
   <p th:if="${param.error != null and param.error[0] != 'conflict'}" class="error">Keycloak indisponible.</p>
+  <form th:action="@{/users}" method="get">
+    <input type="text" name="search" th:value="${search}" placeholder="Rechercher…"/>
+    <button type="submit">Rechercher</button>
+  </form>
   <table th:if="${users}">
     <thead><tr><th>username</th><th>email</th><th>prénom</th><th>nom</th><th>actif</th><th>actions</th></tr></thead>
     <tbody>
@@ -35,6 +39,11 @@
       </tr>
     </tbody>
   </table>
+  <p th:if="${users}" class="pager">
+    <a th:if="${hasPrev}" th:href="@{/users(search=${search}, page=${page - 1})}">← Précédent</a>
+    <span>Page <span th:text="${page + 1}">1</span> / <span th:text="${totalPages}">1</span></span>
+    <a th:if="${hasNext}" th:href="@{/users(search=${search}, page=${page + 1})}">Suivant →</a>
+  </p>
   <h2>Créer un utilisateur</h2>
   <form th:action="@{/users}" method="post">
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>

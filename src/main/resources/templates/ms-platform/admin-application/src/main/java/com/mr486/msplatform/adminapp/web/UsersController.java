@@ -19,10 +19,21 @@ public class UsersController {
     }
 
     @GetMapping("/users")
-    public String users(Authentication authentication, Model model) {
+    public String users(@RequestParam(required = false) String search,
+                        @RequestParam(defaultValue = "0") int page,
+                        Authentication authentication, Model model) {
         model.addAttribute("currentUsername", authentication.getName());
+        int size = 20;
+        int first = page * size;
+        model.addAttribute("search", search == null ? "" : search);
+        model.addAttribute("page", page);
         try {
-            model.addAttribute("users", keycloakAdminClient.listUsers());
+            model.addAttribute("users", keycloakAdminClient.listUsers(search, first, size));
+            int total = keycloakAdminClient.countUsers(search);
+            int totalPages = total == 0 ? 1 : (int) Math.ceil((double) total / size);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("hasPrev", page > 0);
+            model.addAttribute("hasNext", (page + 1) < totalPages);
         } catch (KeycloakAdminClient.KeycloakUnavailableException e) {
             model.addAttribute("error", "Keycloak indisponible.");
         }
