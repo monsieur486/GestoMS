@@ -1,0 +1,82 @@
+package com.mr486.msplatform.client.service;
+
+import com.mr486.msplatform.client.dto.MsAuthTokens;
+import com.mr486.msplatform.client.security.SessionKeys;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestTemplate;
+
+/**
+ * Proxy BFF vers le backend via le gateway, avec le Bearer de la session.
+ * Sur 401 : refresh (rotation) via ms-auth, mise à jour des deux tokens en session, et UN rejeu.
+ */
+@Service
+public class GatewayClient {
+
+    private final RestTemplate restTemplate;
+    private final MsAuthClient msAuthClient;
+    private final String gatewayUrl;
+
+    public GatewayClient(RestTemplate restTemplate, MsAuthClient msAuthClient,
+                         @Value("${gateway.url}") String gatewayUrl) {
+        this.restTemplate = restTemplate;
+        this.msAuthClient = msAuthClient;
+        this.gatewayUrl = gatewayUrl;
+    }
+
+    /** GET {@code path} via le gateway avec l'access token de session ; refresh + rejeu sur 401. */
+    public String get(HttpSession session, String path) {
+        String accessToken = (String) session.getAttribute(SessionKeys.ACCESS_TOKEN);
+        try {
+            return doGet(path, accessToken);
+        } catch (UnauthorizedSignal first) {
+            MsAuthTokens fresh;
+            try {
+                String refreshToken = (String) session.getAttribute(SessionKeys.REFRESH_TOKEN);
+                fresh = msAuthClient.refresh(refreshToken);
+            } catch (RuntimeException refreshFailed) {
+                throw new SessionExpiredException();
+            }
+            session.setAttribute(SessionKeys.ACCESS_TOKEN, fresh.accessToken());
+            session.setAttribute(SessionKeys.REFRESH_TOKEN, fresh.opaqueRefreshToken());
+            try {
+                return doGet(path, fresh.accessToken());
+            } catch (UnauthorizedSignal second) {
+                throw new SessionExpiredException();
+            }
+        }
+    }
+
+    private String doGet(String path, String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken == null ? "" : accessToken);
+        try {
+            ResponseEntity<String> resp = restTemplate.exchange(
+                    gatewayUrl + path, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            return resp.getBody();
+        } catch (HttpClientErrorException.Unauthorized e) {
+            throw new UnauthorizedSignal();
+        } catch (HttpClientErrorException.Forbidden e) {
+            throw new BackendForbiddenException();
+        } catch (HttpClientErrorException | HttpServerErrorException | ResourceAccessException e) {
+            throw new BackendUnavailableException();
+        }
+    }
+
+    /** Signal interne : 401 reçu (déclenche le refresh-retry). */
+    private static class UnauthorizedSignal extends RuntimeException {}
+
+    public static class SessionExpiredException extends RuntimeException {}
+
+    public static class BackendForbiddenException extends RuntimeException {}
+
+    public static class BackendUnavailableException extends RuntimeException {}
+}

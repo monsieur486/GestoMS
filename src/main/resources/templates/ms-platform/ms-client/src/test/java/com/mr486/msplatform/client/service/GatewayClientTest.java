@@ -1,0 +1,89 @@
+package com.mr486.msplatform.client.service;
+
+import com.mr486.msplatform.client.dto.MsAuthTokens;
+import com.mr486.msplatform.client.security.SessionKeys;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
+class GatewayClientTest {
+
+    private static final String PATH = "/service-consumer/api/aggregate";
+    private static final String URL = "http://gw" + PATH;
+
+    private RestTemplate restTemplate;
+    private MsAuthClient msAuthClient;
+    private GatewayClient gatewayClient;
+    private MockHttpSession session;
+
+    @BeforeEach
+    void setUp() {
+        restTemplate = Mockito.mock(RestTemplate.class);
+        msAuthClient = Mockito.mock(MsAuthClient.class);
+        gatewayClient = new GatewayClient(restTemplate, msAuthClient, "http://gw");
+        session = new MockHttpSession();
+        session.setAttribute(SessionKeys.ACCESS_TOKEN, "old-access");
+        session.setAttribute(SessionKeys.REFRESH_TOKEN, "old-refresh");
+    }
+
+    @Test
+    void returns_body_on_success() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"service-a\":\"{}\"}"));
+        assertThat(gatewayClient.get(session, PATH)).isEqualTo("{\"service-a\":\"{}\"}");
+    }
+
+    @Test
+    void refreshes_and_retries_once_on_401_then_succeeds() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "401", null, null, null))
+                .thenReturn(ResponseEntity.ok("OK"));
+        when(msAuthClient.refresh("old-refresh"))
+                .thenReturn(new MsAuthTokens("new-access", "new-refresh", 300));
+
+        assertThat(gatewayClient.get(session, PATH)).isEqualTo("OK");
+        assertThat(session.getAttribute(SessionKeys.ACCESS_TOKEN)).isEqualTo("new-access");
+        assertThat(session.getAttribute(SessionKeys.REFRESH_TOKEN)).isEqualTo("new-refresh");
+    }
+
+    @Test
+    void session_expired_when_refresh_fails() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "401", null, null, null));
+        when(msAuthClient.refresh(any())).thenThrow(new MsAuthClient.AuthUnavailableException());
+
+        assertThatThrownBy(() -> gatewayClient.get(session, PATH))
+                .isInstanceOf(GatewayClient.SessionExpiredException.class);
+    }
+
+    @Test
+    void session_expired_when_retry_still_401() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "401", null, null, null));
+        when(msAuthClient.refresh("old-refresh"))
+                .thenReturn(new MsAuthTokens("new-access", "new-refresh", 300));
+
+        assertThatThrownBy(() -> gatewayClient.get(session, PATH))
+                .isInstanceOf(GatewayClient.SessionExpiredException.class);
+    }
+
+    @Test
+    void forbidden_maps_to_backend_forbidden() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.FORBIDDEN, "403", null, null, null));
+        assertThatThrownBy(() -> gatewayClient.get(session, PATH))
+                .isInstanceOf(GatewayClient.BackendForbiddenException.class);
+    }
+}
