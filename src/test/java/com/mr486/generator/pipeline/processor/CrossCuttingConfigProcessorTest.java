@@ -55,6 +55,9 @@ class CrossCuttingConfigProcessorTest {
         "  ms-admin:\n" +
         "    build: ./ms-admin\n" +
         "\n" +
+        "  ms-client:\n" +
+        "    build: ./ms-client\n" +
+        "\n" +
         "  service-a-db:\n" +
         "    image: postgres:16\n" +
         "\n" +
@@ -168,6 +171,36 @@ class CrossCuttingConfigProcessorTest {
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
         assertThat(pom).doesNotContain("<module>ms-admin</module>");
+    }
+
+    @Test
+    void root_pom_includes_ms_client_when_client_web_ui_enabled() {
+        FeatureOptions f = new FeatureOptions(); f.setClientWebUI(true);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
+        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
+        assertThat(pom).contains("<module>ms-client</module>");
+    }
+
+    @Test
+    void root_pom_excludes_ms_client_when_client_web_ui_disabled() {
+        List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
+        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
+        assertThat(pom).doesNotContain("<module>ms-client</module>");
+    }
+
+    @Test
+    void compose_keeps_ms_client_block_when_client_web_ui_enabled() {
+        FeatureOptions f = new FeatureOptions(); f.setClientWebUI(true);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        assertThat(compose).contains("  ms-client:");
+    }
+
+    @Test
+    void compose_removes_ms_client_block_when_client_web_ui_disabled() {
+        List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
+        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        assertThat(compose).doesNotContain("  ms-client:");
     }
 
     @Test

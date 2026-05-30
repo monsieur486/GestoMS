@@ -141,6 +141,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         modules.add("service-consumer");
         if (b.isEnabled())            modules.add("service-batch");
         if (f.isSpringbootAdmin())    modules.add("ms-admin");
+        if (f.isClientWebUI())        modules.add("ms-client");
         if (hasResources) {
             for (ResourceModuleRequest r : req.getResources()) modules.add(r.getServiceName());
         }
@@ -216,6 +217,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         if (!b.isEnabled())          blocks.add("service-batch");
         if (!b.isGrafana()) { blocks.add("loki"); blocks.add("promtail"); blocks.add("grafana"); }
         if (!f.isSpringbootAdmin())  blocks.add("ms-admin");
+        if (!f.isClientWebUI())      blocks.add("ms-client");
         if (hasResources) {
             blocks.add("service-a-db");
             blocks.add("service-b-db");
