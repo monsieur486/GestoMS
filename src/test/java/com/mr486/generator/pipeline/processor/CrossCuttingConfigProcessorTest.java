@@ -147,7 +147,7 @@ class CrossCuttingConfigProcessorTest {
 
     @Test
     void root_pom_includes_all_default_modules_when_all_features_enabled() {
-        FeatureOptions f = new FeatureOptions(); f.setGrafana(true); f.setLoki(true);
+        FeatureOptions f = new FeatureOptions(); f.setSpringbootAdmin(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
         assertThat(pom).contains("<module>common-lib</module>")
@@ -163,16 +163,8 @@ class CrossCuttingConfigProcessorTest {
     }
 
     @Test
-    void root_pom_excludes_ms_auth_when_keycloak_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setKeycloak(false);
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
-        assertThat(pom).doesNotContain("<module>ms-auth</module>");
-    }
-
-    @Test
     void root_pom_excludes_ms_admin_when_admin_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setAdmin(false);
+        FeatureOptions f = new FeatureOptions(); f.setSpringbootAdmin(false);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
         assertThat(pom).doesNotContain("<module>ms-admin</module>");
@@ -213,22 +205,10 @@ class CrossCuttingConfigProcessorTest {
 
     @Test
     void compose_keeps_all_blocks_when_all_features_enabled() {
-        FeatureOptions f = new FeatureOptions(); f.setGrafana(true); f.setLoki(true);
+        FeatureOptions f = new FeatureOptions();
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
         assertThat(compose).contains("  keycloak:").contains("  ms-auth:").contains("  service-a:");
-    }
-
-    @Test
-    void compose_removes_keycloak_and_ms_auth_blocks_when_keycloak_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setKeycloak(false);
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
-        assertThat(compose).doesNotContain("  keycloak-db:")
-                           .doesNotContain("  keycloak:\n")
-                           .doesNotContain("  ms-auth:");
-        // Sibling blocks remain
-        assertThat(compose).contains("  rabbitmq:").contains("  ms-gateway:");
     }
 
     @Test
@@ -259,18 +239,6 @@ class CrossCuttingConfigProcessorTest {
         assertThat(yml).contains("- id: ms-auth").contains("- id: service-a")
                        .contains("- id: service-b").contains("- id: service-c")
                        .contains("- id: service-consumer");
-    }
-
-    @Test
-    void gateway_yml_drops_ms_auth_route_when_keycloak_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setKeycloak(false);
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String yml = gatewayContent(result);
-        assertThat(yml).doesNotContain("- id: ms-auth")
-                       .doesNotContain("uri: lb://ms-auth")
-                       .doesNotContain("Path=/auth/**");
-        // Other routes preserved
-        assertThat(yml).contains("- id: service-a").contains("- id: service-consumer");
     }
 
     @Test
@@ -365,40 +333,7 @@ class CrossCuttingConfigProcessorTest {
                            .doesNotContain("light_service_db_data:");
     }
 
-    @Test
-    void compose_resource_blocks_omit_keycloak_dep_when_keycloak_disabled() {
-        ResourceModuleRequest r = res("order-service", "Order", DatabaseType.POSTGRES);
-        PlatformGenerationRequest req = new PlatformGenerationRequest();
-        req.setResources(List.of(r));
-        req.getFeatures().setKeycloak(false);
-        GenerationContext ctx = GenerationContext.from(req);
-
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
-
-        assertThat(compose).contains("depends_on: [ms-eureka, order-service-db]");
-        assertThat(compose).doesNotContain("KEYCLOAK_ISSUER_URI");
-    }
-
     // ── stale volume cleanup ─────────────────────────────────────────────────
-
-    @Test
-    void compose_removes_keycloak_db_data_volume_when_keycloak_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setKeycloak(false);
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
-        assertThat(compose).doesNotContain("  keycloak_db_data:");
-        assertThat(compose).contains("  redis_data:");           // unrelated volume preserved
-    }
-
-    @Test
-    void compose_removes_redis_data_volume_when_redis_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setRedis(false);
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
-        assertThat(compose).doesNotContain("  redis_data:");
-        assertThat(compose).contains("  keycloak_db_data:");
-    }
 
     @Test
     void compose_removes_default_service_volumes_when_resources_provided() {
@@ -410,25 +345,6 @@ class CrossCuttingConfigProcessorTest {
         assertThat(compose).contains("  keycloak_db_data:")
                            .contains("  redis_data:")
                            .contains("  order_service_db_data:");
-    }
-
-    @Test
-    void compose_cleans_dangling_depends_on_when_rabbitmq_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setRabbitmq(false);
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
-        // service-consumer's depends_on must no longer mention the removed rabbitmq service
-        assertThat(compose).contains("depends_on: [ms-eureka, keycloak, redis]");
-        assertThat(compose).doesNotContain("depends_on: [ms-eureka, keycloak, rabbitmq, redis]");
-    }
-
-    @Test
-    void compose_cleans_dangling_depends_on_when_keycloak_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setKeycloak(false);
-        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
-        // No remaining depends_on line should reference keycloak
-        assertThat(compose).doesNotContain(", keycloak,").doesNotContain(", keycloak]").doesNotContain("[keycloak,").doesNotContain("[keycloak]");
     }
 
     @Test
