@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -155,5 +156,44 @@ class KeycloakAdminClientTest {
 
         verify(restTemplate).exchange(contains("/users/uid/role-mappings/realm"),
                 eq(HttpMethod.DELETE), any(), eq(Void.class));
+    }
+
+    @Test
+    @SuppressWarnings("rawtypes")
+    void update_user_merges_fields_and_preserves_username() {
+        when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
+                .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
+        Map<String, Object> existing = new HashMap<>();
+        existing.put("username", "carol");
+        existing.put("email", "old@x.io");
+        existing.put("enabled", true);
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users/uid"), eq(HttpMethod.GET), any(), eq(Map.class)))
+                .thenReturn(ResponseEntity.ok(existing));
+
+        client.updateUser("uid", "new@x.io", "Ca", "Rol", false);
+
+        ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).exchange(contains("/admin/realms/ms-realm/users/uid"), eq(HttpMethod.PUT), captor.capture(), eq(Void.class));
+        Map put = (Map) captor.getValue().getBody();
+        assertThat(put.get("username")).isEqualTo("carol");   // préservé (GET puis PUT)
+        assertThat(put.get("email")).isEqualTo("new@x.io");   // modifié
+        assertThat(put.get("firstName")).isEqualTo("Ca");
+        assertThat(put.get("enabled")).isEqualTo(false);      // modifié
+    }
+
+    @Test
+    @SuppressWarnings("rawtypes")
+    void reset_password_puts_permanent_credential() {
+        when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
+                .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
+
+        client.resetPassword("uid", "secret");
+
+        ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).exchange(contains("/users/uid/reset-password"), eq(HttpMethod.PUT), captor.capture(), eq(Void.class));
+        Map body = (Map) captor.getValue().getBody();
+        assertThat(body.get("type")).isEqualTo("password");
+        assertThat(body.get("value")).isEqualTo("secret");
+        assertThat(body.get("temporary")).isEqualTo(false);
     }
 }

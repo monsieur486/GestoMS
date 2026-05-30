@@ -94,6 +94,49 @@ public class KeycloakAdminClient {
         }
     }
 
+    @SuppressWarnings("rawtypes")
+    public void updateUser(String id, String email, String firstName, String lastName, boolean enabled) {
+        HttpHeaders getHeaders = new HttpHeaders();
+        getHeaders.setBearerAuth(adminToken());
+        try {
+            ResponseEntity<Map> getResp = restTemplate.exchange(
+                    internalUrl + "/admin/realms/" + realm + "/users/" + id,
+                    HttpMethod.GET, new HttpEntity<>(getHeaders), Map.class);
+            Map body = getResp.getBody();
+            if (body == null) {
+                throw new KeycloakUnavailableException();
+            }
+            body.put("email", email);
+            body.put("firstName", firstName);
+            body.put("lastName", lastName);
+            body.put("enabled", enabled);
+            HttpHeaders putHeaders = new HttpHeaders();
+            putHeaders.setContentType(MediaType.APPLICATION_JSON);
+            putHeaders.setBearerAuth(adminToken());
+            restTemplate.exchange(internalUrl + "/admin/realms/" + realm + "/users/" + id,
+                    HttpMethod.PUT, new HttpEntity<>(body, putHeaders), Void.class);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public void resetPassword(String id, String password) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(adminToken());
+        Map<String, Object> credential = Map.of("type", "password", "value", password, "temporary", false);
+        try {
+            restTemplate.exchange(internalUrl + "/admin/realms/" + realm + "/users/" + id + "/reset-password",
+                    HttpMethod.PUT, new HttpEntity<>(credential, headers), Void.class);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
     public KeycloakUser getUser(String id) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
