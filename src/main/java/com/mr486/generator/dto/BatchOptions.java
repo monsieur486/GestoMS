@@ -14,6 +14,8 @@ import lombok.Data;
 public class BatchOptions {
     /** Si {@code false}, retire le module et le service Docker service-batch. */
     private boolean enabled = true;
+    /** Si {@code true}, installe l'observabilité complète : loki + promtail + grafana. Défaut: false. */
+    private boolean grafana = false;
     /** Nombre de replicas du service-batch lancés par Docker Compose. */
     private int replicas = 4;
     /** Nombre de fichiers traités en parallèle par chaque replica. */

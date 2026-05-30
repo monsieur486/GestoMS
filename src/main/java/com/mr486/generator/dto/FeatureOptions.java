@@ -5,24 +5,14 @@ import lombok.Data;
 /**
  * Bascules d'activation des composants optionnels de la plateforme.
  * <p>
- * Quand un drapeau passe à {@code false}, le {@link com.mr486.generator.pipeline.processor.FeatureFilterProcessor}
- * retire les fichiers concernés et le {@link com.mr486.generator.pipeline.processor.CrossCuttingConfigProcessor}
- * nettoie les références correspondantes dans le pom racine, le docker-compose et les routes du gateway.
+ * keycloak (+ ms-auth), redis, rabbitmq, websocket et admin-application sont désormais TOUJOURS
+ * installés et n'ont plus de bascule. L'observabilité (loki + promtail + grafana) est pilotée par
+ * {@link BatchOptions#isGrafana()}. Seuls les deux modules ci-dessous restent optionnels.
  */
 @Data
 public class FeatureOptions {
-    /** Si {@code false}, retire {@code keycloak/} ET {@code ms-auth/} (ms-auth dépend de Keycloak). */
-    private boolean keycloak = true;
-    /** Si {@code false}, retire RedisConfig, RedisJobStore, RedisKeys et le service Docker redis. */
-    private boolean redis = true;
-    /** Si {@code false}, retire RabbitConfig, BatchNotificationListener et le service Docker rabbitmq. */
-    private boolean rabbitmq = true;
-    /** Si {@code false}, retire WebSocketConfig et la page batch-notifications.html. */
-    private boolean websocket = true;
-    /** Si {@code false}, retire le module ms-admin (Spring Boot Admin UI). */
-    private boolean admin = true;
-    /** Si {@code false} (défaut), retire {@code observability/grafana/}. */
-    private boolean grafana = false;
-    /** Si {@code false} (défaut), retire {@code observability/loki/} et {@code observability/promtail/}. */
-    private boolean loki = false;
+    /** Si {@code false} (défaut), retire le module {@code ms-admin} (monitoring Spring Boot Admin). */
+    private boolean springbootAdmin = false;
+    /** Si {@code false} (défaut), retire le module {@code ms-client} (UI Thymeleaf). [module créé en Phase 2] */
+    private boolean clientWebUI = false;
 }

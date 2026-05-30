@@ -132,15 +132,15 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         modules.add("common-lib");
         modules.add("ms-eureka");
         modules.add("ms-gateway");
-        if (f.isAdmin())                       modules.add("ms-admin");
+        modules.add("ms-auth");                 // keycloak permanent
         if (!hasResources) {
             modules.add("service-a");
             modules.add("service-b");
             modules.add("service-c");
         }
         modules.add("service-consumer");
-        if (f.isRabbitmq() && b.isEnabled())   modules.add("service-batch");
-        if (f.isKeycloak())                    modules.add("ms-auth");
+        if (b.isEnabled())            modules.add("service-batch");
+        if (f.isSpringbootAdmin())    modules.add("ms-admin");
         if (hasResources) {
             for (ResourceModuleRequest r : req.getResources()) modules.add(r.getServiceName());
         }
@@ -192,12 +192,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     private List<String> volumesToRemove(GenerationContext ctx) {
         PlatformGenerationRequest req = ctx.getRequest();
-        FeatureOptions f = req.getFeatures();
         boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
 
         List<String> vols = new ArrayList<>();
-        if (!f.isKeycloak()) vols.add("keycloak_db_data");
-        if (!f.isRedis())    vols.add("redis_data");
         if (hasResources) {
             vols.add("service_a_db_data");
             vols.add("service_b_db_data");
@@ -216,17 +213,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
 
         List<String> blocks = new ArrayList<>();
-        if (!f.isKeycloak()) {
-            blocks.add("keycloak-db");
-            blocks.add("keycloak");
-            blocks.add("ms-auth");
-        }
-        if (!f.isAdmin())                       blocks.add("ms-admin");
-        if (!f.isRabbitmq())                    blocks.add("rabbitmq");
-        if (!f.isRedis())                       blocks.add("redis");
-        if (!f.isRabbitmq() || !b.isEnabled())  blocks.add("service-batch");
-        if (!f.isLoki()) { blocks.add("loki"); blocks.add("promtail"); }
-        if (!f.isGrafana())                     blocks.add("grafana");
+        if (!b.isEnabled())          blocks.add("service-batch");
+        if (!b.isGrafana()) { blocks.add("loki"); blocks.add("promtail"); blocks.add("grafana"); }
+        if (!f.isSpringbootAdmin())  blocks.add("ms-admin");
         if (hasResources) {
             blocks.add("service-a-db");
             blocks.add("service-b-db");
@@ -240,7 +229,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     private String addResourceBlocks(String text, GenerationContext ctx) {
         PlatformGenerationRequest req = ctx.getRequest();
         if (req.getResources() == null || req.getResources().isEmpty()) return text;
-        boolean keycloak = req.getFeatures().isKeycloak();
+        boolean keycloak = true; // keycloak permanent — les blocs resource incluent toujours la dép + KEYCLOAK_ISSUER_URI
 
         StringBuilder newServices = new StringBuilder();
         StringBuilder newVolumes = new StringBuilder();
@@ -346,9 +335,6 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         PlatformGenerationRequest req = ctx.getRequest();
         boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
 
-        if (!req.getFeatures().isKeycloak()) {
-            text = removeGatewayRoute(text, "ms-auth");
-        }
         if (hasResources) {
             text = removeGatewayRoute(text, "service-a");
             text = removeGatewayRoute(text, "service-b");
@@ -519,7 +505,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         List<ResourceModuleRequest> resources = req.getResources();
         FeatureOptions feat = req.getFeatures();
         BatchOptions batch = req.getBatch();
-        boolean batchEnabled = feat.isRabbitmq() && batch != null && batch.isEnabled();
+        boolean batchEnabled = batch != null && batch.isEnabled();
 
         StringBuilder sb = new StringBuilder(TEST_ALL_PROLOGUE);
 
@@ -528,12 +514,12 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         // for ms-auth+Keycloak, and a routed 200/401/403 for each service (= registered in Eureka).
         sb.append("echo 'Waiting for the full stack to be ready (~60s on first start)...'\n");
         sb.append("wait_for 'ms-eureka' curl -fs http://localhost:8761\n");
-        if (feat.isKeycloak()) sb.append("wait_for 'ms-auth + keycloak' auth_ready\n");
+        sb.append("wait_for 'ms-auth + keycloak' auth_ready\n"); // keycloak permanent
         for (ResourceModuleRequest r : resources) {
             sb.append("wait_for '").append(r.getServiceName()).append("' routed_up ").append(routePath(r)).append("\n");
         }
         sb.append("wait_for 'service-consumer' routed_up service-consumer/api/aggregate\n");
-        if (feat.isAdmin()) sb.append("wait_for 'ms-admin' curl -fs http://localhost:9100\n");
+        if (feat.isSpringbootAdmin()) sb.append("wait_for 'ms-admin' curl -fs http://localhost:9100\n");
         sb.append("echo 'Stack is ready.'\n");
         sb.append("echo\n\n");
 
@@ -580,7 +566,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
         sb.append("echo 'Testing infrastructure...'\n");
         sb.append("curl -fs http://localhost:8761 >/dev/null && echo 'Eureka OK'\n");
-        if (feat.isAdmin()) sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
+        if (feat.isSpringbootAdmin()) sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
         sb.append("\n");
 
         sb.append("echo 'Testing service-consumer aggregation...'\n");
