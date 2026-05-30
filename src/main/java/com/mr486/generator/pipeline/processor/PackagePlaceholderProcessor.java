@@ -8,6 +8,15 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/**
+ * Substitue les placeholders d'identité Maven et Java du modèle par les valeurs de la requête.
+ * <ul>
+ *   <li>{@code com.mr486.msplatform} → {@code basePackage} (dans le contenu Java et dans les chemins {@code com/mr486/msplatform/}).</li>
+ *   <li>{@code com.mr486} → {@code groupId} (dans les pom et les chemins {@code com/mr486/}).</li>
+ *   <li>{@code <java.version>17</java.version>} → version Java demandée.</li>
+ * </ul>
+ * Court-circuité (no-op) si les trois champs de la requête sont à leur valeur par défaut.
+ */
 @Component
 @Order(30)
 public class PackagePlaceholderProcessor implements FileProcessor {

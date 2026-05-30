@@ -12,16 +12,20 @@ The GestoMS generator pipeline splits work into path-based processors (filter pa
 **Why @Order(60) and not earlier.**
 Must run AFTER `ResourceExpandProcessor` (@Order(50)) because it needs the final resource list to know which modules to add. Running earlier would miss dynamic services.
 
-**The processor owns three responsibilities.**
+**The processor owns four responsibilities.**
 1. Rewrite root `<modules>` block — regenerated from scratch based on features + resources[], not patched.
-2. Remove obsolete docker-compose service blocks (e.g., `keycloak:` and `ms-auth:` when `keycloak=false`, `service-a/b/c:` and their `-db:` companions when resources[] is provided).
+2. Remove obsolete docker-compose service blocks (e.g., `keycloak:` and `ms-auth:` when `keycloak=false`, `service-a/b/c:` and their `-db:` companions when resources[] is provided). Also clean dangling `depends_on: [..., removed-name, ...]` entries in surviving blocks — leaving them in causes `docker compose up` to fail with "service X depends on undefined service Y".
 3. Append new docker-compose blocks for each `resources[]` entry, templated by `databaseType` (POSTGRES → app + postgres db + healthcheck, MONGO → app + mongo db, H2 → app only).
+4. Rewrite `ms-gateway/src/main/resources/application.yml` route list. Without this, `keycloak=false` leaves a dangling `- id: ms-auth` route pointing at a removed service, and `resources[]` leaves `/service-a/**` routes that don't resolve while the new `/{resource}/**` services aren't reachable at all.
 
 **Service block removal is line-based, not regex.**
 docker-compose blocks span multiple lines with indent-based scoping. The algorithm: find `  <name>:` (2-space indent), then consume lines until the next 2-space-indented sibling or column-0 top-level key. Blank lines between blocks are absorbed into the removed range. Regex doesn't work cleanly here because YAML indent-scoping isn't a regular language.
 
 **docker-compose `volumes:` is overloaded — top-level section AND inline service list.**
 A service block can contain `    volumes: [name:/path]` as an inline list, and the file also has a top-level `volumes:` section. Searching for `volumes:` with `indexOf` finds the inline one first (it appears earlier in the file). Always anchor to column 0: `text.indexOf("\nvolumes:")`. This bit a test originally written with the unanchored form.
+
+**Substring matching bites YAML route IDs too.**
+`- id: service-c` is a prefix of `- id: service-consumer`, so `assertThat(yml).doesNotContain("- id: service-c")` falsely fails when service-consumer is present. Always include the line terminator in the negative assertion: `doesNotContain("- id: service-c\n")`. Same family of bug as the `volumes:` overload — naive substring matching ignores YAML's hierarchical structure.
 
 **H2 resources get no db block and no volume entry.**
 H2 runs in-memory inside the JVM. POSTGRES and MONGO need their own container, env vars, and a named volume entry; H2 needs none. The `volumes:` cleanup logic and the resource block builder both branch on this.
@@ -33,6 +37,6 @@ Volume entries are simpler than service blocks (single line each), so a multi-li
 `ResourceModuleRequest.routePrefix` defaults to `/api/{className.toLowerCase()}s` when null/blank. Raw `String#replace` throws NPE on null replacement, so the upstream guard is necessary, but the choice to *default* rather than *reject* keeps the API friendly for minimal requests.
 
 **Extending the processor when adding a new feature flag.**
-If a new `FeatureOption` controls a service that has both filesystem files AND a docker-compose entry AND a root pom module, you must update three places: `FeatureFilterProcessor` (paths), `CrossCuttingConfigProcessor.desiredModules` (root pom), `CrossCuttingConfigProcessor.blocksToRemove` (compose), and possibly `volumesToRemove`. The split is intentional — keep path filtering separate from cross-cutting content edits — but the multi-place update is the cost.
+If a new `FeatureOption` controls a service that has both filesystem files AND a docker-compose entry AND a root pom module AND a gateway route, you must update FIVE places: `FeatureFilterProcessor` (paths), `CrossCuttingConfigProcessor.desiredModules` (root pom), `.blocksToRemove` (compose), `.volumesToRemove`, and `.rewriteGatewayYml` (call `removeGatewayRoute` for the affected route id). The split is intentional — keep path filtering separate from cross-cutting content edits — but the multi-place update is the cost.
 
 Related: [[ms-auth-design]] for the auth-specific design rationale.

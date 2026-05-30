@@ -9,6 +9,14 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import java.util.List;
 
+/**
+ * Filtre les fichiers du modèle selon les bascules de {@link com.mr486.generator.dto.FeatureOptions}
+ * et l'état de {@link com.mr486.generator.dto.BatchOptions}.
+ * <p>
+ * N'opère que sur les <em>chemins</em> ; la suppression cohérente des références à ces fichiers dans
+ * les fichiers transverses (pom racine, docker-compose, routes du gateway) est faite plus tard par
+ * {@link CrossCuttingConfigProcessor}.
+ */
 @Component
 @Order(20)
 public class FeatureFilterProcessor implements FileProcessor {

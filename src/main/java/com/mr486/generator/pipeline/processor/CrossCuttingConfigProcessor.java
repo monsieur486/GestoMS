@@ -17,6 +17,19 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Synchronise les fichiers transverses qui référencent les services par leur nom :
+ * pom racine ({@code <modules>}), {@code docker-compose.yml} et {@code ms-gateway/.../application.yml}.
+ * <p>
+ * Sans ce processor, les autres étapes laissent des références fantômes :
+ * <ul>
+ *   <li>modules listés dans le pom racine alors que le dossier a été retiré → {@code mvn package} échoue ;</li>
+ *   <li>blocs Docker Compose pointant vers des services absents ou {@code depends_on} orphelins → {@code docker compose up} refuse le fichier ;</li>
+ *   <li>routes du gateway pointant vers des services absents ou manquant pour les nouveaux {@code resources[]}.</li>
+ * </ul>
+ * Tourne en {@link Order @Order(60)} : après que {@link FeatureFilterProcessor} et
+ * {@link ResourceExpandProcessor} aient déterminé l'ensemble final des services.
+ */
 @Component
 @Order(60)
 public class CrossCuttingConfigProcessor implements FileProcessor {

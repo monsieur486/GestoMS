@@ -13,6 +13,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Dérive un service métier par entrée de {@code resources[]} en clonant le template {@code service-a/}
+ * et en appliquant les substitutions nominales, le type de base et le type d'identifiant.
+ * <p>
+ * Si la requête ne contient pas de ressource, les services par défaut (service-a/b/c) sont conservés
+ * tels quels. Sinon, les trois services par défaut sont retirés et remplacés par autant de copies
+ * que d'entrées. Le sous-dossier {@code service-batch/} et {@code service-consumer/} présents en
+ * tant que sous-projets de service-a sont volontairement exclus du clonage (ce sont des patches).
+ * <p>
+ * Mode H2 : retire la clause {@code ON CONFLICT(...) DO NOTHING} du seed SQL (incompatible H2),
+ * configure le datasource en mémoire et active la console.
+ * Mode MongoDB : remplace l'entité JPA par un {@code @Document}, supprime les fichiers Liquibase,
+ * ajuste le pom et l'application.yml.
+ * Type d'identifiant UUID : substitue {@code Long}/{@code BIGINT IDENTITY} par {@code UUID}/{@code gen_random_uuid()}.
+ */
 @Component
 @Order(50)
 public class ResourceExpandProcessor implements FileProcessor {

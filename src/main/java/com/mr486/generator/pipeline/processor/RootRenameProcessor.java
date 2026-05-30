@@ -7,6 +7,13 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import java.util.List;
 
+/**
+ * Renomme le répertoire racine de chaque fichier de {@code sourceRoot} ({@code "ms-platform"})
+ * vers {@code targetRoot} (valeur du champ {@code name} de la requête).
+ * <p>
+ * Si les deux préfixes sont identiques (requête sans {@code name}), le processor est un no-op et
+ * retourne la liste d'entrée sans copie.
+ */
 @Component
 @Order(10)
 public class RootRenameProcessor implements FileProcessor {

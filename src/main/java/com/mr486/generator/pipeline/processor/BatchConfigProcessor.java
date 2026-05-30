@@ -9,6 +9,13 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/**
+ * Injecte les valeurs de {@link BatchOptions} dans les fichiers de configuration de la plateforme
+ * ({@code .env}, blocs {@code docker-compose.yml}).
+ * <p>
+ * Court-circuité si le batch est désactivé (le service est déjà supprimé par
+ * {@link FeatureFilterProcessor}) ou si toutes les valeurs sont égales aux défauts du template.
+ */
 @Component
 @Order(40)
 public class BatchConfigProcessor implements FileProcessor {
