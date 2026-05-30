@@ -50,6 +50,20 @@ public class MsAuthClient {
         }
     }
 
+    public MsAuthTokens refresh(String opaqueRefreshToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(
+                Map.of("opaque_refresh_token", opaqueRefreshToken == null ? "" : opaqueRefreshToken), headers);
+        ResponseEntity<MsAuthTokens> resp =
+                restTemplate.postForEntity(gatewayUrl + "/auth/refresh", entity, MsAuthTokens.class);
+        MsAuthTokens body = resp.getBody();
+        if (body == null) {
+            throw new AuthUnavailableException();
+        }
+        return body;
+    }
+
     public void logout(String accessToken, String opaqueRefreshToken) {
         try {
             HttpHeaders headers = new HttpHeaders();
