@@ -22,3 +22,17 @@ management:
     web:
       exposure:
         include: health,info
+client:
+  resources:
+    - serviceName: service-a
+      routePrefix: /api/resources-a
+      label: Service A
+      role: USER_SERVICE_A
+    - serviceName: service-b
+      routePrefix: /api/resources-b
+      label: Service B
+      role: USER_SERVICE_B
+    - serviceName: service-c
+      routePrefix: /api/resources-c
+      label: Service C
+      role: USER_SERVICE_C
