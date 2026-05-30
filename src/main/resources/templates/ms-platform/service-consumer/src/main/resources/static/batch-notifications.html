@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Batch notifications</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    li { margin: .5rem 0; }
+  </style>
+</head>
+<body>
+<h1>Notifications batch</h1>
+<ul id="events"></ul>
+<script>
+  const list = document.getElementById('events');
+  const client = new StompJs.Client({
+    webSocketFactory: () => new SockJS('/service-consumer/ws'),
+    reconnectDelay: 2000,
+    onConnect: () => {
+      client.subscribe('/topic/batch', message => {
+        const payload = JSON.parse(message.body);
+        const li = document.createElement('li');
+        li.textContent = `${payload.jobId} - ${payload.status} - ${payload.generatedCount} fichiers - ${payload.totalSeconds}s - ${payload.instance}`;
+        list.prepend(li);
+      });
+    }
+  });
+  client.activate();
+</script>
+</body>
+</html>

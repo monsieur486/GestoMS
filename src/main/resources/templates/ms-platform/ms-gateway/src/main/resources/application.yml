@@ -1,0 +1,56 @@
+server:
+  port: ${GATEWAY_PORT:9000}
+spring:
+  application:
+    name: ms-gateway
+  main:
+    web-application-type: reactive
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 120s
+      server:
+        webflux:
+          routes:
+            - id: ms-auth
+              uri: lb://ms-auth
+              predicates:
+                - Path=/auth/**
+            - id: service-a
+              uri: lb://service-a
+              predicates:
+                - Path=/service-a/**
+              filters:
+                - StripPrefix=1
+            - id: service-b
+              uri: lb://service-b
+              predicates:
+                - Path=/service-b/**
+              filters:
+                - StripPrefix=1
+            - id: service-c
+              uri: lb://service-c
+              predicates:
+                - Path=/service-c/**
+              filters:
+                - StripPrefix=1
+            - id: service-consumer
+              uri: lb://service-consumer
+              predicates:
+                - Path=/service-consumer/**
+              filters:
+                - StripPrefix=1
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

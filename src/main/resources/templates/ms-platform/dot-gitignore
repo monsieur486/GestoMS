@@ -1,0 +1,6 @@
+/target/
+.env
+tokens.env
+.idea/
+*.iml
+benchmark-results/

@@ -1,0 +1,166 @@
+{
+  "realm": "ms-realm",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "USER_SERVICE_A"
+      },
+      {
+        "name": "USER_SERVICE_B"
+      },
+      {
+        "name": "USER_SERVICE_C"
+      },
+      {
+        "name": "USER_BATCH"
+      },
+      {
+        "name": "ADMIN"
+      },
+      {
+        "name": "SERVICE"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "ms-gateway",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "changeit-gateway",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:9000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:9000"
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email",
+        "roles"
+      ],
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "test-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "Admin",
+      "email": "admin@example.local",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN",
+        "USER_BATCH",
+        "USER_SERVICE_A",
+        "USER_SERVICE_B",
+        "USER_SERVICE_C"
+      ]
+    },
+    {
+      "username": "test-batch",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "Batch",
+      "email": "batch@example.local",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER_BATCH"
+      ]
+    },
+    {
+      "username": "test-service-a",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "ServiceA",
+      "email": "service-a@example.local",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER_SERVICE_A"
+      ]
+    },
+    {
+      "username": "test-service-b",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "ServiceB",
+      "email": "service-b@example.local",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER_SERVICE_B"
+      ]
+    },
+    {
+      "username": "test-service-c",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "ServiceC",
+      "email": "service-c@example.local",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER_SERVICE_C"
+      ]
+    }
+  ],
+  "accessTokenLifespan": 300,
+  "ssoSessionMaxLifespan": 1800,
+  "refreshTokenMaxReuse": 0
+}

@@ -5,9 +5,31 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ZipTemplateLoaderTest {
+class TemplateLoaderTest {
 
-    private final ZipTemplateLoader loader = new ZipTemplateLoader();
+    private final TemplateLoader loader = new TemplateLoader();
+
+    @Test
+    void loads_hidden_dotfiles() {
+        List<GeneratedFile> files = loader.load();
+        // .gitignore is excluded by Maven's default resource excludes unless disabled in the pom;
+        // .env must survive the directory walk too. Both are required by the generated platform.
+        assertThat(files).anyMatch(f -> f.path().equals("ms-platform/.gitignore"));
+        assertThat(files).anyMatch(f -> f.path().equals("ms-platform/.env"));
+    }
+
+    @Test
+    void loads_nested_files_with_full_relative_path() {
+        List<GeneratedFile> files = loader.load();
+        assertThat(files).anyMatch(f -> f.path().equals("ms-platform/keycloak/import/ms-realm-realm.json"));
+        assertThat(files).anyMatch(f -> f.path().equals("ms-platform/pom.xml"));
+    }
+
+    @Test
+    void loads_every_template_file() {
+        // Parity guard: number of non-directory files shipped in templates/ms-platform/.
+        assertThat(loader.load()).hasSize(115);
+    }
 
     @Test
     void loads_non_empty_file_list() {

@@ -1,0 +1,16 @@
+server:
+  port: ${EUREKA_PORT:8761}
+spring:
+  application:
+    name: ms-eureka
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:${EUREKA_PORT:8761}/eureka/
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

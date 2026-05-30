@@ -1,0 +1,32 @@
+server:
+  port: ${SERVICE_A_PORT:8080}
+spring:
+  application:
+    name: service-a
+  datasource:
+    url: ${SERVICE_A_DATASOURCE_URL:jdbc:postgresql://localhost:5432/service_a_db}
+    username: ${SERVICE_A_DB_USERNAME:service_a}
+    password: ${SERVICE_A_DB_PASSWORD:service_a}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+  liquibase:
+    enabled: true
+    drop-first: false
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8089/realms/ms-realm}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/ms-realm/protocol/openid-connect/certs}
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

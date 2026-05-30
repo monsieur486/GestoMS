@@ -1,0 +1,214 @@
+services:
+  keycloak-db:
+    image: postgres:16
+    env_file: [.env]
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB:-keycloak}
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+    volumes: [keycloak_db_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.6
+    env_file: [.env]
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_DATABASE: ${KEYCLOAK_DB:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: http://localhost:8089
+    command: start-dev --import-realm
+    ports: ["8089:8080"]
+    volumes:
+      - ./keycloak/import:/opt/keycloak/data/import
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    env_file: [.env]
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    env_file: [.env]
+    ports: ["6379:6379"]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ms-eureka:
+    build: ./ms-eureka
+    env_file: [.env]
+    ports: ["8761:8761"]
+
+  ms-gateway:
+    build: ./ms-gateway
+    env_file: [.env]
+    depends_on: [ms-eureka]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+    ports: ["9000:9000"]
+
+  ms-admin:
+    build: ./ms-admin
+    env_file: [.env]
+    depends_on: [ms-eureka]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+    ports: ["9100:9100"]
+
+  service-a-db:
+    image: postgres:16
+    env_file: [.env]
+    environment:
+      POSTGRES_DB: service_a_db
+      POSTGRES_USER: service_a
+      POSTGRES_PASSWORD: service_a
+    ports: ["5433:5432"]
+    volumes: [service_a_db_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U service_a"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  service-b-db:
+    image: mongo:7
+    env_file: [.env]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: service_b
+      MONGO_INITDB_ROOT_PASSWORD: service_b
+      MONGO_INITDB_DATABASE: service_b_db
+    ports: ["27018:27017"]
+    volumes: [service_b_db_data:/data/db]
+
+  service-a:
+    build: ./service-a
+    env_file: [.env]
+    depends_on: [ms-eureka, keycloak, service-a-db]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+      KEYCLOAK_ISSUER_URI: http://localhost:8089/realms/ms-realm
+      SERVICE_A_DATASOURCE_URL: jdbc:postgresql://service-a-db:5432/service_a_db
+      SERVICE_A_DB_USERNAME: service_a
+      SERVICE_A_DB_PASSWORD: service_a
+
+  service-b:
+    build: ./service-b
+    env_file: [.env]
+    depends_on: [ms-eureka, keycloak, service-b-db]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+      KEYCLOAK_ISSUER_URI: http://localhost:8089/realms/ms-realm
+      SERVICE_B_MONGO_URI: mongodb://service_b:service_b@service-b-db:27017/service_b_db?authSource=admin
+
+  service-c:
+    build: ./service-c
+    env_file: [.env]
+    depends_on: [ms-eureka, keycloak]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+      KEYCLOAK_ISSUER_URI: http://localhost:8089/realms/ms-realm
+
+  service-consumer:
+    build: ./service-consumer
+    env_file: [.env]
+    depends_on: [ms-eureka, keycloak, rabbitmq, redis]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+      KEYCLOAK_ISSUER_URI: http://localhost:8089/realms/ms-realm
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+
+  service-batch:
+    build: ./service-batch
+    env_file: [.env]
+    mem_limit: ${BATCH_MEMORY_LIMIT:-768m}
+    depends_on: [ms-eureka, keycloak, rabbitmq, redis]
+    environment:
+      EUREKA_DEFAULT_ZONE: ${EUREKA_DEFAULT_ZONE:-http://ms-eureka:8761/eureka/}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8089/realms/ms-realm}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/ms-realm/protocol/openid-connect/certs}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      BATCH_FILE_CONCURRENCY: ${BATCH_FILE_CONCURRENCY:-5}
+
+  loki:
+    image: grafana/loki:3.2.1
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./observability/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    env_file: [.env]
+    ports:
+      - "3000:3000"
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      loki:
+        condition: service_healthy
+
+
+  ms-auth:
+    build: ./ms-auth
+    env_file: [.env]
+    depends_on: [ms-eureka, keycloak, redis]
+    environment:
+      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      REDIS_HOST: redis
+    ports: ["9200:9200"]
+
+volumes:
+  keycloak_db_data:
+  redis_data:
+  service_a_db_data:
+  service_b_db_data:
