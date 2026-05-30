@@ -57,6 +57,8 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
                                                     result.add(rewriteRealm(f, ctx));
             else if (hasResources && f.path().endsWith("/test-all.sh"))
                                                     result.add(rewriteTestAll(f, ctx));
+            else if (hasResources && f.path().endsWith("/README.md"))
+                                                    result.add(rewriteReadme(f, ctx));
             else if (hasResources && f.path().contains("/service-consumer/") && f.path().endsWith("AggregateController.java"))
                                                     result.add(rewriteAggregate(f, ctx));
             else if (hasResources && f.path().endsWith("/ms-client/src/main/resources/application.yml"))
@@ -501,6 +503,50 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         rr.add(roleName(r));
         u.set("realmRoles", rr);
         return u;
+    }
+
+
+    // ── README (Keycloak users per resource) ────────────────────────────────
+
+    private GeneratedFile rewriteReadme(GeneratedFile f, GenerationContext ctx) {
+        if (containsNullByte(f.content())) return f;
+
+        String text = new String(f.content(), StandardCharsets.UTF_8);
+        List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
+
+        StringBuilder table = new StringBuilder();
+        table.append("## Utilisateurs Keycloak\n");
+        table.append("| Utilisateur | Mot de passe | Rôles |\n");
+        table.append("|---|---|---|\n");
+        table.append("| `test-admin` | `admin123` | ADMIN, USER_BATCH");
+        for (ResourceModuleRequest r : resources) {
+            table.append(", ").append(roleName(r));
+        }
+        table.append(" |\n");
+        table.append("| `test-batch` | `user123` | USER_BATCH |\n");
+        for (ResourceModuleRequest r : resources) {
+            table.append("| `")
+                    .append(testUser(r))
+                    .append("` | `user123` | ")
+                    .append(roleName(r))
+                    .append(" |\n");
+        }
+
+        String heading = "## Utilisateurs Keycloak";
+        int sectionStart = text.indexOf(heading);
+        if (sectionStart < 0) {
+            return f;
+        }
+
+        int nextSection = text.indexOf("\n## ", sectionStart + heading.length());
+        String updated;
+        if (nextSection < 0) {
+            updated = text.substring(0, sectionStart) + table;
+        } else {
+            updated = text.substring(0, sectionStart) + table + text.substring(nextSection);
+        }
+
+        return new GeneratedFile(f.path(), updated.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 
     // ── test-all.sh (role matrix + URLs derived from resources[]) ─────────────
