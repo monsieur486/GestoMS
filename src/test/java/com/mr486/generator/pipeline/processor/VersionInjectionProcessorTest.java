@@ -152,4 +152,18 @@ class VersionInjectionProcessorTest {
         String out = run("ms-platform/README.md", "# hello\n");
         assertThat(out).isEqualTo("# hello\n");
     }
+
+    @Test
+    void dockerfile_rewrite_is_idempotent() {
+        String once = run("ms-platform/ms-eureka/Dockerfile", "FROM eclipse-temurin:17-jre\nWORKDIR /app\n");
+        String twice = run("ms-platform/ms-eureka/Dockerfile", once);
+        assertThat(twice).isEqualTo(once);
+    }
+
+    @Test
+    void env_block_is_idempotent() {
+        String once = run("ms-platform/.env", "REDIS_HOST=redis\n");
+        String twice = run("ms-platform/.env", once);
+        assertThat(twice).isEqualTo(once);
+    }
 }
