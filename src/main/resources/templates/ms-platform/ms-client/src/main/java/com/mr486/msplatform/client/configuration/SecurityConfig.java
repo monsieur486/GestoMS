@@ -23,6 +23,7 @@ public class SecurityConfig {
                                            SecurityContextRepository securityContextRepository) throws Exception {
         http
                 .securityContext(sc -> sc.securityContextRepository(securityContextRepository))
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/ws/**"))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login", "/css/**", "/actuator/health").permitAll()
                         .requestMatchers("/consumer").hasRole("ADMIN")
