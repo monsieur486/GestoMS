@@ -83,12 +83,61 @@ class CrossCuttingConfigProcessorTest {
         "  service_a_db_data:\n" +
         "  service_b_db_data:\n";
 
+    private static final String SAMPLE_GATEWAY_YML =
+        "server:\n" +
+        "  port: ${GATEWAY_PORT:9000}\n" +
+        "spring:\n" +
+        "  cloud:\n" +
+        "    gateway:\n" +
+        "      server:\n" +
+        "        webflux:\n" +
+        "          routes:\n" +
+        "            - id: ms-auth\n" +
+        "              uri: lb://ms-auth\n" +
+        "              predicates:\n" +
+        "                - Path=/auth/**\n" +
+        "            - id: service-a\n" +
+        "              uri: lb://service-a\n" +
+        "              predicates:\n" +
+        "                - Path=/service-a/**\n" +
+        "              filters:\n" +
+        "                - StripPrefix=1\n" +
+        "            - id: service-b\n" +
+        "              uri: lb://service-b\n" +
+        "              predicates:\n" +
+        "                - Path=/service-b/**\n" +
+        "              filters:\n" +
+        "                - StripPrefix=1\n" +
+        "            - id: service-c\n" +
+        "              uri: lb://service-c\n" +
+        "              predicates:\n" +
+        "                - Path=/service-c/**\n" +
+        "              filters:\n" +
+        "                - StripPrefix=1\n" +
+        "            - id: service-consumer\n" +
+        "              uri: lb://service-consumer\n" +
+        "              predicates:\n" +
+        "                - Path=/service-consumer/**\n" +
+        "              filters:\n" +
+        "                - StripPrefix=1\n" +
+        "eureka:\n" +
+        "  client:\n" +
+        "    service-url:\n" +
+        "      defaultZone: http://localhost:8761/eureka/\n";
+
     private List<GeneratedFile> sampleFiles() {
         return List.of(
             file("ms-platform/pom.xml", SAMPLE_POM),
             file("ms-platform/docker-compose.yml", SAMPLE_COMPOSE),
+            file("ms-platform/ms-gateway/src/main/resources/application.yml", SAMPLE_GATEWAY_YML),
             file("ms-platform/service-a/pom.xml", "<project/>")
         );
+    }
+
+    private String gatewayContent(List<GeneratedFile> result) {
+        return contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-gateway/src/main/resources/application.yml"))
+            .findFirst().orElseThrow());
     }
 
     // ── Root pom <modules> rewriting ─────────────────────────────────────────
@@ -196,6 +245,53 @@ class CrossCuttingConfigProcessorTest {
                            .doesNotContain("  service-a-db:")
                            .doesNotContain("  service-b-db:");
         assertThat(compose).contains("  service-consumer:");
+    }
+
+    // ── gateway application.yml routes ───────────────────────────────────────
+
+    @Test
+    void gateway_yml_unchanged_with_defaults() {
+        List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
+        String yml = gatewayContent(result);
+        assertThat(yml).contains("- id: ms-auth").contains("- id: service-a")
+                       .contains("- id: service-b").contains("- id: service-c")
+                       .contains("- id: service-consumer");
+    }
+
+    @Test
+    void gateway_yml_drops_ms_auth_route_when_keycloak_disabled() {
+        FeatureOptions f = new FeatureOptions(); f.setKeycloak(false);
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
+        String yml = gatewayContent(result);
+        assertThat(yml).doesNotContain("- id: ms-auth")
+                       .doesNotContain("uri: lb://ms-auth")
+                       .doesNotContain("Path=/auth/**");
+        // Other routes preserved
+        assertThat(yml).contains("- id: service-a").contains("- id: service-consumer");
+    }
+
+    @Test
+    void gateway_yml_swaps_default_services_for_resource_routes() {
+        ResourceModuleRequest r1 = res("order-service", "Order", DatabaseType.POSTGRES);
+        ResourceModuleRequest r2 = res("product-service", "Product", DatabaseType.MONGO);
+        PlatformGenerationRequest req = new PlatformGenerationRequest();
+        req.setResources(List.of(r1, r2));
+        GenerationContext ctx = GenerationContext.from(req);
+
+        List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
+        String yml = gatewayContent(result);
+
+        assertThat(yml).doesNotContain("- id: service-a\n")
+                       .doesNotContain("- id: service-b\n")
+                       .doesNotContain("- id: service-c\n");
+        assertThat(yml).contains("- id: order-service")
+                       .contains("uri: lb://order-service")
+                       .contains("Path=/order-service/**")
+                       .contains("- id: product-service")
+                       .contains("uri: lb://product-service")
+                       .contains("Path=/product-service/**");
+        // ms-auth + service-consumer preserved
+        assertThat(yml).contains("- id: ms-auth").contains("- id: service-consumer");
     }
 
     @Test

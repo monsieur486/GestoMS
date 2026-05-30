@@ -23,13 +23,15 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     @Override
     public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
-        String rootPomPath = ctx.getTargetRoot() + "/pom.xml";
-        String composePath = ctx.getTargetRoot() + "/docker-compose.yml";
+        String rootPomPath  = ctx.getTargetRoot() + "/pom.xml";
+        String composePath  = ctx.getTargetRoot() + "/docker-compose.yml";
+        String gatewayYml   = ctx.getTargetRoot() + "/ms-gateway/src/main/resources/application.yml";
 
         List<GeneratedFile> result = new ArrayList<>(files.size());
         for (GeneratedFile f : files) {
             if (f.path().equals(rootPomPath))      result.add(rewriteRootPom(f, ctx));
             else if (f.path().equals(composePath)) result.add(rewriteCompose(f, ctx));
+            else if (f.path().equals(gatewayYml))  result.add(rewriteGatewayYml(f, ctx));
             else                                    result.add(f);
         }
         return result;
@@ -263,6 +265,78 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         DatabaseType db = r.getDatabaseType() == null ? DatabaseType.POSTGRES : r.getDatabaseType();
         if (db == DatabaseType.H2) return "";
         return "  " + r.getServiceName().replace("-", "_") + "_db_data:\n";
+    }
+
+    // ── ms-gateway routes ─────────────────────────────────────────────────────
+
+    private GeneratedFile rewriteGatewayYml(GeneratedFile f, GenerationContext ctx) {
+        if (containsNullByte(f.content())) return f;
+        String text = new String(f.content(), StandardCharsets.UTF_8);
+        PlatformGenerationRequest req = ctx.getRequest();
+        boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
+
+        if (!req.getFeatures().isKeycloak()) {
+            text = removeGatewayRoute(text, "ms-auth");
+        }
+        if (hasResources) {
+            text = removeGatewayRoute(text, "service-a");
+            text = removeGatewayRoute(text, "service-b");
+            text = removeGatewayRoute(text, "service-c");
+            text = addGatewayRoutes(text, req.getResources());
+        }
+        return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
+    }
+
+    /**
+     * Remove a single route block from the gateway's `spring.cloud.gateway.server.webflux.routes:`
+     * list. Each route starts at `            - id: <name>` (12-space indent) and ends at the
+     * next sibling `- id:` or any line with strictly less indent (e.g. the `eureka:` top-level key).
+     */
+    private String removeGatewayRoute(String text, String routeId) {
+        String[] lines = text.split("\n", -1);
+        String startMarker = "            - id: " + routeId;
+        int startIdx = -1;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].equals(startMarker)) { startIdx = i; break; }
+        }
+        if (startIdx == -1) return text;
+        int endIdx = lines.length;
+        for (int i = startIdx + 1; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.startsWith("            - id:")) { endIdx = i; break; }
+            if (line.isEmpty()) continue;
+            if (!line.startsWith("              ")) { endIdx = i; break; }
+        }
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            if (i >= startIdx && i < endIdx) continue;
+            out.append(lines[i]);
+            if (i < lines.length - 1) out.append("\n");
+        }
+        return out.toString();
+    }
+
+    /**
+     * Append one route block per resource[] entry, inserted just before the top-level `eureka:`
+     * key (which sits right after the routes list in the template). Each new route uses
+     * `Path=/{serviceName}/**` + `StripPrefix=1`, matching the convention of the default services.
+     */
+    private String addGatewayRoutes(String text, List<ResourceModuleRequest> resources) {
+        StringBuilder newRoutes = new StringBuilder();
+        for (ResourceModuleRequest r : resources) {
+            newRoutes
+                .append("            - id: ").append(r.getServiceName()).append("\n")
+                .append("              uri: lb://").append(r.getServiceName()).append("\n")
+                .append("              predicates:\n")
+                .append("                - Path=/").append(r.getServiceName()).append("/**\n")
+                .append("              filters:\n")
+                .append("                - StripPrefix=1\n");
+        }
+        int eurekaIdx = text.indexOf("\neureka:");
+        if (eurekaIdx >= 0) {
+            return text.substring(0, eurekaIdx + 1) + newRoutes + text.substring(eurekaIdx + 1);
+        }
+        return (text.endsWith("\n") ? text : text + "\n") + newRoutes;
     }
 
     /**
