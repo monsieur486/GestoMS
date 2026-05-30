@@ -1,0 +1,29 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Utilisateurs — admin-application</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <p><a th:href="@{/}">← Accueil</a></p>
+  <h1>Utilisateurs</h1>
+  <p th:if="${error}" class="error" th:text="${error}">erreur</p>
+  <table th:if="${users}">
+    <thead><tr><th>username</th><th>email</th><th>prénom</th><th>nom</th><th>actif</th></tr></thead>
+    <tbody>
+      <tr th:each="u : ${users}">
+        <td th:text="${u.username}">user</td>
+        <td th:text="${u.email}">email</td>
+        <td th:text="${u.firstName}">first</td>
+        <td th:text="${u.lastName}">last</td>
+        <td th:text="${u.enabled}">true</td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>
