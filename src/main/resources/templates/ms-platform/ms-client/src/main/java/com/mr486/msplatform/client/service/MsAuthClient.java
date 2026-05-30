@@ -35,7 +35,11 @@ public class MsAuthClient {
         try {
             ResponseEntity<MsAuthTokens> resp =
                     restTemplate.postForEntity(gatewayUrl + "/auth/login", entity, MsAuthTokens.class);
-            return resp.getBody();
+            MsAuthTokens body = resp.getBody();
+            if (body == null) {
+                throw new AuthUnavailableException();
+            }
+            return body;
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.BAD_REQUEST) {
                 throw new InvalidCredentialsException();

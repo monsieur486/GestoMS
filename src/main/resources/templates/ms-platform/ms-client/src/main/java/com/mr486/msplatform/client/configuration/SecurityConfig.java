@@ -18,8 +18,11 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, MsAuthLogoutHandler logoutHandler) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           MsAuthLogoutHandler logoutHandler,
+                                           SecurityContextRepository securityContextRepository) throws Exception {
         http
+                .securityContext(sc -> sc.securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login", "/css/**", "/actuator/health").permitAll()
                         .anyRequest().authenticated())
