@@ -47,14 +47,14 @@ class KeycloakAdminClientTest {
         when(restTemplate.exchange(contains("/admin/realms/ms-realm/users"), eq(HttpMethod.GET), any(), eq(KeycloakUser[].class)))
                 .thenReturn(ResponseEntity.ok(users));
 
-        assertThat(client.listUsers()).extracting(KeycloakUser::username).containsExactly("alice", "bob");
+        assertThat(client.listUsers(null, 0, 20)).extracting(KeycloakUser::username).containsExactly("alice", "bob");
     }
 
     @Test
     void throws_when_token_missing() {
         when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
                 .thenReturn(ResponseEntity.ok(Map.of()));
-        assertThatThrownBy(() -> client.listUsers())
+        assertThatThrownBy(() -> client.listUsers(null, 0, 20))
                 .isInstanceOf(KeycloakAdminClient.KeycloakUnavailableException.class);
     }
 
@@ -195,5 +195,32 @@ class KeycloakAdminClientTest {
         assertThat(body.get("type")).isEqualTo("password");
         assertThat(body.get("value")).isEqualTo("secret");
         assertThat(body.get("temporary")).isEqualTo(false);
+    }
+
+    @Test
+    void list_users_builds_url_with_paging_and_search() {
+        when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
+                .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users"), eq(HttpMethod.GET), any(), eq(KeycloakUser[].class)))
+                .thenReturn(ResponseEntity.ok(new KeycloakUser[0]));
+
+        client.listUsers("bob", 20, 20);
+
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(restTemplate).exchange(urlCaptor.capture(), eq(HttpMethod.GET), any(), eq(KeycloakUser[].class));
+        assertThat(urlCaptor.getValue())
+                .contains("first=20")
+                .contains("max=20")
+                .contains("search=bob");
+    }
+
+    @Test
+    void count_users_returns_total() {
+        when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
+                .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users/count"), eq(HttpMethod.GET), any(), eq(Integer.class)))
+                .thenReturn(ResponseEntity.ok(42));
+
+        assertThat(client.countUsers("")).isEqualTo(42);
     }
 }

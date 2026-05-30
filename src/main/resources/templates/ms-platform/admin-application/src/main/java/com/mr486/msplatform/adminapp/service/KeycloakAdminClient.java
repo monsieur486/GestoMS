@@ -13,6 +13,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,15 +42,43 @@ public class KeycloakAdminClient {
         this.adminPassword = adminPassword;
     }
 
-    public List<KeycloakUser> listUsers() {
+    public List<KeycloakUser> listUsers(String search, int first, int max) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(internalUrl + "/admin/realms/" + realm + "/users")
+                .queryParam("first", first)
+                .queryParam("max", max);
+        if (search != null && !search.isBlank()) {
+            builder.queryParam("search", search);
+        }
+        String url = builder.encode().toUriString();
         try {
             ResponseEntity<KeycloakUser[]> resp = restTemplate.exchange(
-                    internalUrl + "/admin/realms/" + realm + "/users?max=100",
-                    HttpMethod.GET, new HttpEntity<>(headers), KeycloakUser[].class);
+                    url, HttpMethod.GET, new HttpEntity<>(headers), KeycloakUser[].class);
             KeycloakUser[] body = resp.getBody();
             return body == null ? List.of() : List.of(body);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public int countUsers(String search) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(adminToken());
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(internalUrl + "/admin/realms/" + realm + "/users/count");
+        if (search != null && !search.isBlank()) {
+            builder.queryParam("search", search);
+        }
+        String url = builder.encode().toUriString();
+        try {
+            ResponseEntity<Integer> resp = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Integer.class);
+            Integer body = resp.getBody();
+            return body == null ? 0 : body;
         } catch (KeycloakUnavailableException e) {
             throw e;
         } catch (Exception e) {
