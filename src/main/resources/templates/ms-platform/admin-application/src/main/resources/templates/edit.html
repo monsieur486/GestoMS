@@ -1,0 +1,44 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Éditer un utilisateur — admin-application</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <p><a th:href="@{/users}">← Utilisateurs</a></p>
+  <p th:if="${param.updated}" class="info">Utilisateur mis à jour.</p>
+  <p th:if="${param.pwd}" class="info">Mot de passe réinitialisé.</p>
+  <p th:if="${error}" class="error" th:text="${error}">erreur</p>
+  <p th:if="${param.error}" class="error">Keycloak indisponible.</p>
+  <div th:if="${user}">
+    <h1>Éditer <span th:text="${user.username}">user</span></h1>
+    <form th:action="@{/users/{id}/edit(id=${user.id})}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <label>Username <input type="text" th:value="${user.username}" disabled/></label>
+      <label>Email <input type="email" name="email" th:value="${user.email}"/></label>
+      <label>Prénom <input type="text" name="firstName" th:value="${user.firstName}"/></label>
+      <label>Nom <input type="text" name="lastName" th:value="${user.lastName}"/></label>
+      <label th:if="${user.username == currentUsername}">
+        Actif <input type="checkbox" checked disabled/>
+        <input type="hidden" name="enabled" value="true"/>
+      </label>
+      <label th:unless="${user.username == currentUsername}">
+        Actif <input type="checkbox" name="enabled" value="true" th:checked="${user.enabled}"/>
+      </label>
+      <button type="submit">Enregistrer</button>
+    </form>
+
+    <h2>Réinitialiser le mot de passe</h2>
+    <form th:action="@{/users/{id}/password(id=${user.id})}" method="post">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <label>Nouveau mot de passe <input type="password" name="password" required/></label>
+      <button type="submit">Réinitialiser</button>
+    </form>
+  </div>
+</main>
+</body>
+</html>

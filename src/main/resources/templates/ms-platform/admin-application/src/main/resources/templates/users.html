@@ -24,6 +24,7 @@
         <td th:text="${u.lastName}">last</td>
         <td th:text="${u.enabled}">true</td>
         <td>
+          <a th:href="@{/users/{id}/edit(id=${u.id})}">éditer</a>
           <a th:href="@{/users/{id}/roles(id=${u.id})}">rôles</a>
           <form th:if="${u.username != currentUsername}" th:action="@{/users/{id}/delete(id=${u.id})}" method="post"
                 onsubmit="return confirm('Supprimer cet utilisateur ?');">

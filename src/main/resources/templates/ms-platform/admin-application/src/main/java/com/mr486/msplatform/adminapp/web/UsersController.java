@@ -52,4 +52,37 @@ public class UsersController {
             return "redirect:/users?error";
         }
     }
+
+    @GetMapping("/users/{id}/edit")
+    public String editForm(@PathVariable String id, Authentication authentication, Model model) {
+        model.addAttribute("currentUsername", authentication.getName());
+        try {
+            model.addAttribute("user", keycloakAdminClient.getUser(id));
+        } catch (KeycloakAdminClient.KeycloakUnavailableException e) {
+            model.addAttribute("error", "Keycloak indisponible.");
+        }
+        return "edit";
+    }
+
+    @PostMapping("/users/{id}/edit")
+    public String edit(@PathVariable String id, @RequestParam(required = false) String email,
+                       @RequestParam(required = false) String firstName, @RequestParam(required = false) String lastName,
+                       @RequestParam(defaultValue = "false") boolean enabled) {
+        try {
+            keycloakAdminClient.updateUser(id, email, firstName, lastName, enabled);
+            return "redirect:/users/" + id + "/edit?updated";
+        } catch (KeycloakAdminClient.KeycloakUnavailableException e) {
+            return "redirect:/users/" + id + "/edit?error";
+        }
+    }
+
+    @PostMapping("/users/{id}/password")
+    public String resetPassword(@PathVariable String id, @RequestParam String password) {
+        try {
+            keycloakAdminClient.resetPassword(id, password);
+            return "redirect:/users/" + id + "/edit?pwd";
+        } catch (KeycloakAdminClient.KeycloakUnavailableException e) {
+            return "redirect:/users/" + id + "/edit?error";
+        }
+    }
 }
