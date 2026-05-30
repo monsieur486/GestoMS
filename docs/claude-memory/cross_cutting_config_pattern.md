@@ -12,11 +12,15 @@ The GestoMS generator pipeline splits work into path-based processors (filter pa
 **Why @Order(60) and not earlier.**
 Must run AFTER `ResourceExpandProcessor` (@Order(50)) because it needs the final resource list to know which modules to add. Running earlier would miss dynamic services.
 
-**The processor owns four responsibilities.**
+**The processor owns several responsibilities.**
 1. Rewrite root `<modules>` block — regenerated from scratch based on features + resources[], not patched.
 2. Remove obsolete docker-compose service blocks (e.g., `keycloak:` and `ms-auth:` when `keycloak=false`, `service-a/b/c:` and their `-db:` companions when resources[] is provided). Also clean dangling `depends_on: [..., removed-name, ...]` entries in surviving blocks — leaving them in causes `docker compose up` to fail with "service X depends on undefined service Y".
 3. Append new docker-compose blocks for each `resources[]` entry, templated by `databaseType` (POSTGRES → app + postgres db + healthcheck, MONGO → app + mongo db, H2 → app only).
 4. Rewrite `ms-gateway/src/main/resources/application.yml` route list. Without this, `keycloak=false` leaves a dangling `- id: ms-auth` route pointing at a removed service, and `resources[]` leaves `/service-a/**` routes that don't resolve while the new `/{resource}/**` services aren't reachable at all.
+5. (added later) When `resources[]` is present, regenerate three more cross-cutting files that reference services by name, matched by **path suffix** (not exact path, because their location embeds the basePackage) and gated on `hasResources`:
+   - **Keycloak realm** `keycloak/import/ms-realm-realm.json` — drop the demo `USER_SERVICE_A/B/C` roles and `test-service-a/b/c` users, emit one `USER_<SERVICE>` role + one `test-<service>` user (password `user123`) per resource, and re-point `test-admin` to all resource roles. Edited as a Jackson tree (the only JSON the pipeline manipulates structurally rather than by string ops — variable-arity arrays make string editing too fragile). The realm being correct is necessary but not sufficient at runtime — see [[keycloak-realm-reimport]].
+   - **`test-all.sh`** — regenerated end-to-end from `resources[]`: per-service logins, `tokens.env`, the full role matrix (own→200, cross→403, ADMIN→200), gateway URLs `$GATEWAY_URL/<service><routePrefix>`, aggregation asserts. Batch/admin sections gated on their features.
+   - **`service-consumer/.../AggregateController.java`** — `Mono.zip(List.of(...), combinator)` over N resource services (`lb://<service><routePrefix>`, map keyed by service name), instead of a hardcoded zip of the 3 demo services.
 
 **Service block removal is line-based, not regex.**
 docker-compose blocks span multiple lines with indent-based scoping. The algorithm: find `  <name>:` (2-space indent), then consume lines until the next 2-space-indented sibling or column-0 top-level key. Blank lines between blocks are absorbed into the removed range. Regex doesn't work cleanly here because YAML indent-scoping isn't a regular language.
