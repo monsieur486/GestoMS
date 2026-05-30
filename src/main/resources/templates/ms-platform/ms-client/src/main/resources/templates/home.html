@@ -18,7 +18,7 @@
   <ul class="links">
     <li th:if="${roles.contains('ROLE_ADMIN')}"><a th:href="@{/consumer}">Page consumer</a></li>
     <li><a th:href="@{/resources}">CRUD</a></li>
-    <li>Notifications batch <em>(à venir — 2d)</em></li>
+    <li><a th:href="@{/notifications}">Notifications batch</a></li>
     <li>Chat <em>(à venir — 2e)</em></li>
   </ul>
   <form th:action="@{/logout}" method="post">

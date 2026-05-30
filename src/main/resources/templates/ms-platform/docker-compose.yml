@@ -84,6 +84,7 @@ services:
       EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
       REDIS_HOST: redis
       GATEWAY_URL: http://ms-gateway:9000
+      GATEWAY_PUBLIC_URL: http://localhost:9000
       MS_CLIENT_PORT: 8090
     ports: ["8090:8090"]
 

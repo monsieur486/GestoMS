@@ -13,6 +13,7 @@ spring:
     cache: false
 gateway:
   url: ${GATEWAY_URL:http://localhost:9000}
+  public-url: ${GATEWAY_PUBLIC_URL:http://localhost:9000}
 eureka:
   client:
     service-url:

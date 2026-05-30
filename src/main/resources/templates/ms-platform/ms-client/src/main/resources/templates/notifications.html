@@ -1,0 +1,41 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notifications batch — ms-client</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main th:attr="data-gateway-url=${gatewayPublicUrl}">
+  <p><a th:href="@{/}">← Accueil</a></p>
+  <h1>Notifications batch</h1>
+  <p id="status" class="info">Connexion…</p>
+  <ul id="events"></ul>
+</main>
+<script>
+  const main = document.querySelector('main');
+  const gatewayUrl = main.dataset.gatewayUrl;
+  const statusEl = document.getElementById('status');
+  const list = document.getElementById('events');
+  const client = new StompJs.Client({
+    webSocketFactory: () => new SockJS(gatewayUrl + '/service-consumer/ws'),
+    reconnectDelay: 2000,
+    onConnect: () => {
+      statusEl.textContent = 'Connecté — en attente de notifications…';
+      client.subscribe('/topic/batch', message => {
+        const p = JSON.parse(message.body);
+        const li = document.createElement('li');
+        li.textContent = `${p.jobId} - ${p.status} - ${p.generatedCount} fichiers - ${p.totalSeconds}s - ${p.instance}`;
+        list.prepend(li);
+      });
+    },
+    onWebSocketClose: () => { statusEl.textContent = 'Déconnecté — reconnexion…'; }
+  });
+  client.activate();
+</script>
+</body>
+</html>
