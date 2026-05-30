@@ -153,6 +153,34 @@ curl -X POST http://localhost:8080/api/generate/platform \
 
 This emits the full platform: permanent core (keycloak/ms-auth/redis/rabbitmq/eureka/gateway/service-consumer + `admin-application`), the three custom services, `service-batch`, full observability (`batch.grafana=true`), plus the two optional modules `ms-admin` and `ms-client`.
 
+## Utilisateurs Keycloak
+
+Le realm `ms-realm` est importé au premier démarrage avec les utilisateurs de test ci-dessous
+(définis dans `keycloak/import/ms-realm-realm.json`). Mots de passe **permanents** (non temporaires).
+
+| Utilisateur | Mot de passe | Rôles realm |
+| ----------- | ------------ | ----------- |
+| `test-admin` | `admin123` | `ADMIN`, `USER_BATCH`, `USER_SERVICE_A`, `USER_SERVICE_B`, `USER_SERVICE_C` |
+| `test-batch` | `user123` | `USER_BATCH` |
+| `test-service-a` | `user123` | `USER_SERVICE_A` |
+| `test-service-b` | `user123` | `USER_SERVICE_B` |
+| `test-service-c` | `user123` | `USER_SERVICE_C` |
+
+Rôles realm définis : `ADMIN`, `USER_BATCH`, `USER_SERVICE_A`, `USER_SERVICE_B`, `USER_SERVICE_C`, `SERVICE`.
+Seul `test-admin` (rôle `ADMIN`) peut se connecter à `admin-application` (`:9300`) et à `ms-client` (`:8090`).
+
+**Console d'administration Keycloak** (`http://localhost:8089`) — compte master, distinct des utilisateurs du realm :
+
+| Utilisateur | Mot de passe | Source (`.env`) |
+| ----------- | ------------ | --------------- |
+| `admin` | `admin` | `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` |
+
+> **Mode `resources[]`** : quand `resources` est non vide, `service-a/b/c` disparaissent et le realm est
+> réécrit en conséquence — les utilisateurs `test-service-a/b/c` sont remplacés par un `test-<serviceName>`
+> par resource (mot de passe `user123`, rôle `USER_<SERVICE_NAME>`), et `test-admin` reçoit le rôle de
+> chaque resource. Exemple avec `order-service` : utilisateur `test-order-service` / `user123`, rôle
+> `USER_ORDER_SERVICE`.
+
 ## Test generated platform
 
 ```bash
