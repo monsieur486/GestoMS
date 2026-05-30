@@ -242,6 +242,23 @@ class ResourceExpandProcessorTest {
     }
 
     @Test
+    void mongo_application_yml_uses_valid_single_brace_placeholders() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
+        GeneratedFile yml = result.stream()
+            .filter(f -> f.path().endsWith("catalog/src/main/resources/application.yml"))
+            .findFirst().orElseThrow();
+        String s = contentOf(yml);
+        // ${{...}} is an invalid Spring placeholder: it resolves the inner and leaves a
+        // dangling brace (e.g. "port: 8080}"), which breaks startup.
+        assertThat(s).doesNotContain("${{");
+        assertThat(s).contains("port: ${CATALOG_PORT:8080}");
+        assertThat(s).contains("${CATALOG_MONGO_URI:");
+    }
+
+    @Test
     void mongo_removes_db_changelog_files() {
         GenerationContext ctx = ctxWithResources(List.of(
             resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)

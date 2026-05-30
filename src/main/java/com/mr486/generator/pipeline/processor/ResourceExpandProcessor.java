@@ -218,13 +218,13 @@ public class ResourceExpandProcessor implements FileProcessor {
 
     private static final String MONGO_APP_YML_TEMPLATE =
         "server:\n" +
-        "  port: ${{{SERVICE_UPPER}_PORT:8080}}\n" +
+        "  port: ${{SERVICE_UPPER}_PORT:8080}\n" +
         "spring:\n" +
         "  application:\n" +
         "    name: {SERVICE_NAME}\n" +
         "  data:\n" +
         "    mongodb:\n" +
-        "      uri: ${{{SERVICE_UPPER}_MONGO_URI:mongodb://{SERVICE_SNAKE}:{SERVICE_SNAKE}@localhost:27017/{SERVICE_SNAKE}_db?authSource=admin}}\n" +
+        "      uri: ${{SERVICE_UPPER}_MONGO_URI:mongodb://{SERVICE_SNAKE}:{SERVICE_SNAKE}@localhost:27017/{SERVICE_SNAKE}_db?authSource=admin}\n" +
         "  security:\n" +
         "    oauth2:\n" +
         "      resourceserver:\n" +
