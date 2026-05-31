@@ -1,21 +1,27 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agrégat consumer — ms-client</title>
-  <link rel="stylesheet" th:href="@{/css/app.css}">
-</head>
+<html xmlns:th="http://www.thymeleaf.org" data-bs-theme="dark" lang="fr">
+<head th:replace="~{layout :: head('Agrégat consumer')}"></head>
 <body>
 <div th:replace="~{layout :: header}"></div>
-<main>
-  <p><a th:href="@{/}">← Accueil</a></p>
-  <h1>Agrégat consumer</h1>
-  <p th:if="${error}" class="error" th:text="${error}">erreur</p>
-  <div th:each="svc : ${services}" class="service-block">
-    <h2 th:text="${svc.key}">service</h2>
-    <pre th:text="${svc.value}">{}</pre>
+<main class="container py-5">
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <h1 class="fw-bold mb-0">Agrégat consumer</h1>
+    <span class="badge rounded-pill" style="background:rgba(34,211,238,.15);color:#22d3ee;border:1px solid rgba(34,211,238,.4)">ADMIN</span>
   </div>
+
+  <div th:if="${error}" class="alert alert-danger mb-4" th:text="${error}">erreur</div>
+
+  <div class="row g-4">
+    <div th:each="svc : ${services}" class="col-md-6">
+      <div class="card service-block h-100">
+        <div class="card-header fw-semibold" th:text="${svc.key}">service</div>
+        <pre th:text="${svc.value}">{}</pre>
+      </div>
+    </div>
+  </div>
+
 </main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
