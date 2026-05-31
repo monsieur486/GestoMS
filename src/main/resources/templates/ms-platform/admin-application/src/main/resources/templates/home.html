@@ -30,6 +30,19 @@
         </div>
       </div>
     </div>
+    <div class="col-sm-6 col-lg-4">
+      <div class="card feature-card h-100" onclick="location.href=this.querySelector('a').href">
+        <div class="card-body d-flex flex-column">
+          <div class="feature-icon">🏷️</div>
+          <h5 class="card-title fw-semibold">Rôles</h5>
+          <p class="card-text text-muted small flex-grow-1">
+            Créez et supprimez les rôles du realm Keycloak.
+          </p>
+          <a th:href="@{/roles}" class="btn btn-primary btn-sm mt-3">Gérer →</a>
+        </div>
+      </div>
+    </div>
+
   </div>
 
 </main>
