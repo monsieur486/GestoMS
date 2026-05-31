@@ -2,6 +2,14 @@
 
 Ce générateur produit un ZIP complet de la plateforme microservices validée V5.4.
 
+![Java](https://img.shields.io/badge/Java-17-f89820?style=flat-square&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=flat-square&logo=springboot&logoColor=white)
+![Keycloak](https://img.shields.io/badge/Keycloak-OAuth2-4D7A97?style=flat-square&logo=keycloak&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-JTI_Blacklist-DC382D?style=flat-square&logo=redis&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Messaging-FF6600?style=flat-square&logo=rabbitmq&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker_Compose-required-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Bootstrap](https://img.shields.io/badge/UI-Bootstrap_5.3-7c3aed?style=flat-square&logo=bootstrap&logoColor=white)
+
 La plateforme générée inclut :
 
 - Eureka
@@ -36,61 +44,82 @@ BATCH_MEMORY_LIMIT=768m
 
 ### Schéma global
 
-```
-                         ┌──────────────────────┐
-                         │      ms-eureka        │
-                         │      :8761            │
-                         │   Service Discovery   │
-                         └──────────┬───────────┘
-                                    │  ← tous les services s'enregistrent
-     Navigateur / Client            │
-            │                       │
-            ▼                       │
-    ┌───────────────┐               │
-    │  ms-gateway   │◄──────────────┘  load balancing dynamique
-    │  :8080        │
-    │  JWT filter   │  ← vérifie signature + JTI blacklist (Redis)
-    └───────┬───────┘
-            │
-  ┌─────────┼──────────────────────────────────────────────┐
-  │         │                                              │
-  ▼         ▼              ▼              ▼                ▼
-┌──────┐ ┌────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────┐
-│ms-   │ │service │  │service-  │  │service-  │  │admin-         │
-│auth  │ │-*      │  │consumer  │  │batch     │  │application    │
-│:8081 │ │:8XXX   │  │:8070     │  │:8082     │  │:9300          │
-└──┬───┘ └───┬────┘  └────┬─────┘  └────┬─────┘  └───────────────┘
-   │         │            │             │
-   ▼         ▼            │ WebSocket   ▼
-┌──────┐ ┌────────┐       │ /topic/  ┌──────────┐
-│Key-  │ │Postgres│       │ batch    │RabbitMQ  │
-│cloak │ │MongoDB │       ▼          │(jobs)    │
-│:8089 │ │H2      │  ms-client       └──────────┘
-└──┬───┘ └────────┘  :8090 (opt.)
-   │                 BFF Thymeleaf
-   ▼
-┌──────┐
-│Redis │  ← sessions Spring + JTI blacklist
-└──────┘
+```mermaid
+flowchart TD
+    Browser([🌐 Navigateur / Client])
 
-Optionnels :
-  ms-client    :8090  BFF Thymeleaf       (features.clientWebUI: true)
-  ms-admin     :9100  Spring Boot Admin   (features.springbootAdmin: true)
-  observability       Loki+Promtail+Grafana :3000  (batch.grafana: true)
+    Browser -->|HTTPS| GW
+
+    subgraph permanent [" 🔒 Noyau permanent "]
+        GW("🚪 **ms-gateway**\n:8080\nJWT filter · JTI blacklist")
+        AUTH("🔐 **ms-auth**\n:8081\nlogin · refresh · logout")
+        ADMIN("👥 **admin-application**\n:9300\nUtilisateurs · Rôles")
+        CON("📡 **service-consumer**\n:8070\nAgrégat · WebSocket")
+        BAT("⚙️ **service-batch**\n:8082\nJobs asynchrones")
+        SVC("📦 **service-***\n:8XXX\nCRUD REST métier")
+    end
+
+    subgraph infra [" 🏗️ Infrastructure "]
+        EUR("🔍 **ms-eureka**\n:8761\nService Discovery")
+        KC("🔑 **Keycloak**\n:8089\nIdentity Provider")
+        REDIS[("🔴 Redis\nSessions · JTI BL")]
+        MQ[("🟠 RabbitMQ\nMessage broker")]
+        DB[("🐘 PostgreSQL\n🍃 MongoDB\n💾 H2")]
+    end
+
+    subgraph optional [" ✨ Optionnels "]
+        CLIENT("💻 **ms-client**\n:8090\nBFF Thymeleaf")
+        SBAADM("📊 **ms-admin**\n:9100\nSpring Boot Admin")
+        OBS("📈 **observability**\n:3000\nLoki · Promtail · Grafana")
+    end
+
+    GW <-->|Service Discovery| EUR
+    GW --> AUTH
+    GW --> ADMIN
+    GW --> SVC
+    GW --> CON
+    GW --> BAT
+    GW -.->|optionnel| CLIENT
+
+    AUTH <--> KC
+    AUTH <--> REDIS
+    GW <-->|JTI blacklist| REDIS
+
+    SVC --> DB
+    BAT <--> MQ
+    CON -->|WebSocket /topic/batch| CLIENT
+
+    EUR -.->|monitoring| SBAADM
+    BAT -.->|logs| OBS
+
+    classDef permanent fill:#1e1b4b,color:#c4b5fd,stroke:#7c3aed,stroke-width:2px
+    classDef infra fill:#1e3a5f,color:#93c5fd,stroke:#3b82f6,stroke-width:2px
+    classDef optional fill:#1a2e1a,color:#86efac,stroke:#22c55e,stroke-width:1px,stroke-dasharray:4
+
+    class GW,AUTH,ADMIN,CON,BAT,SVC permanent
+    class EUR,KC,REDIS,MQ,DB infra
+    class CLIENT,SBAADM,OBS optional
 ```
 
 ---
 
 ### Services — fonctions et possibilités
 
-#### `ms-eureka` — Service Discovery (`:8761`)
+#### `ms-eureka` — Service Discovery
+![Port](https://img.shields.io/badge/port-8761-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+
 - Serveur Eureka : registre central de tous les services
 - Tous les modules s'y enregistrent au démarrage ; le gateway s'en sert pour le load balancing
 - Interface Eureka accessible sur `:8761`
 
 ---
 
-#### `ms-gateway` — Point d'entrée unique (`:8080`)
+#### `ms-gateway` — Point d'entrée unique
+![Port](https://img.shields.io/badge/port-8080-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+![Tech](https://img.shields.io/badge/WebFlux-réactif-6DB33F?style=flat-square)
+
 - Reverse proxy **WebFlux** (non-bloquant) — route toutes les requêtes externes
 - **TokenBlacklistFilter** : vérifie le JTI du JWT dans Redis avant chaque requête (révocation immédiate sans attendre l'expiration)
 - Parse le JWT sans librairie dédiée (extraction du claim `realm_access.roles` en base64)
@@ -98,7 +127,11 @@ Optionnels :
 
 ---
 
-#### `ms-auth` — Authentification (`:8081`)
+#### `ms-auth` — Authentification
+![Port](https://img.shields.io/badge/port-8081-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+![Tech](https://img.shields.io/badge/Keycloak-password_grant-4D7A97?style=flat-square)
+
 - Encapsulation du **Keycloak password grant** — le client n'interagit jamais directement avec Keycloak
 - `POST /auth/login` — identifiant + mot de passe → access token JWT + refresh token opaque
 - `POST /auth/refresh` — rotation atomique du refresh token (Redis `GETDEL`) → nouveaux tokens
@@ -107,7 +140,10 @@ Optionnels :
 
 ---
 
-#### `keycloak` — Fournisseur d'identité (`:8089`)
+#### `keycloak` — Fournisseur d'identité
+![Port](https://img.shields.io/badge/port-8089-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+
 - Realm `ms-realm` importé automatiquement au premier démarrage (JSON embarqué)
 - Gestion des utilisateurs, mots de passe, rôles realm
 - Utilisateurs de test pré-créés selon les services générés (`test-admin`, `test-<serviceName>`…)
@@ -115,7 +151,11 @@ Optionnels :
 
 ---
 
-#### `admin-application` — Interface d'administration (`:9300`)
+#### `admin-application` — Interface d'administration
+![Port](https://img.shields.io/badge/port-9300-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+![Rôle](https://img.shields.io/badge/accès-ROLE__ADMIN-7c3aed?style=flat-square)
+
 - Interface **Thymeleaf** réservée au rôle `ROLE_ADMIN`
 - **Gestion des utilisateurs** : liste paginée + recherche, création, édition (email/prénom/nom/actif), réinitialisation du mot de passe, suppression
 - **Gestion des rôles** : créer / supprimer des rôles realm Keycloak, assigner / retirer des rôles par utilisateur
@@ -125,12 +165,19 @@ Optionnels :
 ---
 
 #### `common-lib` — Bibliothèque partagée
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+![Type](https://img.shields.io/badge/type-lib_Maven-f59e0b?style=flat-square)
+
 - DTOs communs (`BatchJobResult`…) partagés entre services via dépendance Maven
 - Importée par `service-consumer`, `service-batch` et les services métier
 
 ---
 
-#### `service-*` — Services métier (`:8XXX`, un par `resources[]`)
+#### `service-*` — Services métier
+![Port](https://img.shields.io/badge/port-8XXX-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+![DB](https://img.shields.io/badge/DB-Postgres_|_Mongo_|_H2-336791?style=flat-square)
+
 - **CRUD REST** complet : `GET /api/{resource}s`, `GET /{id}`, `POST`, `PUT /{id}`, `DELETE /{id}`
 - **Base de données** configurable par service : PostgreSQL (défaut), MongoDB, H2 en mémoire
 - **Type d'identifiant** configurable : `LONG` (défaut), `INTEGER`, `UUID` — automatiquement `String` pour MongoDB
@@ -139,14 +186,23 @@ Optionnels :
 
 ---
 
-#### `service-consumer` — Agrégat & WebSocket (`:8070`)
+#### `service-consumer` — Agrégat & WebSocket
+![Port](https://img.shields.io/badge/port-8070-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+![Tech](https://img.shields.io/badge/WebSocket-STOMP-22d3ee?style=flat-square)
+
 - `GET /api/aggregate` — appelle tous les services métier en parallèle et agrège les réponses (réservé `ROLE_ADMIN`)
 - **Broker WebSocket** STOMP : publie les résultats de jobs batch sur `/topic/batch`
 - Les clients (ms-client, navigateur) s'y connectent via SockJS pour recevoir les notifications en temps réel
 
 ---
 
-#### `service-batch` — Traitement asynchrone (`:8082`)
+#### `service-batch` — Traitement asynchrone
+![Port](https://img.shields.io/badge/port-8082-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-permanent-22c55e?style=flat-square)
+![Tech](https://img.shields.io/badge/RabbitMQ-jobs-FF6600?style=flat-square)
+![Scale](https://img.shields.io/badge/scalable-horizontal-f59e0b?style=flat-square)
+
 - Consomme des jobs depuis **RabbitMQ** (messages JSON)
 - Traitement configurable : concurrence fichiers (`BATCH_FILE_CONCURRENCY`), délais aléatoires, limite mémoire
 - **Scalable horizontalement** : `BATCH_REPLICAS` instances parallèles via docker-compose `--scale`
@@ -155,7 +211,11 @@ Optionnels :
 
 ---
 
-#### `ms-client` — BFF Thymeleaf (`:8090`) *(optionnel — `clientWebUI: true`)*
+#### `ms-client` — BFF Thymeleaf
+![Port](https://img.shields.io/badge/port-8090-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-optionnel-f59e0b?style=flat-square)
+![Feature](https://img.shields.io/badge/feature-clientWebUI%3A_true-7c3aed?style=flat-square)
+
 - **Connexion / déconnexion** via ms-auth (session Redis, pas de JWT côté navigateur)
 - **Tableau de bord** avec accès conditionnel selon les rôles (CRUD, Notifications, Chat, Consumer si ADMIN)
 - **CRUD générique** sur tous les services métier générés (liste, création, édition, suppression)
@@ -166,14 +226,22 @@ Optionnels :
 
 ---
 
-#### `ms-admin` — Spring Boot Admin (`:9100`) *(optionnel — `springbootAdmin: true`)*
+#### `ms-admin` — Spring Boot Admin
+![Port](https://img.shields.io/badge/port-9100-3b82f6?style=flat-square)
+![Statut](https://img.shields.io/badge/statut-optionnel-f59e0b?style=flat-square)
+![Feature](https://img.shields.io/badge/feature-springbootAdmin%3A_true-7c3aed?style=flat-square)
+
 - Monitoring de tous les services enregistrés dans Eureka
 - Santé, métriques, threads, environnement, logs, JVM par service
 - Thème sombre personnalisé (palette violet, mode sombre forcé)
 
 ---
 
-#### `observability` — Stack de logs *(optionnelle — `batch.grafana: true`)*
+#### `observability` — Stack de logs
+![Port](https://img.shields.io/badge/Grafana-:3000-F46800?style=flat-square&logo=grafana&logoColor=white)
+![Statut](https://img.shields.io/badge/statut-optionnel-f59e0b?style=flat-square)
+![Feature](https://img.shields.io/badge/feature-batch.grafana%3A_true-7c3aed?style=flat-square)
+
 - **Loki** — stockage et indexation des logs de tous les conteneurs
 - **Promtail** — agent de collecte (monte `/var/lib/docker/containers`)
 - **Grafana** (`:3000`) — visualisation, dont le tableau de bord "Batch Dashboard" pré-configuré
