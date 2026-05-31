@@ -5,3 +5,4 @@
 - [template decompressed + dotfiles](template_decompressed_dotfiles.md) — template is a decompressed dir loaded by TemplateLoader; ship dotfiles as `dot-gitignore`/`dot-env` (decoded on load) to survive plexus default excludes at the resources AND jar plugin layers
 - [Keycloak hostname must match iss](keycloak_hostname_iss_match.md) — `KC_HOSTNAME: http://localhost:8089` is load-bearing; without the port, ms-auth-issued tokens get `iss=http://localhost:8080` and every resource server returns 401
 - [sync memory to repo](sync_memory_to_repo.md) — feedback: after any memory file write, mirror to docs/claude-memory/ + commit/push without asking (durably authorized)
+- [CLAUDE.md](claude_md.md) — CLAUDE.md exists at repo root (commit aae577f); covers build commands, full pipeline architecture, dotfile convention, extension checklist, and memory index
