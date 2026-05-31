@@ -32,6 +32,155 @@ BATCH_MAX_DELAY_MS=1500
 BATCH_MEMORY_LIMIT=768m
 ```
 
+## Architecture de la plateforme générée
+
+### Schéma global
+
+```
+                         ┌──────────────────────┐
+                         │      ms-eureka        │
+                         │      :8761            │
+                         │   Service Discovery   │
+                         └──────────┬───────────┘
+                                    │  ← tous les services s'enregistrent
+     Navigateur / Client            │
+            │                       │
+            ▼                       │
+    ┌───────────────┐               │
+    │  ms-gateway   │◄──────────────┘  load balancing dynamique
+    │  :8080        │
+    │  JWT filter   │  ← vérifie signature + JTI blacklist (Redis)
+    └───────┬───────┘
+            │
+  ┌─────────┼──────────────────────────────────────────────┐
+  │         │                                              │
+  ▼         ▼              ▼              ▼                ▼
+┌──────┐ ┌────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────┐
+│ms-   │ │service │  │service-  │  │service-  │  │admin-         │
+│auth  │ │-*      │  │consumer  │  │batch     │  │application    │
+│:8081 │ │:8XXX   │  │:8070     │  │:8082     │  │:9300          │
+└──┬───┘ └───┬────┘  └────┬─────┘  └────┬─────┘  └───────────────┘
+   │         │            │             │
+   ▼         ▼            │ WebSocket   ▼
+┌──────┐ ┌────────┐       │ /topic/  ┌──────────┐
+│Key-  │ │Postgres│       │ batch    │RabbitMQ  │
+│cloak │ │MongoDB │       ▼          │(jobs)    │
+│:8089 │ │H2      │  ms-client       └──────────┘
+└──┬───┘ └────────┘  :8090 (opt.)
+   │                 BFF Thymeleaf
+   ▼
+┌──────┐
+│Redis │  ← sessions Spring + JTI blacklist
+└──────┘
+
+Optionnels :
+  ms-client    :8090  BFF Thymeleaf       (features.clientWebUI: true)
+  ms-admin     :9100  Spring Boot Admin   (features.springbootAdmin: true)
+  observability       Loki+Promtail+Grafana :3000  (batch.grafana: true)
+```
+
+---
+
+### Services — fonctions et possibilités
+
+#### `ms-eureka` — Service Discovery (`:8761`)
+- Serveur Eureka : registre central de tous les services
+- Tous les modules s'y enregistrent au démarrage ; le gateway s'en sert pour le load balancing
+- UI Eureka accessible sur `:8761`
+
+---
+
+#### `ms-gateway` — Point d'entrée unique (`:8080`)
+- Reverse proxy **WebFlux** (non-bloquant) — route toutes les requêtes externes
+- **TokenBlacklistFilter** : vérifie le JTI du JWT dans Redis avant chaque requête (révocation immédiate sans attendre l'expiration)
+- Parse le JWT sans librairie dédiée (extraction du claim `realm_access.roles` en base64)
+- Routes générées dynamiquement selon les modules activés (`CrossCuttingConfigProcessor`)
+
+---
+
+#### `ms-auth` — Authentification (`:8081`)
+- Wrapping du **Keycloak password grant** — le client n'interagit jamais directement avec Keycloak
+- `POST /auth/login` — username + password → access token JWT + refresh token opaque
+- `POST /auth/refresh` — rotation atomique du refresh token (Redis `GETDEL`) → nouveaux tokens
+- `POST /auth/logout` — blacklist le JTI dans Redis → révocation immédiate sur toute la plateforme
+- Refresh token opaque (UUID) stocké dans Redis avec TTL — non décodable côté client
+
+---
+
+#### `keycloak` — Identity Provider (`:8089`)
+- Realm `ms-realm` importé automatiquement au premier démarrage (JSON embarqué)
+- Gestion des utilisateurs, mots de passe, rôles realm
+- Utilisateurs de test pré-créés selon les services générés (`test-admin`, `test-<serviceName>`…)
+- Console d'administration master sur `:8089` (compte `admin` / `admin`)
+
+---
+
+#### `admin-application` — UI d'administration (`:9300`)
+- Interface **Thymeleaf** réservée au rôle `ROLE_ADMIN`
+- **Gestion des utilisateurs** : liste paginée + recherche, création, édition (email/prénom/nom/actif), reset mot de passe, suppression
+- **Gestion des rôles** : créer / supprimer des rôles realm Keycloak, assigner / retirer des rôles par utilisateur
+- Protections serveur : l'admin connecté ne peut pas se supprimer, ni modifier ses propres rôles, ni supprimer `ROLE_ADMIN`
+- Thème Bootstrap 5.3 sombre (violet/cyan)
+
+---
+
+#### `common-lib` — Bibliothèque partagée
+- DTOs communs (`BatchJobResult`…) partagés entre services via dépendance Maven
+- Importée par `service-consumer`, `service-batch` et les services métier
+
+---
+
+#### `service-*` — Services métier (`:8XXX`, un par `resources[]`)
+- **CRUD REST** complet : `GET /api/{resource}s`, `GET /{id}`, `POST`, `PUT /{id}`, `DELETE /{id}`
+- **Base de données** configurable par service : PostgreSQL (défaut), MongoDB, H2 in-memory
+- **Type d'identifiant** configurable : `LONG` (défaut), `INTEGER`, `UUID` — automatiquement `String` pour MongoDB
+- Accès sécurisé par JWT (rôle `USER_<SERVICE_NAME>` requis)
+- Conteneur de base de données généré automatiquement dans docker-compose (sauf H2)
+
+---
+
+#### `service-consumer` — Agrégat & WebSocket (`:8070`)
+- `GET /api/aggregate` — appelle tous les services métier en parallèle et agrège les réponses (réservé `ROLE_ADMIN`)
+- **Broker WebSocket** STOMP : publie les résultats de jobs batch sur `/topic/batch`
+- Les clients (ms-client, navigateur) s'y connectent via SockJS pour recevoir les notifications en temps réel
+
+---
+
+#### `service-batch` — Traitement asynchrone (`:8082`)
+- Consomme des jobs depuis **RabbitMQ** (messages JSON)
+- Traitement configurable : concurrence fichiers (`BATCH_FILE_CONCURRENCY`), délais aléatoires, limite mémoire
+- **Scalable horizontalement** : `BATCH_REPLICAS` instances parallèles via docker-compose `--scale`
+- Publie le résultat de chaque job (jobId, status, count, durée, instance) via WebSocket → service-consumer
+- Scripts fournis : `benchmark-async-batch.sh` (charge), `scale-batch.sh` (redimensionnement)
+
+---
+
+#### `ms-client` — BFF Thymeleaf (`:8090`) *(optionnel — `clientWebUI: true`)*
+- **Login / logout** via ms-auth (session Redis, pas de JWT côté navigateur)
+- **Dashboard** avec accès conditionnel selon les rôles (CRUD, Notifications, Chat, Consumer si ADMIN)
+- **CRUD générique** sur tous les services métier générés (liste, création, édition, suppression)
+- **Notifications batch** en temps réel (WebSocket SockJS/STOMP)
+- **Chat** temps réel partagé entre tous les utilisateurs connectés
+- **Mon compte** : affichage des rôles, lien reset password Keycloak
+- Thème Bootstrap 5.3 sombre (violet/cyan)
+
+---
+
+#### `ms-admin` — Spring Boot Admin (`:9100`) *(optionnel — `springbootAdmin: true`)*
+- Monitoring de tous les services enregistrés dans Eureka
+- Santé, métriques, threads, environnement, logs, JVM par service
+- Thème sombre personnalisé (palette violet, dark mode forcé)
+
+---
+
+#### `observability` — Stack de logs *(optionnelle — `batch.grafana: true`)*
+- **Loki** — stockage et indexation des logs de tous les conteneurs
+- **Promtail** — agent de collecte (monte `/var/lib/docker/containers`)
+- **Grafana** (`:3000`) — visualisation, dont le dashboard "Batch Dashboard" pré-configuré
+- Timezone `Europe/Paris` configurée sur toute la stack
+
+---
+
 ## Run generator
 
 ```bash
