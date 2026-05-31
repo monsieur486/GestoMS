@@ -15,11 +15,15 @@
   <div th:if="${user}">
     <h1>Rôles de <span th:text="${user.username}">user</span></h1>
 
+    <p th:if="${param.error != null and param.error[0] == 'self'}" class="error">
+      Vous ne pouvez pas modifier vos propres rôles.
+    </p>
+
     <h2>Rôles actuels</h2>
     <ul>
       <li th:each="r : ${userRoles}">
         <span th:text="${r.name}">ROLE</span>
-        <form th:unless="${r.name == 'ADMIN' and user.username == currentUsername}"
+        <form th:unless="${user.username == currentUsername}"
               th:action="@{/users/{id}/roles/remove(id=${userId})}" method="post" style="display:inline">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
           <input type="hidden" name="roleName" th:value="${r.name}"/>
@@ -32,7 +36,8 @@
     <ul>
       <li th:each="r : ${assignableRoles}">
         <span th:text="${r.name}">ROLE</span>
-        <form th:action="@{/users/{id}/roles/add(id=${userId})}" method="post" style="display:inline">
+        <form th:unless="${user.username == currentUsername}"
+              th:action="@{/users/{id}/roles/add(id=${userId})}" method="post" style="display:inline">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
           <input type="hidden" name="roleName" th:value="${r.name}"/>
           <button type="submit">Assigner</button>
