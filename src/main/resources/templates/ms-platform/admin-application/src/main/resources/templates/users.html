@@ -22,7 +22,7 @@
   <table th:if="${users}">
     <thead><tr><th>username</th><th>email</th><th>prénom</th><th>nom</th><th>actif</th><th>actions</th></tr></thead>
     <tbody>
-      <tr th:each="u : ${users}">
+      <tr th:each="u : ${users}" th:classappend="${u.username == currentUsername} ? 'self-row'">
         <td th:text="${u.username}">user</td>
         <td th:text="${u.email}">email</td>
         <td th:text="${u.firstName}">first</td>

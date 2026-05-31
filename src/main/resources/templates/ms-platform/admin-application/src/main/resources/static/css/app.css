@@ -18,3 +18,5 @@ button:hover { background: #2f49af; }
 a { color: #3b5bdb; }
 .service-block { margin-top: 1.2rem; }
 .service-block pre { background: #2d2d34; color: #e6e6e6; padding: .8rem; border-radius: 4px; overflow-x: auto; }
+.self-row td { color: #aaa; }
+.self-row a { pointer-events: none; color: #bbb; text-decoration: none; cursor: default; }
