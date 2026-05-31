@@ -13,7 +13,8 @@
   <h1>Utilisateurs</h1>
   <p th:if="${error}" class="error" th:text="${error}">erreur</p>
   <p th:if="${param.error != null and param.error[0] == 'conflict'}" class="error">Nom d'utilisateur déjà pris.</p>
-  <p th:if="${param.error != null and param.error[0] != 'conflict'}" class="error">Keycloak indisponible.</p>
+  <p th:if="${param.error != null and param.error[0] == 'self'}" class="error">Vous ne pouvez pas supprimer votre propre compte.</p>
+  <p th:if="${param.error != null and param.error[0] != 'conflict' and param.error[0] != 'self'}" class="error">Keycloak indisponible.</p>
   <form th:action="@{/users}" method="get">
     <input type="text" name="search" th:value="${search}" placeholder="Rechercher…"/>
     <button type="submit">Rechercher</button>
