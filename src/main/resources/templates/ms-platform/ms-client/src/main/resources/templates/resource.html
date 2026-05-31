@@ -14,12 +14,20 @@
   <p th:if="${param.error}" class="error">Échec de la création.</p>
   <p th:if="${error}" class="error" th:text="${error}">erreur</p>
   <table th:if="${rows}">
-    <thead><tr><th>id</th><th>name</th><th>description</th></tr></thead>
+    <thead><tr><th>id</th><th>name</th><th>description</th><th>actions</th></tr></thead>
     <tbody>
       <tr th:each="row : ${rows}">
         <td th:text="${row.id}">1</td>
         <td th:text="${row.name}">name</td>
         <td th:text="${row.description}">desc</td>
+        <td>
+          <a th:href="@{/resources/{s}/{id}/edit(s=${entry.serviceName},id=${row.id})}">Modifier</a>
+          <form th:action="@{/resources/{s}/{id}/delete(s=${entry.serviceName},id=${row.id})}" method="post"
+                style="display:inline" onsubmit="return confirm('Supprimer cet élément ?');">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit">Supprimer</button>
+          </form>
+        </td>
       </tr>
     </tbody>
   </table>
