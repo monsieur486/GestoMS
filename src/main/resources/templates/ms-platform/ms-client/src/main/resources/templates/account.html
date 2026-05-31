@@ -1,0 +1,25 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mon compte — ms-client</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main>
+  <h1>Mon compte</h1>
+  <p><strong>Nom d'utilisateur :</strong> <span th:text="${username}">user</span></p>
+  <p><strong>Rôles :</strong></p>
+  <ul>
+    <li th:each="role : ${roles}" th:text="${role}">ROLE</li>
+  </ul>
+  <p>
+    <a th:href="${keycloakAccountUrl}" target="_blank" rel="noopener noreferrer">
+      Changer mon mot de passe (Keycloak)
+    </a>
+  </p>
+</main>
+</body>
+</html>

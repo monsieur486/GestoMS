@@ -37,3 +37,4 @@ client:
       routePrefix: /api/resources-c
       label: Service C
       role: USER_SERVICE_C
+  keycloak-account-url: ${KEYCLOAK_ACCOUNT_URL:http://localhost:8089/realms/ms-platform/account}
