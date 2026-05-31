@@ -9,3 +9,4 @@
 - [Simplification refactor 2026-05-31](simplification_refactor_2026_05_31.md) — commit 82a431d: ProcessorUtils, getEffectiveRoutePrefix(), TemplateLoader cache, switch expressions on enums, dead try/catch removed, appendAppService helper
 - [ms-client UI Bootstrap 5.3](ms_client_ui_bootstrap.md) — commit d6650a5: dark theme violet/cyan, layout fragments head(title)+header, sec:authorize navbar, thymeleaf-extras-springsecurity6 dep
 - [admin-application UI Bootstrap 5.3](admin_application_ui_bootstrap.md) — commit 564c275: même thème que ms-client, sec:authentication navbar, self-row, roles.html 2 cards, badges actif/inactif colorés
+- [admin-application realm roles CRUD](admin_realm_roles.md) — commits 4ee6f42+913fdde: createRealmRole/deleteRealmRole, RealmRolesController, ROLE_ADMIN protégé; piège KeycloakRole description (8 tests cassés); piège plateforme générée avant fix
