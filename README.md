@@ -1,28 +1,28 @@
 # springboot-platform-generator V5.5
 
-This generator returns the validated V5.4 microservices platform ZIP.
+Ce générateur produit un ZIP complet de la plateforme microservices validée V5.4.
 
-Generated platform includes:
+La plateforme générée inclut :
 
 - Eureka
-- Gateway WebFlux (with reactive `TokenBlacklistFilter` for JWT revocation)
+- Gateway WebFlux (avec `TokenBlacklistFilter` réactif pour la révocation JWT)
 - Keycloak
-- `ms-auth` — Spring Boot MVC service wrapping Keycloak password grant; exposes `/auth/login`, `/auth/refresh`, `/auth/logout` with opaque refresh tokens and Redis-backed JTI blacklist
+- `ms-auth` — service Spring Boot MVC encapsulant le password grant Keycloak ; expose `/auth/login`, `/auth/refresh`, `/auth/logout` avec tokens de rafraîchissement opaques et liste noire JTI Redis
 - Spring Boot Admin
 - `service-a`, `service-b`, `service-c`
 - `service-consumer`
 - `service-batch`
 - `common-lib`
-- RabbitMQ JSON messages
-- Redis JSON text storage
-- WebSocket batch notifications
-- configurable batch processing
+- Messages JSON RabbitMQ
+- Stockage texte JSON Redis
+- Notifications WebSocket batch
+- Traitement batch configurable
 - `test-all.sh`
 - `tokens.env`
 - `benchmark-async-batch.sh`
 - `scale-batch.sh`
 
-Batch defaults:
+Valeurs par défaut du batch :
 
 ```env
 BATCH_REPLICAS=4
@@ -86,7 +86,7 @@ Optionnels :
 #### `ms-eureka` — Service Discovery (`:8761`)
 - Serveur Eureka : registre central de tous les services
 - Tous les modules s'y enregistrent au démarrage ; le gateway s'en sert pour le load balancing
-- UI Eureka accessible sur `:8761`
+- Interface Eureka accessible sur `:8761`
 
 ---
 
@@ -99,15 +99,15 @@ Optionnels :
 ---
 
 #### `ms-auth` — Authentification (`:8081`)
-- Wrapping du **Keycloak password grant** — le client n'interagit jamais directement avec Keycloak
-- `POST /auth/login` — username + password → access token JWT + refresh token opaque
+- Encapsulation du **Keycloak password grant** — le client n'interagit jamais directement avec Keycloak
+- `POST /auth/login` — identifiant + mot de passe → access token JWT + refresh token opaque
 - `POST /auth/refresh` — rotation atomique du refresh token (Redis `GETDEL`) → nouveaux tokens
-- `POST /auth/logout` — blacklist le JTI dans Redis → révocation immédiate sur toute la plateforme
+- `POST /auth/logout` — blacklist du JTI dans Redis → révocation immédiate sur toute la plateforme
 - Refresh token opaque (UUID) stocké dans Redis avec TTL — non décodable côté client
 
 ---
 
-#### `keycloak` — Identity Provider (`:8089`)
+#### `keycloak` — Fournisseur d'identité (`:8089`)
 - Realm `ms-realm` importé automatiquement au premier démarrage (JSON embarqué)
 - Gestion des utilisateurs, mots de passe, rôles realm
 - Utilisateurs de test pré-créés selon les services générés (`test-admin`, `test-<serviceName>`…)
@@ -115,9 +115,9 @@ Optionnels :
 
 ---
 
-#### `admin-application` — UI d'administration (`:9300`)
+#### `admin-application` — Interface d'administration (`:9300`)
 - Interface **Thymeleaf** réservée au rôle `ROLE_ADMIN`
-- **Gestion des utilisateurs** : liste paginée + recherche, création, édition (email/prénom/nom/actif), reset mot de passe, suppression
+- **Gestion des utilisateurs** : liste paginée + recherche, création, édition (email/prénom/nom/actif), réinitialisation du mot de passe, suppression
 - **Gestion des rôles** : créer / supprimer des rôles realm Keycloak, assigner / retirer des rôles par utilisateur
 - Protections serveur : l'admin connecté ne peut pas se supprimer, ni modifier ses propres rôles, ni supprimer `ROLE_ADMIN`
 - Thème Bootstrap 5.3 sombre (violet/cyan)
@@ -132,7 +132,7 @@ Optionnels :
 
 #### `service-*` — Services métier (`:8XXX`, un par `resources[]`)
 - **CRUD REST** complet : `GET /api/{resource}s`, `GET /{id}`, `POST`, `PUT /{id}`, `DELETE /{id}`
-- **Base de données** configurable par service : PostgreSQL (défaut), MongoDB, H2 in-memory
+- **Base de données** configurable par service : PostgreSQL (défaut), MongoDB, H2 en mémoire
 - **Type d'identifiant** configurable : `LONG` (défaut), `INTEGER`, `UUID` — automatiquement `String` pour MongoDB
 - Accès sécurisé par JWT (rôle `USER_<SERVICE_NAME>` requis)
 - Conteneur de base de données généré automatiquement dans docker-compose (sauf H2)
@@ -156,12 +156,12 @@ Optionnels :
 ---
 
 #### `ms-client` — BFF Thymeleaf (`:8090`) *(optionnel — `clientWebUI: true`)*
-- **Login / logout** via ms-auth (session Redis, pas de JWT côté navigateur)
-- **Dashboard** avec accès conditionnel selon les rôles (CRUD, Notifications, Chat, Consumer si ADMIN)
+- **Connexion / déconnexion** via ms-auth (session Redis, pas de JWT côté navigateur)
+- **Tableau de bord** avec accès conditionnel selon les rôles (CRUD, Notifications, Chat, Consumer si ADMIN)
 - **CRUD générique** sur tous les services métier générés (liste, création, édition, suppression)
 - **Notifications batch** en temps réel (WebSocket SockJS/STOMP)
 - **Chat** temps réel partagé entre tous les utilisateurs connectés
-- **Mon compte** : affichage des rôles, lien reset password Keycloak
+- **Mon compte** : affichage des rôles, lien réinitialisation mot de passe Keycloak
 - Thème Bootstrap 5.3 sombre (violet/cyan)
 
 ---
@@ -169,74 +169,74 @@ Optionnels :
 #### `ms-admin` — Spring Boot Admin (`:9100`) *(optionnel — `springbootAdmin: true`)*
 - Monitoring de tous les services enregistrés dans Eureka
 - Santé, métriques, threads, environnement, logs, JVM par service
-- Thème sombre personnalisé (palette violet, dark mode forcé)
+- Thème sombre personnalisé (palette violet, mode sombre forcé)
 
 ---
 
 #### `observability` — Stack de logs *(optionnelle — `batch.grafana: true`)*
 - **Loki** — stockage et indexation des logs de tous les conteneurs
 - **Promtail** — agent de collecte (monte `/var/lib/docker/containers`)
-- **Grafana** (`:3000`) — visualisation, dont le dashboard "Batch Dashboard" pré-configuré
-- Timezone `Europe/Paris` configurée sur toute la stack
+- **Grafana** (`:3000`) — visualisation, dont le tableau de bord "Batch Dashboard" pré-configuré
+- Fuseau horaire `Europe/Paris` configuré sur toute la stack
 
 ---
 
-## Run generator
+## Lancer le générateur
 
 ```bash
 mvn clean package
 java -jar target/*.jar
 ```
 
-## Generate platform
+## Générer la plateforme
 
-### Request fields
+### Champs de la requête
 
-`POST /api/generate/platform` accepts a JSON body matching `PlatformGenerationRequest`. Every field is optional; defaults shown below.
+`POST /api/generate/platform` accepte un corps JSON correspondant à `PlatformGenerationRequest`. Tous les champs sont optionnels ; les valeurs par défaut sont indiquées ci-dessous.
 
-| Field | Type | Default | Effect |
+| Champ | Type | Défaut | Effet |
 | ----- | ---- | ------- | ------ |
-| `name` | string | `ms-platform` | Top-level folder name in the ZIP |
-| `groupId` | string | `com.mr486` | Maven `<groupId>` in every generated pom |
-| `basePackage` | string | `com.mr486.msplatform` | Java root package for all services |
-| `javaVersion` | string | `17` | `<java.version>` in root pom |
-| `features` | object | see below | Toggle optional components on/off |
-| `batch` | object | see below | Configure `service-batch` runtime |
-| `resources` | array | `[]` | If non-empty, replaces `service-a/b/c` with custom services |
+| `name` | string | `ms-platform` | Nom du dossier racine dans le ZIP |
+| `groupId` | string | `com.mr486` | `<groupId>` Maven dans tous les pom générés |
+| `basePackage` | string | `com.mr486.msplatform` | Package Java racine pour tous les services |
+| `javaVersion` | string | `17` | `<java.version>` dans le pom racine |
+| `features` | objet | voir ci-dessous | Active/désactive les composants optionnels |
+| `batch` | objet | voir ci-dessous | Configure le runtime de `service-batch` |
+| `resources` | tableau | `[]` | Si non vide, remplace `service-a/b/c` par des services personnalisés |
 
 #### `features`
 
-Keycloak (+ `ms-auth`), Redis, RabbitMQ and WebSocket are **always installed** — they no longer have toggles. `admin-application` (the Keycloak users/roles admin UI, `ROLE_ADMIN`-only) is **always installed** too. Only the two modules below are optional; full observability (loki + promtail + grafana) is driven by `batch.grafana`.
+Keycloak (+ `ms-auth`), Redis, RabbitMQ et WebSocket sont **toujours installés** — ils n'ont plus de bascule. `admin-application` (interface d'administration des utilisateurs/rôles Keycloak, réservée `ROLE_ADMIN`) est **toujours installée** également. Seuls les deux modules ci-dessous sont optionnels ; l'observabilité complète (loki + promtail + grafana) est pilotée par `batch.grafana`.
 
-| Field | Default | When `true` includes |
+| Champ | Défaut | Quand `true`, inclut |
 | ----- | ------- | -------------------- |
-| `springbootAdmin` | `false` | `ms-admin/` — Spring Boot Admin monitoring UI (`:9100`) |
-| `clientWebUI` | `false` | `ms-client/` — Thymeleaf BFF UI (`:8090`): login via ms-auth, consumer aggregate, generic CRUD, live batch notifications, public chat |
+| `springbootAdmin` | `false` | `ms-admin/` — interface de monitoring Spring Boot Admin (`:9100`) |
+| `clientWebUI` | `false` | `ms-client/` — interface BFF Thymeleaf (`:8090`) : connexion via ms-auth, agrégat consumer, CRUD générique, notifications batch en direct, chat public |
 
-Legacy/unknown flags (`keycloak`, `redis`, `rabbitmq`, `websocket`, `admin`, `grafana`, `loki`) are **ignored** — a request carrying them deserializes fine (Jackson `FAIL_ON_UNKNOWN_PROPERTIES=false`), it just loses those toggles.
+Les indicateurs hérités/inconnus (`keycloak`, `redis`, `rabbitmq`, `websocket`, `admin`, `grafana`, `loki`) sont **ignorés** — une requête les contenant se désérialise correctement (Jackson `FAIL_ON_UNKNOWN_PROPERTIES=false`), ces indicateurs sont simplement ignorés.
 
-#### `batch` (defaults match the validated platform)
+#### `batch` (valeurs par défaut correspondant à la plateforme validée)
 
 ```json
 { "enabled": true, "grafana": false, "replicas": 4, "fileConcurrency": 5,
   "minDelayMs": 500, "maxDelayMs": 1500, "memoryLimit": "768m" }
 ```
 
-When `enabled: false`, `service-batch/` (module + docker-compose block) is excluded. When `grafana: true`, the full observability stack is installed (`observability/` = loki + promtail + grafana, plus their compose blocks).
+Quand `enabled: false`, `service-batch/` (module + bloc docker-compose) est exclu. Quand `grafana: true`, la stack d'observabilité complète est installée (`observability/` = loki + promtail + grafana, avec leurs blocs compose).
 
 #### `resources[]` (`ResourceModuleRequest`)
 
-| Field | Type | Required | Notes |
+| Champ | Type | Obligatoire | Notes |
 | ----- | ---- | -------- | ----- |
-| `serviceName` | string | yes | kebab-case, used as module name and folder (e.g. `order-service`) |
-| `className` | string | yes | PascalCase entity class (e.g. `Order`) |
-| `routePrefix` | string | no | Defaults to `/api/{classNameLower}s` (e.g. `Order` → `/api/orders`) |
-| `databaseType` | enum | no | `POSTGRES` (default), `H2` (in-memory, no db container), `MONGO` |
-| `idType` | enum | no | `LONG` (default), `INTEGER`, `UUID`. Ignored for `MONGO` (always `String`) |
+| `serviceName` | string | oui | kebab-case, utilisé comme nom de module et de dossier (ex. `order-service`) |
+| `className` | string | oui | PascalCase pour la classe entité (ex. `Order`) |
+| `routePrefix` | string | non | Par défaut `/api/{classNameLower}s` (ex. `Order` → `/api/orders`) |
+| `databaseType` | enum | non | `POSTGRES` (défaut), `H2` (en mémoire, sans conteneur db), `MONGO` |
+| `idType` | enum | non | `LONG` (défaut), `INTEGER`, `UUID`. Ignoré pour `MONGO` (toujours `String`) |
 
-When `resources` is non-empty, the default `service-a/b/c` modules + their docker-compose blocks + volume entries are removed and replaced with one block per resource (POSTGRES/MONGO get a sibling `*-db` block and named volume; H2 gets neither).
+Quand `resources` est non vide, les modules `service-a/b/c` par défaut + leurs blocs docker-compose + entrées de volumes sont supprimés et remplacés par un bloc par resource (POSTGRES/MONGO obtiennent un bloc `*-db` et un volume nommé ; H2 n'en a pas).
 
-### Minimal example — 1 service, default everything
+### Exemple minimal — 1 service, tout par défaut
 
 ```bash
 curl -X POST http://localhost:8080/api/generate/platform \
@@ -249,9 +249,9 @@ curl -X POST http://localhost:8080/api/generate/platform \
   --output ms-platform.zip
 ```
 
-This emits a complete platform with Keycloak + ms-auth + Eureka + Gateway + `admin-application` (always installed) + a single `order-service` backed by PostgreSQL, with `/api/orders` routes. `ms-admin` and `ms-client` are absent (both default off); observability is absent (`batch.grafana` default false).
+Cela produit une plateforme complète avec Keycloak + ms-auth + Eureka + Gateway + `admin-application` (toujours installée) + un unique `order-service` sur PostgreSQL, avec les routes `/api/orders`. `ms-admin` et `ms-client` sont absents (tous deux désactivés par défaut) ; l'observabilité est absente (`batch.grafana` à false par défaut).
 
-### Full example — 3 services, all flags explicit
+### Exemple complet — 3 services, tous les indicateurs explicites
 
 ```bash
 curl -X POST http://localhost:8080/api/generate/platform \
@@ -300,7 +300,7 @@ curl -X POST http://localhost:8080/api/generate/platform \
   --output ms-platform.zip
 ```
 
-This emits the full platform: permanent core (keycloak/ms-auth/redis/rabbitmq/eureka/gateway/service-consumer + `admin-application`), the three custom services, `service-batch`, full observability (`batch.grafana=true`), plus the two optional modules `ms-admin` and `ms-client`.
+Cela produit la plateforme complète : noyau permanent (keycloak/ms-auth/redis/rabbitmq/eureka/gateway/service-consumer + `admin-application`), les trois services personnalisés, `service-batch`, l'observabilité complète (`batch.grafana=true`), ainsi que les deux modules optionnels `ms-admin` et `ms-client`.
 
 ## Utilisateurs Keycloak
 
@@ -330,7 +330,7 @@ Seul `test-admin` (rôle `ADMIN`) peut se connecter à `admin-application` (`:93
 > chaque resource. Exemple avec `order-service` : utilisateur `test-order-service` / `user123`, rôle
 > `USER_ORDER_SERVICE`.
 
-## Test generated platform
+## Tester la plateforme générée
 
 ```bash
 unzip -o ms-platform.zip
@@ -343,22 +343,21 @@ source tokens.env
 ./benchmark-async-batch.sh 10 5
 ```
 
-Expected result:
+Résultat attendu :
 
 ```txt
 10 HTTP 202
 10 COMPLETED
 ```
 
+## Observabilité générée
 
-## Observability générée
-
-Le projet généré inclut maintenant une stack légère :
+Le projet généré inclut une stack légère :
 
 - Loki
 - Promtail
 - Grafana
-- Dashboard Batch v2
+- Tableau de bord Batch v2
 
 Après génération du projet :
 
@@ -377,23 +376,21 @@ http://localhost:3000
 admin / admin
 ```
 
-Dashboard : `Batch / Batch Dashboard`.
+Tableau de bord : `Batch / Batch Dashboard`.
 
-
-## Timezone
+## Fuseau horaire
 
 Les projets générés configurent `TZ=Europe/Paris` pour Loki, Promtail et Grafana. Dans Grafana, utiliser de préférence `Browser Time`.
 
+## Notes du projet (mémoire Claude)
 
-## Project notes (Claude memory)
+`docs/claude-memory/` contient un instantané versionné des notes persistantes
+que Claude Code maintient tout au long du projet. Utile lors de la revue de PRs
+ou de l'intégration de nouveaux membres pour comprendre *pourquoi* certains choix
+de conception ont été faits (ex. le gateway parse le JTI JWT sans librairie dédiée,
+ou pourquoi `CrossCuttingConfigProcessor` s'exécute à `@Order(60)`).
 
-`docs/claude-memory/` contains a versioned snapshot of the persistent notes
-Claude Code maintains while working on this project. Useful when reviewing
-PRs or onboarding to understand *why* certain design choices were made
-(e.g. the gateway parses JWT JTI without a JWT library, or why
-`CrossCuttingConfigProcessor` runs at `@Order(60)`).
-
-Start with [`docs/claude-memory/README.md`](docs/claude-memory/README.md) and
-[`docs/claude-memory/MEMORY.md`](docs/claude-memory/MEMORY.md) (the index).
-The snapshot is auto-synced from the live Claude memory at
-`~/.claude/projects/.../memory/`; the live copy is the source of truth.
+Commencer par [`docs/claude-memory/README.md`](docs/claude-memory/README.md) et
+[`docs/claude-memory/MEMORY.md`](docs/claude-memory/MEMORY.md) (l'index).
+L'instantané est synchronisé automatiquement depuis la mémoire Claude active dans
+`~/.claude/projects/.../memory/` ; la copie active est la source de vérité.
