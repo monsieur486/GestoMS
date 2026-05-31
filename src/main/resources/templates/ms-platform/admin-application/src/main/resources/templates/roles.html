@@ -11,7 +11,7 @@
 <main>
   <p><a th:href="@{/users}">← Utilisateurs</a></p>
   <p th:if="${error}" class="error" th:text="${error}">erreur</p>
-  <p th:if="${param.error}" class="error">Keycloak indisponible.</p>
+  <p th:if="${param.error != null and param.error[0] != 'self'}" class="error">Keycloak indisponible.</p>
   <div th:if="${user}">
     <h1>Rôles de <span th:text="${user.username}">user</span></h1>
 
