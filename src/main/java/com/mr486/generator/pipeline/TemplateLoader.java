@@ -36,14 +36,22 @@ public class TemplateLoader {
     private static final String TEMPLATE_PREFIX = "templates/ms-platform/";
     private static final String LOCATION_PATTERN = "classpath*:" + TEMPLATE_PREFIX + "**";
 
+    private final List<GeneratedFile> cache;
+
+    public TemplateLoader() {
+        this.cache = loadFromClasspath();
+    }
+
     /**
-     * Lit le répertoire modèle et retourne la liste de ses fichiers (hors répertoires), triée par
-     * chemin pour un ordre déterministe.
+     * Retourne la liste des fichiers du modèle, chargée une seule fois au démarrage.
      *
-     * @return liste mutable des fichiers du modèle
-     * @throws IllegalStateException si le modèle est introuvable ou illisible
+     * @return liste immuable des fichiers du modèle
      */
     public List<GeneratedFile> load() {
+        return cache;
+    }
+
+    private static List<GeneratedFile> loadFromClasspath() {
         Map<String, GeneratedFile> byPath = new LinkedHashMap<>();
         try {
             Resource[] resources = new PathMatchingResourcePatternResolver().getResources(LOCATION_PATTERN);
@@ -71,7 +79,7 @@ public class TemplateLoader {
     }
 
     /** Décode le préfixe {@code dot-} du dernier segment en {@code .} (voir convention dotfiles). */
-    private String decodeDotfile(String path) {
+    private static String decodeDotfile(String path) {
         int slash = path.lastIndexOf('/');
         String dir = slash >= 0 ? path.substring(0, slash + 1) : "";
         String name = path.substring(slash + 1);

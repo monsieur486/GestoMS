@@ -22,4 +22,11 @@ public class ResourceModuleRequest {
     private DatabaseType databaseType;
     /** Type d'identifiant pour les entités SQL : {@link IdType#LONG} par défaut. Ignoré pour Mongo (toujours String). */
     private IdType idType;
+
+    /** Retourne {@link #routePrefix} s'il est défini, sinon dérive {@code /api/{classNameLower}s}. */
+    public String getEffectiveRoutePrefix() {
+        return (routePrefix != null && !routePrefix.isBlank())
+            ? routePrefix
+            : "/api/" + className.toLowerCase() + "s";
+    }
 }

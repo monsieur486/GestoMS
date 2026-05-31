@@ -68,7 +68,7 @@ public class ResourceExpandProcessor implements FileProcessor {
     }
 
     private boolean isDefaultService(String path, String root) {
-        String rel = relative(path, root);
+        String rel = ProcessorUtils.relative(path, root);
         return rel.startsWith("service-a/")
             || rel.startsWith("service-b/")
             || rel.startsWith("service-c/");
@@ -97,7 +97,7 @@ public class ResourceExpandProcessor implements FileProcessor {
     // ── Path transformations ──────────────────────────────────────────────────
 
     private String transformPath(String path, ResourceModuleRequest res, String root) {
-        String serviceClass   = toPascalCase(res.getServiceName());
+        String serviceClass   = ProcessorUtils.toPascalCase(res.getServiceName());
         String servicePackage = toConcatLower(res.getServiceName());
         // More specific replacements first
         path = path.replace(root + "/service-a/", root + "/" + res.getServiceName() + "/");
@@ -117,22 +117,20 @@ public class ResourceExpandProcessor implements FileProcessor {
     // ── Content transformations ───────────────────────────────────────────────
 
     private byte[] transformContent(byte[] content, ResourceModuleRequest res) {
-        if (containsNullByte(content)) return content;
+        if (ProcessorUtils.containsNullByte(content)) return content;
         String text = new String(content, StandardCharsets.UTF_8);
         text = applyBaseReplacements(text, res);
         return text.getBytes(StandardCharsets.UTF_8);
     }
 
     private String applyBaseReplacements(String text, ResourceModuleRequest res) {
-        String serviceClass   = toPascalCase(res.getServiceName());
+        String serviceClass   = ProcessorUtils.toPascalCase(res.getServiceName());
         String servicePackage = toConcatLower(res.getServiceName());
         String serviceSnake   = res.getServiceName().replace("-", "_");
         String serviceScream  = serviceSnake.toUpperCase();
         String entityPlural   = res.getClassName().toLowerCase() + "s";
         String entityLower    = res.getClassName().toLowerCase();
-        String routePrefix    = (res.getRoutePrefix() == null || res.getRoutePrefix().isBlank())
-                                ? "/api/" + entityPlural
-                                : res.getRoutePrefix();
+        String routePrefix    = res.getEffectiveRoutePrefix();
 
         // Longest/most-specific first
         text = text.replace("USER_SERVICE_A",    "USER_" + serviceScream);
@@ -151,16 +149,21 @@ public class ResourceExpandProcessor implements FileProcessor {
     // ── DatabaseType (Tasks 8 and 9) ──────────────────────────────────────────
 
     protected byte[] applyDatabaseType(String path, byte[] content, ResourceModuleRequest res, String basePackage) {
-        if (res.getDatabaseType() == null || res.getDatabaseType() == DatabaseType.POSTGRES) return content;
-        if (res.getDatabaseType() == DatabaseType.H2)    return applyH2(path, content, res);
-        if (res.getDatabaseType() == DatabaseType.MONGO) return applyMongo(path, content, res, basePackage);
-        return content;
+        DatabaseType db = res.getDatabaseType();
+        if (db == null) return content;
+        return switch (db) {
+            case POSTGRES -> content;
+            case H2       -> applyH2(path, content, res);
+            case MONGO    -> applyMongo(path, content, res, basePackage);
+        };
     }
 
     private byte[] applyH2(String path, byte[] content, ResourceModuleRequest res) {
-        if (containsNullByte(content)) return content;
+        if (ProcessorUtils.containsNullByte(content)) return content;
         String text = new String(content, StandardCharsets.UTF_8);
-        String dbName = res.getServiceName().replace("-", "") + "db";
+        String dbName    = res.getServiceName().replace("-", "") + "db";
+        String snake     = res.getServiceName().replace("-", "_");
+        String snakeUp   = snake.toUpperCase();
 
         if (path.endsWith("pom.xml")) {
             text = text.replace(
@@ -169,21 +172,19 @@ public class ResourceExpandProcessor implements FileProcessor {
             );
         }
         if (path.endsWith("application.yml")) {
-            String serviceSnake = res.getServiceName().replace("-", "_").toUpperCase();
             text = text.replace(
-                "url: ${" + serviceSnake + "_DATASOURCE_URL:jdbc:postgresql://localhost:5432/" + res.getServiceName().replace("-","_") + "_db}",
+                "url: ${" + snakeUp + "_DATASOURCE_URL:jdbc:postgresql://localhost:5432/" + snake + "_db}",
                 "url: jdbc:h2:mem:" + dbName + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE"
             );
             text = text.replace(
-                "username: ${" + serviceSnake + "_DB_USERNAME:" + res.getServiceName().replace("-","_") + "}",
+                "username: ${" + snakeUp + "_DB_USERNAME:" + snake + "}",
                 "username: sa"
             );
             text = text.replace(
-                "password: ${" + serviceSnake + "_DB_PASSWORD:" + res.getServiceName().replace("-","_") + "}",
+                "password: ${" + snakeUp + "_DB_PASSWORD:" + snake + "}",
                 "password:"
             );
             text = text.replace("driver-class-name: org.postgresql.Driver", "driver-class-name: org.h2.Driver");
-            // Add H2 console config after datasource block
             if (!text.contains("h2:") && text.contains("driver-class-name: org.h2.Driver")) {
                 text = text.replace("driver-class-name: org.h2.Driver",
                     "driver-class-name: org.h2.Driver\n  h2:\n    console:\n      enabled: true");
@@ -247,6 +248,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         "<dependency><groupId>io.mongock</groupId><artifactId>mongodb-springdata-v4-driver</artifactId></dependency>";
 
     private byte[] applyMongo(String path, byte[] content, ResourceModuleRequest res, String basePackage) {
+        if (ProcessorUtils.containsNullByte(content)) return content;
         String servicePackage = toConcatLower(res.getServiceName());
         String serviceSnake   = res.getServiceName().replace("-", "_");
         String serviceUpper   = serviceSnake.toUpperCase();
@@ -263,7 +265,7 @@ public class ResourceExpandProcessor implements FileProcessor {
                 .replace("{SERVICE_SNAKE}", serviceSnake);
             return yml.getBytes(StandardCharsets.UTF_8);
         }
-        if (path.endsWith("pom.xml") && !containsNullByte(content)) {
+        if (path.endsWith("pom.xml") && !ProcessorUtils.containsNullByte(content)) {
             String text = new String(content, StandardCharsets.UTF_8);
             text = text.replace(
                 "<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>",
@@ -291,28 +293,30 @@ public class ResourceExpandProcessor implements FileProcessor {
         }
         // Remaining Java sources (service, DTO, …) reference the entity by its old package
         // and Long id; for Mongo the entity lives in the document package and is String-keyed.
-        if (path.endsWith(".java") && !containsNullByte(content)) {
+        if (path.endsWith(".java")) {
             String text = new String(content, StandardCharsets.UTF_8)
                 .replace(".entity.", ".document.")
                 .replace("private Long id", "private String id");
             return text.getBytes(StandardCharsets.UTF_8);
         }
-        if (containsNullByte(content)) return content;
-        return new String(content, StandardCharsets.UTF_8).getBytes(StandardCharsets.UTF_8);
+        return content;
     }
 
     // ── IdType (Task 10) ──────────────────────────────────────────────────────
 
     protected byte[] applyIdType(String path, byte[] content, ResourceModuleRequest res) {
-        if (res.getIdType() == null || res.getIdType() == IdType.LONG) return content;
-        // MONGO always uses String id — idType ignored
+        IdType idType = res.getIdType();
+        if (idType == null || idType == IdType.LONG) return content;
         if (res.getDatabaseType() == DatabaseType.MONGO) return content;
-        if (containsNullByte(content)) return content;
-
+        if (ProcessorUtils.containsNullByte(content)) return content;
         String text = new String(content, StandardCharsets.UTF_8);
-        if (res.getIdType() == IdType.INTEGER) text = applyIntegerType(text, res);
-        if (res.getIdType() == IdType.UUID)    text = applyUuidType(text, path, res);
-        return text.getBytes(StandardCharsets.UTF_8);
+        String result = switch (idType) {
+            case INTEGER -> applyIntegerType(text, res);
+            case UUID    -> applyUuidType(text, path, res);
+            case LONG    -> text;   // unreachable — handled above; forces exhaustiveness check
+            case STRING  -> text;   // SQL resource with STRING id: no-op (Mongo guard is above)
+        };
+        return result.getBytes(StandardCharsets.UTF_8);
     }
 
     private String applyIntegerType(String text, ResourceModuleRequest res) {
@@ -347,25 +351,7 @@ public class ResourceExpandProcessor implements FileProcessor {
 
     // ── Utilities ─────────────────────────────────────────────────────────────
 
-    protected String toPascalCase(String kebab) {
-        StringBuilder sb = new StringBuilder();
-        for (String part : kebab.split("[-_]")) {
-            if (!part.isEmpty()) sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1).toLowerCase());
-        }
-        return sb.toString();
-    }
-
     protected String toConcatLower(String kebab) {
         return kebab.replace("-", "").replace("_", "").toLowerCase();
-    }
-
-    protected String relative(String path, String root) {
-        String prefix = root + "/";
-        return path.startsWith(prefix) ? path.substring(prefix.length()) : path;
-    }
-
-    protected boolean containsNullByte(byte[] content) {
-        for (byte b : content) if (b == 0) return true;
-        return false;
     }
 }

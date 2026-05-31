@@ -62,23 +62,13 @@ public class PackagePlaceholderProcessor implements FileProcessor {
 
     private byte[] transformContent(byte[] content, String tgtBasePkg, String tgtGroupId,
                                     String tgtJavaVer, boolean sameJava) {
-        if (containsNullByte(content)) return content;
-        try {
-            String text = new String(content, StandardCharsets.UTF_8);
-            // longer first
-            text = text.replace(SRC_BASE_PKG, tgtBasePkg);
-            text = text.replace(SRC_GROUP_ID, tgtGroupId);
-            if (!sameJava) {
-                text = text.replace(SRC_JAVA_VER, "<java.version>" + tgtJavaVer + "</java.version>");
-            }
-            return text.getBytes(StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            return content;
+        if (ProcessorUtils.containsNullByte(content)) return content;
+        String text = new String(content, StandardCharsets.UTF_8);
+        text = text.replace(SRC_BASE_PKG, tgtBasePkg);
+        text = text.replace(SRC_GROUP_ID, tgtGroupId);
+        if (!sameJava) {
+            text = text.replace(SRC_JAVA_VER, "<java.version>" + tgtJavaVer + "</java.version>");
         }
-    }
-
-    private boolean containsNullByte(byte[] content) {
-        for (byte b : content) if (b == 0) return true;
-        return false;
+        return text.getBytes(StandardCharsets.UTF_8);
     }
 }
