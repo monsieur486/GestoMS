@@ -12,20 +12,43 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+/**
+ * Filtre global de passerelle rejetant les requêtes dont le JTI de l'access token
+ * est présent dans la liste noire Redis ({@code auth:blacklist:<jti>}).
+ * S'applique en priorité maximale ({@link Ordered#HIGHEST_PRECEDENCE}).
+ */
 @Component
 public class TokenBlacklistFilter implements GlobalFilter, Ordered {
 
     private final ReactiveStringRedisTemplate redis;
 
+    /**
+     * Construit le filtre avec le template Redis réactif.
+     *
+     * @param redis le template Redis réactif utilisé pour vérifier la liste noire
+     */
     public TokenBlacklistFilter(ReactiveStringRedisTemplate redis) {
         this.redis = redis;
     }
 
+    /**
+     * Retourne la priorité d'exécution la plus élevée.
+     *
+     * @return {@link Ordered#HIGHEST_PRECEDENCE}
+     */
     @Override
     public int getOrder() {
         return Ordered.HIGHEST_PRECEDENCE;
     }
 
+    /**
+     * Vérifie la présence du JTI dans la liste noire Redis.
+     * Renvoie {@code 401} si le token est révoqué ; laisse passer sinon.
+     *
+     * @param exchange l'échange HTTP en cours
+     * @param chain    la chaîne de filtres suivante
+     * @return un {@link Mono} représentant la complétion du traitement
+     */
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");

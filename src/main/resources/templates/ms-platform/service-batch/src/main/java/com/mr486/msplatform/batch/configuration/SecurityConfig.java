@@ -18,11 +18,23 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Configuration de la sécurité du service batch : chaîne de filtres OAuth2 Resource Server
+ * avec extraction des rôles Keycloak depuis le claim {@code realm_access.roles}.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    /**
+     * Déclare la chaîne de filtres Spring Security.
+     * Les endpoints {@code /actuator/**} sont publics ; tout le reste exige une authentification JWT.
+     *
+     * @param http le constructeur de sécurité HTTP
+     * @return la chaîne de filtres configurée
+     * @throws Exception en cas d'erreur de configuration
+     */
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -35,6 +47,11 @@ public class SecurityConfig {
                 .build();
     }
 
+    /**
+     * Fournit le convertisseur JWT qui mappe les rôles Keycloak en {@link GrantedAuthority}.
+     *
+     * @return le convertisseur d'authentification JWT configuré
+     */
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();

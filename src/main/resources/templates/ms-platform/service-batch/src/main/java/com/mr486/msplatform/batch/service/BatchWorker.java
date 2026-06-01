@@ -23,6 +23,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * Travailleur batch asynchrone : écoute la queue {@code BATCH_JOBS}, traite chaque
+ * {@link BatchJobMessage} de façon concurrente (Reactor {@code flatMap} sur un scheduler
+ * élastique) et publie une {@link BatchNotification} en fin de traitement.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -40,6 +45,14 @@ public class BatchWorker {
     private final RedisJobStore store;
     private final RabbitTemplate rabbitTemplate;
 
+    /**
+     * Reçoit un message de travail batch, exécute les traitements en parallèle selon
+     * {@code batch.file-concurrency} et met à jour le job dans Redis.
+     * En cas d'erreur simulée ou réelle, passe le job à l'état {@code DEAD} et republie.
+     *
+     * @param message le message décrivant le travail à effectuer
+     * @throws Exception si une erreur non récupérable survient (remontée pour retry AMQP)
+     */
     @RabbitListener(queues = RabbitQueues.BATCH_JOBS)
     public void handle(BatchJobMessage message) throws Exception {
         BatchJobResponse job = store.find(message.getJobId());

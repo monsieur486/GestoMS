@@ -24,6 +24,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Contrôleur REST de gestion des travaux batch : soumet un job en file RabbitMQ,
+ * interroge son état dans Redis et expose des statistiques agrégées.
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api")
@@ -32,6 +36,14 @@ public class BatchJobController {
     private final RedisJobStore store;
     private final RabbitTemplate rabbitTemplate;
 
+    /**
+     * Crée un nouveau job batch pour l'utilisateur et l'envoie dans la queue {@code BATCH_JOBS}.
+     * Génère 15 références de la forme {@code USER-<userId>-FAC-<NNN>}.
+     *
+     * @param userId      l'identifiant de l'utilisateur propriétaire du job
+     * @param failureRate le pourcentage de chance de simuler un échec (0 = jamais)
+     * @return le job créé avec le statut {@code PENDING}
+     */
     @PostMapping("/users/{userId}/batch-jobs")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER_BATCH')")
@@ -65,6 +77,12 @@ public class BatchJobController {
         return job;
     }
 
+    /**
+     * Retourne l'état d'un job par son identifiant.
+     *
+     * @param jobId l'identifiant unique du job
+     * @return {@code 200 OK} avec le job, ou {@code 404} s'il est introuvable
+     */
     @GetMapping("/batch-jobs/{jobId}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER_BATCH')")
     public ResponseEntity<BatchJobResponse> get(@PathVariable String jobId) {
@@ -72,12 +90,23 @@ public class BatchJobController {
         return job == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(job);
     }
 
+    /**
+     * Retourne tous les jobs batch d'un utilisateur donné.
+     *
+     * @param userId l'identifiant de l'utilisateur
+     * @return la liste des jobs de l'utilisateur
+     */
     @GetMapping("/users/{userId}/batch-jobs")
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER_BATCH')")
     public List<BatchJobResponse> byUser(@PathVariable Long userId) {
         return store.findByUser(userId);
     }
 
+    /**
+     * Retourne des statistiques globales sur tous les jobs (par statut + total).
+     *
+     * @return une map statut → nombre de jobs
+     */
     @GetMapping("/batch-jobs/stats")
     @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Long> stats() {

@@ -14,6 +14,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Magasin de jobs batch persistent dans Redis côté consumer : sérialise/désérialise les
+ * {@link BatchJobResponse} en JSON avec un TTL de 24 h, et maintient des sets d'index
+ * ({@code BATCH_JOBS_ALL}, {@code batchUserJobs}) pour les requêtes par utilisateur.
+ */
 @Service
 @RequiredArgsConstructor
 public class RedisJobStore {
@@ -23,6 +28,11 @@ public class RedisJobStore {
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Persiste un job dans Redis et met à jour les index globaux et par utilisateur.
+     *
+     * @param job le job à sauvegarder
+     */
     public void save(BatchJobResponse job) {
         try {
             redisTemplate.opsForValue().set(
@@ -43,6 +53,12 @@ public class RedisJobStore {
         }
     }
 
+    /**
+     * Recherche un job par son identifiant.
+     *
+     * @param id l'identifiant unique du job
+     * @return le job trouvé, ou {@code null} s'il n'existe pas ou a expiré
+     */
     public BatchJobResponse find(String id) {
         try {
             String json = redisTemplate.opsForValue().get(RedisKeys.batchJob(id));
@@ -55,6 +71,12 @@ public class RedisJobStore {
         }
     }
 
+    /**
+     * Retourne tous les jobs appartenant à un utilisateur donné.
+     *
+     * @param userId l'identifiant de l'utilisateur
+     * @return la liste des jobs de l'utilisateur (vide si aucun)
+     */
     public List<BatchJobResponse> findByUser(Long userId) {
         Set<String> ids = redisTemplate.opsForSet().members(RedisKeys.batchUserJobs(userId));
         if (ids == null) {
@@ -66,6 +88,11 @@ public class RedisJobStore {
                 .toList();
     }
 
+    /**
+     * Calcule des statistiques agrégées sur l'ensemble des jobs (par statut + total).
+     *
+     * @return une map statut → nombre de jobs ; inclut la clé {@code total}
+     */
     public Map<String, Long> stats() {
         Map<String, Long> stats = new LinkedHashMap<>();
         for (String key : List.of("pending", "processing", "retrying", "completed", "failed", "dead")) {

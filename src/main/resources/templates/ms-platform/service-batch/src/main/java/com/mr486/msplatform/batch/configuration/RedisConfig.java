@@ -6,9 +6,19 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+/**
+ * Configuration Redis du service batch : fournit un {@link RedisTemplate} String/String
+ * avec serializers uniformes pour les clés, valeurs et entrées de hash.
+ */
 @Configuration
 public class RedisConfig {
 
+    /**
+     * Crée et configure un {@link RedisTemplate} String/String.
+     *
+     * @param factory la fabrique de connexions Redis
+     * @return le template Redis configuré avec des serializers String
+     */
     @Bean
     RedisTemplate<String, String> redisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, String> template = new RedisTemplate<>();
