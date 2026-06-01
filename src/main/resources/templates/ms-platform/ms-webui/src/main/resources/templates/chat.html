@@ -45,6 +45,24 @@
   </div>
 
 </main>
+<div class="modal fade" id="privateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="pmTitle">Privé</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        <div class="chat-messages mb-3" id="pmMessages"></div>
+        <form id="pm-form" class="d-flex gap-2">
+          <input class="form-control" type="text" id="pm-text"
+                 placeholder="Message privé…" autocomplete="off" required/>
+          <button type="submit" class="btn btn-primary px-3">Envoyer</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -57,6 +75,13 @@
   const presenceCount = document.getElementById('presenceCount');
   const presenceCountBtn = document.getElementById('presenceCountBtn');
 
+  const pmModalEl = document.getElementById('privateModal');
+  const pmModal = new bootstrap.Modal(pmModalEl);
+  const pmTitle = document.getElementById('pmTitle');
+  const pmMessages = document.getElementById('pmMessages');
+  const pmForm = document.getElementById('pm-form');
+  const pmInput = document.getElementById('pm-text');
+
   const DAYS = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
 
   function formatTs(ts) {
@@ -67,7 +92,7 @@
     return DAYS[d.getDay()] + ' ' + hh + ':' + mm;
   }
 
-  function appendMessage(m) {
+  function appendTo(container, m) {
     const own = m.user === ME;
     const div = document.createElement('div');
     div.className = 'chat-message ' + (own ? 'own' : 'other');
@@ -85,13 +110,17 @@
     time.className = 'time';
     time.textContent = formatTs(m.timestamp);
     div.appendChild(time);
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
   }
 
   let lastRoster = [];
   const typingUsers = new Set();
   const typingTimers = {};
+
+  const privateBuffers = {};
+  const unreadPrivate = new Set();
+  let currentPeer = null;
 
   function drawPresence() {
     presenceList.innerHTML = '';
@@ -101,13 +130,26 @@
       const dot = document.createElement('span');
       dot.className = 'online-dot';
       li.appendChild(dot);
-      li.appendChild(document.createTextNode(u === ME ? u + ' (vous)' : u));
+      const name = document.createElement('span');
+      name.className = 'presence-name';
+      name.textContent = u === ME ? u + ' (vous)' : u;
+      if (u !== ME) {
+        name.classList.add('clickable');
+        name.addEventListener('click', () => openPrivate(u));
+      }
+      li.appendChild(name);
       if (typingUsers.has(u) && u !== ME) {
         const t = document.createElement('span');
         t.className = 'typing-indicator';
         t.textContent = '…';
         t.title = 'écrit…';
         li.appendChild(t);
+      }
+      if (unreadPrivate.has(u) && u !== ME) {
+        const b = document.createElement('span');
+        b.className = 'unread-badge';
+        b.title = 'message privé';
+        li.appendChild(b);
       }
       presenceList.appendChild(li);
     });
@@ -128,13 +170,35 @@
     drawPresence();
   }
 
+  function openPrivate(u) {
+    currentPeer = u;
+    pmTitle.textContent = 'Privé — ' + u;
+    unreadPrivate.delete(u);
+    drawPresence();
+    pmMessages.innerHTML = '';
+    (privateBuffers[u] || []).forEach(m => appendTo(pmMessages, m));
+    pmModal.show();
+  }
+
+  function receivePrivate(m) {
+    const peer = m.user;
+    (privateBuffers[peer] = privateBuffers[peer] || []).push(m);
+    if (currentPeer === peer && pmModalEl.classList.contains('show')) {
+      appendTo(pmMessages, m);
+    } else {
+      unreadPrivate.add(peer);
+      drawPresence();
+    }
+  }
+
   const client = new StompJs.Client({
     webSocketFactory: () => new SockJS('/ws'),
     reconnectDelay: 2000,
     onConnect: () => {
-      client.subscribe('/topic/chat', message => appendMessage(JSON.parse(message.body)));
+      client.subscribe('/topic/chat', message => appendTo(messages, JSON.parse(message.body)));
       client.subscribe('/topic/presence', message => renderPresence(JSON.parse(message.body)));
       client.subscribe('/topic/typing', message => markTyping(JSON.parse(message.body).user));
+      client.subscribe('/user/queue/private', message => receivePrivate(JSON.parse(message.body)));
       client.publish({ destination: '/app/presence.hello', body: '{}' });
     }
   });
@@ -146,6 +210,17 @@
     if (!text) return;
     client.publish({ destination: '/app/chat.send', body: JSON.stringify({ text }) });
     input.value = '';
+  });
+
+  pmForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = pmInput.value.trim();
+    if (!text || !currentPeer) return;
+    client.publish({ destination: '/app/chat.private', body: JSON.stringify({ to: currentPeer, text }) });
+    const echo = { user: ME, text: text, timestamp: Date.now() };
+    (privateBuffers[currentPeer] = privateBuffers[currentPeer] || []).push(echo);
+    appendTo(pmMessages, echo);
+    pmInput.value = '';
   });
 
   let lastTypingSent = 0;

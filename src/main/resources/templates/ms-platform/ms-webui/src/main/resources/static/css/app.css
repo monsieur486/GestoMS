@@ -178,6 +178,12 @@ body { animation: fadeUp .3s ease; }
   animation: typing-blink 1s steps(1, end) infinite;
 }
 @keyframes typing-blink { 50% { opacity: .25; } }
+.presence-name.clickable { cursor: pointer; }
+.presence-name.clickable:hover { color: #fff; text-decoration: underline; }
+.unread-badge {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #ef4444; box-shadow: 0 0 6px #ef4444; margin-left: .4rem; flex: 0 0 auto;
+}
 
 /* ── Service blocks / pre ── */
 .service-block pre {
