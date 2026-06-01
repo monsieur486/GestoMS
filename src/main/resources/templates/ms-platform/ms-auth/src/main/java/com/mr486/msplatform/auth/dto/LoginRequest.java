@@ -1,6 +1,8 @@
 package com.mr486.msplatform.auth.dto;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Getter;import lombok.NoArgsConstructor;import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 /**
  * DTO de requête de connexion contenant les identifiants de l'utilisateur

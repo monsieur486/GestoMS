@@ -1,6 +1,7 @@
 package com.mr486.msplatform.auth.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.AllArgsConstructor;import lombok.Getter;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 /**
  * DTO de réponse renvoyé au client après une connexion ou un rafraîchissement réussi :

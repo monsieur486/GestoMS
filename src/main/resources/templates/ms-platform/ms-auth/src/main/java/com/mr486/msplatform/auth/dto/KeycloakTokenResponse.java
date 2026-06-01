@@ -1,6 +1,7 @@
 package com.mr486.msplatform.auth.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * DTO représentant la réponse brute de Keycloak lors de l'émission ou du
