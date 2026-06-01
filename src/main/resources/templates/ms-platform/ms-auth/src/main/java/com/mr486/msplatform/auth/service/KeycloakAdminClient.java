@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Map;
 
@@ -62,6 +63,39 @@ public class KeycloakAdminClient {
         try {
             restTemplate.exchange(internalUrl + "/admin/realms/" + realm + "/users/" + id + "/reset-password",
                     HttpMethod.PUT, new HttpEntity<>(credential, headers), Void.class);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    /**
+     * Résout l'identifiant Keycloak d'un utilisateur à partir de son username (recherche exacte).
+     * <p>Les tokens du client ms-gateway n'exposent pas {@code sub} ; on passe donc par cette
+     * résolution plutôt que de faire confiance au subject du JWT.
+     *
+     * @param username le nom d'utilisateur
+     * @return l'identifiant unique de l'utilisateur dans Keycloak
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible ou l'utilisateur introuvable
+     */
+    @SuppressWarnings("rawtypes")
+    public String findUserId(String username) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(adminToken());
+        String url = UriComponentsBuilder
+                .fromUriString(internalUrl + "/admin/realms/" + realm + "/users")
+                .queryParam("username", username)
+                .queryParam("exact", true)
+                .encode().toUriString();
+        try {
+            ResponseEntity<Map[]> resp = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map[].class);
+            Map[] users = resp.getBody();
+            if (users == null || users.length == 0 || users[0].get("id") == null) {
+                throw new KeycloakUnavailableException();
+            }
+            return users[0].get("id").toString();
         } catch (KeycloakUnavailableException e) {
             throw e;
         } catch (Exception e) {

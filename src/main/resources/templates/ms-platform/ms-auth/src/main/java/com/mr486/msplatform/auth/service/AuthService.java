@@ -111,8 +111,10 @@ public class AuthService {
     /**
      * Change le mot de passe de l'utilisateur courant : vérifie l'ancien mot de passe via
      * un password grant, puis pose le nouveau via l'API Admin Keycloak.
+     * <p>L'id Keycloak est résolu via {@code preferred_username} (et non le claim {@code sub},
+     * que les tokens du client ms-gateway n'exposent pas).
      *
-     * @param authentication le JWT de l'utilisateur authentifié (fournit username et sub)
+     * @param authentication le JWT de l'utilisateur authentifié (fournit preferred_username)
      * @param oldPassword    l'ancien mot de passe à vérifier
      * @param newPassword    le nouveau mot de passe à poser (permanent)
      * @throws ResponseStatusException 422 si l'ancien mot de passe est invalide
@@ -120,7 +122,6 @@ public class AuthService {
     public void changeOwnPassword(JwtAuthenticationToken authentication,
                                   String oldPassword, String newPassword) {
         String username = authentication.getToken().getClaimAsString("preferred_username");
-        String userId = authentication.getToken().getSubject();
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("grant_type", "password");
@@ -134,6 +135,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Ancien mot de passe incorrect");
         }
 
+        String userId = keycloakAdminClient.findUserId(username);
         keycloakAdminClient.resetPassword(userId, newPassword);
     }
 

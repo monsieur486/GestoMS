@@ -22,9 +22,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests unitaires de {@link AuthService#changeOwnPassword} : vérifie que l'ancien mot
- * de passe est contrôlé via un password grant avant de poser le nouveau, et qu'un
- * ancien mot de passe invalide renvoie 422 sans appeler le reset.
+ * Tests unitaires de {@link AuthService#changeOwnPassword} : l'ancien mot de passe est
+ * contrôlé via un password grant, l'id Keycloak est résolu par {@code preferred_username}
+ * (le token n'expose pas toujours {@code sub}), et un ancien mot de passe invalide
+ * renvoie 422 sans appeler le reset.
  */
 class AuthServiceChangePasswordTest {
 
@@ -41,37 +42,54 @@ class AuthServiceChangePasswordTest {
         service = new AuthService(blacklist, restTemplate, adminClient);
     }
 
-    private JwtAuthenticationToken jwt(String username, String sub) {
+    private JwtAuthenticationToken jwt(String username) {
         Jwt token = Mockito.mock(Jwt.class);
         when(token.getClaimAsString("preferred_username")).thenReturn(username);
-        when(token.getSubject()).thenReturn(sub);
         JwtAuthenticationToken auth = Mockito.mock(JwtAuthenticationToken.class);
         when(auth.getToken()).thenReturn(token);
         return auth;
     }
 
-    @Test
-    void resets_password_when_old_password_is_valid() {
+    private void grantSucceeds() {
         KeycloakTokenResponse ok = Mockito.mock(KeycloakTokenResponse.class);
         when(ok.getAccessToken()).thenReturn("valid");
         when(restTemplate.postForEntity(anyString(), any(), eq(KeycloakTokenResponse.class)))
                 .thenReturn(ResponseEntity.ok(ok));
+    }
 
-        service.changeOwnPassword(jwt("alice", "uid-1"), "old", "new");
+    @Test
+    void resolves_user_id_by_username_then_resets_when_old_password_is_valid() {
+        grantSucceeds();
+        when(adminClient.findUserId("alice")).thenReturn("uid-1");
+
+        service.changeOwnPassword(jwt("alice"), "old", "new");
 
         verify(adminClient).resetPassword("uid-1", "new");
     }
 
     @Test
-    void returns_422_and_skips_reset_when_old_password_is_wrong() {
+    void resets_via_username_even_when_token_has_no_sub() {
+        // Régression : les tokens du client ms-gateway n'exposent pas 'sub' ; l'id doit
+        // venir de findUserId(username), pas de getSubject() (qui serait null).
+        grantSucceeds();
+        when(adminClient.findUserId("admin2")).thenReturn("02904f91-uuid");
+
+        service.changeOwnPassword(jwt("admin2"), "old", "new");
+
+        verify(adminClient).resetPassword("02904f91-uuid", "new");
+    }
+
+    @Test
+    void returns_422_and_skips_lookup_and_reset_when_old_password_is_wrong() {
         when(restTemplate.postForEntity(anyString(), any(), eq(KeycloakTokenResponse.class)))
                 .thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
 
-        assertThatThrownBy(() -> service.changeOwnPassword(jwt("alice", "uid-1"), "bad", "new"))
+        assertThatThrownBy(() -> service.changeOwnPassword(jwt("alice"), "bad", "new"))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode())
                         .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
 
+        verify(adminClient, never()).findUserId(anyString());
         verify(adminClient, never()).resetPassword(anyString(), anyString());
     }
 }
