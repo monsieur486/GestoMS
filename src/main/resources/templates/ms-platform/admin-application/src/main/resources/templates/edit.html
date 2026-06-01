@@ -14,6 +14,7 @@
 
   <div th:if="${param.updated}" class="alert alert-success mb-3">Utilisateur mis à jour.</div>
   <div th:if="${param.pwd}" class="alert alert-success mb-3">Mot de passe réinitialisé.</div>
+  <div th:if="${param.mismatch}" class="alert alert-danger mb-3">Les mots de passe ne correspondent pas.</div>
   <div th:if="${error}" class="alert alert-danger mb-3" th:text="${error}">erreur</div>
   <div th:if="${param.error}" class="alert alert-danger mb-3">Keycloak indisponible.</div>
 
@@ -68,16 +69,28 @@
       <div class="card shadow border-0">
         <div class="card-header fw-semibold">Réinitialiser le mot de passe</div>
         <div class="card-body p-4">
-          <form th:action="@{/users/{id}/password(id=${user.id})}" method="post" class="row g-3">
+          <form th:action="@{/users/{id}/password(id=${user.id})}" method="post" id="pwdForm" class="row g-3">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <div class="col-12">
               <label class="form-label">Nouveau mot de passe</label>
-              <input class="form-control" type="password" name="password" required/>
+              <input class="form-control" type="password" name="password" id="password" required/>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Retaper le nouveau mot de passe</label>
+              <input class="form-control" type="password" name="confirm" id="confirm" required/>
             </div>
             <div class="col-12">
               <button type="submit" class="btn btn-outline-warning">Réinitialiser</button>
             </div>
           </form>
+          <script>
+            document.getElementById('pwdForm').addEventListener('submit', function (e) {
+              if (document.getElementById('password').value !== document.getElementById('confirm').value) {
+                e.preventDefault();
+                alert('Les mots de passe ne correspondent pas.');
+              }
+            });
+          </script>
         </div>
       </div>
     </div>

@@ -150,14 +150,20 @@ public class UsersController {
     }
 
     /**
-     * Réinitialise le mot de passe d'un utilisateur Keycloak.
+     * Réinitialise le mot de passe d'un utilisateur Keycloak après contrôle de la confirmation.
      *
      * @param id       l'identifiant Keycloak de l'utilisateur
      * @param password le nouveau mot de passe
+     * @param confirm  la confirmation du mot de passe (doit correspondre)
      * @return une redirection vers le formulaire d'édition avec le statut de l'opération
      */
     @PostMapping("/users/{id}/password")
-    public String resetPassword(@PathVariable String id, @RequestParam String password) {
+    public String resetPassword(@PathVariable String id,
+                                @RequestParam String password,
+                                @RequestParam String confirm) {
+        if (!password.equals(confirm)) {
+            return "redirect:/users/" + id + "/edit?mismatch";
+        }
         try {
             keycloakAdminClient.resetPassword(id, password);
             return "redirect:/users/" + id + "/edit?pwd";
