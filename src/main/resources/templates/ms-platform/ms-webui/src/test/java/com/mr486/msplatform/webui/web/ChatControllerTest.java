@@ -2,6 +2,7 @@ package com.mr486.msplatform.webui.web;
 
 import com.mr486.msplatform.webui.dto.ChatMessage;
 import com.mr486.msplatform.webui.service.ChatHistory;
+import com.mr486.msplatform.webui.service.PresenceService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -20,7 +21,8 @@ class ChatControllerTest {
     @Test
     void send_attributes_author_from_principal_and_persists() {
         ChatHistory history = Mockito.mock(ChatHistory.class);
-        ChatController controller = new ChatController(history);
+        PresenceService presence = Mockito.mock(PresenceService.class);
+        ChatController controller = new ChatController(history, presence);
         Principal principal = Mockito.mock(Principal.class);
         when(principal.getName()).thenReturn("alice");
 
