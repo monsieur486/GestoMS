@@ -199,22 +199,45 @@ public class ResourceExpandProcessor implements FileProcessor {
 
     // ── MongoDB templates ─────────────────────────────────────────────────────
 
-    private static final String MONGO_ENTITY_TEMPLATE =
-        "package {PKG}.document;\n" +
-        "import lombok.*;\n" +
-        "import org.springframework.data.annotation.Id;\n" +
-        "import org.springframework.data.mongodb.core.mapping.Document;\n" +
-        "@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder\n" +
-        "@Document(collection=\"{COLLECTION}\")\n" +
-        "public class {CLASS} { @Id private String id; private String name; private String description; }";
+    private static final String MONGO_ENTITY_TEMPLATE = """
+        package {PKG}.document;
 
-    private static final String MONGO_REPO_TEMPLATE =
-        "package {PKG}.repository;\n" +
-        "import {PKG}.document.{CLASS};\n" +
-        "import org.springframework.stereotype.Repository;\n" +
-        "import org.springframework.data.mongodb.repository.MongoRepository;\n" +
-        "@Repository\n" +
-        "public interface {CLASS}Repository extends MongoRepository<{CLASS}, String> {}";
+        import lombok.*;
+        import org.springframework.data.annotation.Id;
+        import org.springframework.data.mongodb.core.mapping.Document;
+
+        /**
+         * Document MongoDB de la ressource {@code {CLASS}}, stocké dans la collection {@code {COLLECTION}}.
+         */
+        @Getter
+        @Setter
+        @NoArgsConstructor
+        @AllArgsConstructor
+        @Builder
+        @Document(collection = "{COLLECTION}")
+        public class {CLASS} {
+
+            @Id
+            private String id;
+            private String name;
+            private String description;
+        }
+        """;
+
+    private static final String MONGO_REPO_TEMPLATE = """
+        package {PKG}.repository;
+
+        import {PKG}.document.{CLASS};
+        import org.springframework.data.mongodb.repository.MongoRepository;
+        import org.springframework.stereotype.Repository;
+
+        /**
+         * Repository MongoDB du document {@code {CLASS}} (clé {@code String}).
+         */
+        @Repository
+        public interface {CLASS}Repository extends MongoRepository<{CLASS}, String> {
+        }
+        """;
 
     private static final String MONGO_APP_YML_TEMPLATE =
         "server:\n" +
@@ -242,9 +265,9 @@ public class ResourceExpandProcessor implements FileProcessor {
         "        include: health,info\n";
 
     private static final String MONGO_POM_DEPS =
-        "<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-mongodb</artifactId></dependency>" +
-        "<dependency><groupId>io.mongock</groupId><artifactId>mongock-springboot-v3</artifactId></dependency>" +
-        "<dependency><groupId>io.mongock</groupId><artifactId>mongodb-springdata-v4-driver</artifactId></dependency>";
+        "<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-mongodb</artifactId></dependency>\n" +
+        "    <dependency><groupId>io.mongock</groupId><artifactId>mongock-springboot-v3</artifactId></dependency>\n" +
+        "    <dependency><groupId>io.mongock</groupId><artifactId>mongodb-springdata-v4-driver</artifactId></dependency>";
 
     private byte[] applyMongo(String path, byte[] content, ResourceModuleRequest res, String basePackage) {
         String servicePackage = toConcatLower(res.getServiceName());
@@ -317,19 +340,19 @@ public class ResourceExpandProcessor implements FileProcessor {
 
     private String applyIntegerType(String text, ResourceModuleRequest res) {
         text = text.replace("private Long id", "private Integer id");
-        text = text.replace("JpaRepository<" + res.getClassName() + ",Long>",
-                            "JpaRepository<" + res.getClassName() + ",Integer>");
+        text = text.replace("JpaRepository<" + res.getClassName() + ", Long>",
+                            "JpaRepository<" + res.getClassName() + ", Integer>");
         return text;
     }
 
     private String applyUuidType(String text, String path, ResourceModuleRequest res) {
         // Entity
         text = text.replace(
-            "@Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id",
-            "@Id @GeneratedValue(strategy=GenerationType.UUID) private UUID id");
+            "@Id\n    @GeneratedValue(strategy = GenerationType.IDENTITY)\n    private Long id",
+            "@Id\n    @GeneratedValue(strategy = GenerationType.UUID)\n    private UUID id");
         // Repository generic
-        text = text.replace("JpaRepository<" + res.getClassName() + ",Long>",
-                            "JpaRepository<" + res.getClassName() + ",UUID>");
+        text = text.replace("JpaRepository<" + res.getClassName() + ", Long>",
+                            "JpaRepository<" + res.getClassName() + ", UUID>");
         // DTO
         text = text.replace("private Long id", "private UUID id");
         // SQL: BIGINT GENERATED BY DEFAULT AS IDENTITY → UUID DEFAULT gen_random_uuid()

@@ -21,8 +21,17 @@ class ResourceExpandProcessorTest {
             file(base + "pom.xml", "<artifactId>service-a</artifactId><dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency><dependency><groupId>org.liquibase</groupId><artifactId>liquibase-core</artifactId></dependency>"),
             file(base + "Dockerfile", "FROM eclipse-temurin:17-jre-jammy"),
             file(javaPkg + "ServiceAApplication.java", "package com.mr486.msplatform.servicea;\npublic class ServiceAApplication{}"),
-            file(javaPkg + "entity/ResourceA.java", "package com.mr486.msplatform.servicea.entity;\nimport jakarta.persistence.*;\n@Entity @Table(name=\"resources_a\")\npublic class ResourceA{ @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id; private String name; }"),
-            file(javaPkg + "repository/ResourceARepository.java", "package com.mr486.msplatform.servicea.repository;\nimport org.springframework.data.jpa.repository.JpaRepository;\npublic interface ResourceARepository extends JpaRepository<ResourceA,Long> {}"),
+            file(javaPkg + "entity/ResourceA.java",
+                "package com.mr486.msplatform.servicea.entity;\n"
+              + "import jakarta.persistence.*;\n"
+              + "@Entity @Table(name=\"resources_a\")\n"
+              + "public class ResourceA {\n\n"
+              + "    @Id\n    @GeneratedValue(strategy = GenerationType.IDENTITY)\n    private Long id;\n"
+              + "    private String name;\n}"),
+            file(javaPkg + "repository/ResourceARepository.java",
+                "package com.mr486.msplatform.servicea.repository;\n"
+              + "import org.springframework.data.jpa.repository.JpaRepository;\n"
+              + "public interface ResourceARepository extends JpaRepository<ResourceA, Long> {\n}"),
             file(javaPkg + "dto/ResourceADto.java", "package com.mr486.msplatform.servicea.dto;\npublic class ResourceADto{ private Long id; private String name; }"),
             file(javaPkg + "controller/ResourceAController.java", "package com.mr486.msplatform.servicea.controller;\n@RequestMapping(\"/api/resources-a\")\npublic class ResourceAController{}"),
             file(javaPkg + "service/ResourceAService.java", "package com.mr486.msplatform.servicea.service;\nimport com.mr486.msplatform.servicea.entity.ResourceA;\nimport com.mr486.msplatform.servicea.repository.ResourceARepository;\npublic class ResourceAService{ ResourceA build(){return ResourceA.builder().build();} }"),
@@ -289,8 +298,8 @@ class ResourceExpandProcessorTest {
         GeneratedFile repo = result.stream()
             .filter(f -> f.path().contains("/order/") && f.path().endsWith("Repository.java"))
             .findFirst().orElseThrow();
-        assertThat(contentOf(repo)).contains("JpaRepository<Order,Integer>");
-        assertThat(contentOf(repo)).doesNotContain("JpaRepository<Order,Long>");
+        assertThat(contentOf(repo)).contains("JpaRepository<Order, Integer>");
+        assertThat(contentOf(repo)).doesNotContain("JpaRepository<Order, Long>");
     }
 
     @Test
@@ -329,7 +338,7 @@ class ResourceExpandProcessorTest {
         GeneratedFile repo = result.stream()
             .filter(f -> f.path().contains("/order/") && f.path().endsWith("Repository.java"))
             .findFirst().orElseThrow();
-        assertThat(contentOf(repo)).contains("JpaRepository<Order,UUID>");
+        assertThat(contentOf(repo)).contains("JpaRepository<Order, UUID>");
         assertThat(contentOf(repo)).contains("import java.util.UUID");
     }
 
