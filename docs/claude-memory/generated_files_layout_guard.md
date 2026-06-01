@@ -1,6 +1,6 @@
 ---
 name: generated-files-layout-guard
-description: "generated Java must stay ≤120/4-space/one-import-per-line + French javadoc, enforced by GeneratedOutputLayoutTest on REAL templates; why unit fixtures can't catch reformat breakage; poms stay compact"
+description: "generated Java + generator's own source must stay ≤120/4-space/one-import-per-line + French javadoc, enforced by GeneratedOutputLayoutTest (real templates) and GeneratorSourceLayoutTest (code-only width); why unit fixtures can't catch reformat breakage; poms stay compact"
 metadata: 
   node_type: memory
   type: project
@@ -9,7 +9,9 @@ metadata:
 
 The template `.java` under `src/main/resources/templates/ms-platform/` (and the Java emitted as strings by processors) follow a convention: 4-space indent, ≤120 chars/line, one import per line, French javadoc on class + public methods (no Lombok-accessor / per-`@Test` javadoc). This is enforced by `GeneratedOutputLayoutTest` (a `@SpringBootTest` that generates a real `resources[]` platform and asserts ≤120 + no `;import ` on every generated `.java`, plus UUID/Mongo variant transforms still apply).
 
-**Why:** generated output came from two sources (static templates copied+substituted, and Java emitted as strings by `ResourceExpandProcessor` / `CrossCuttingConfigProcessor`); both were minified and undocumented. Established 2026-06-01.
+The generator's OWN source (`src/main/java` + `src/test/java`) follows the same convention, enforced by a SECOND guard `GeneratorSourceLayoutTest`. It measures **code-only width** — string/char literals, comments and text blocks are neutralized before counting — so Unicode `// ── … ──` banner comments (>120 bytes, ≤80 display) and unbreakable string literals (Mongo templates, shell/yaml/json builder fragments, test fixtures) are exempt, while a genuinely too-wide code line or a real glued import fails. (`;import ` is checked on the code-only text too, so occurrences inside string literals/assertions don't false-positive.)
+
+**Why:** generated output came from two sources (static templates copied+substituted, and Java emitted as strings by `ResourceExpandProcessor` / `CrossCuttingConfigProcessor`); both were minified and undocumented. Established 2026-06-01; generator-source guard added the same day.
 
 **How to apply:**
 - When editing a template `.java`, keep lines ≤120 and imports one-per-line or `GeneratedOutputLayoutTest` fails. Run `find src/main/resources/templates/ms-platform -name '*.java' -exec awk '{if(length>120)print FILENAME":"NR}' {} +` and `grep -rn ';import '` to self-check.
