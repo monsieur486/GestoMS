@@ -7,11 +7,6 @@
 
   <h1 class="fw-bold mb-3">Chat</h1>
 
-  <div class="d-flex align-items-center gap-2 mb-3">
-    <span class="status-dot disconnected" id="statusDot"></span>
-    <span id="statusText" class="text-muted small">Connexion…</span>
-  </div>
-
   <button class="btn btn-outline-secondary btn-sm d-lg-none mb-2" type="button"
           data-bs-toggle="offcanvas" data-bs-target="#presencePanel">
     Connectés (<span id="presenceCountBtn">0</span>)
@@ -21,12 +16,11 @@
     <div class="col-lg-3">
       <div class="offcanvas-lg offcanvas-start" tabindex="-1" id="presencePanel">
         <div class="offcanvas-header">
-          <h6 class="offcanvas-title mb-0">Connectés</h6>
+          <h6 class="offcanvas-title mb-0">Connectés (<span id="presenceCount">0</span>)</h6>
           <button type="button" class="btn-close d-lg-none"
                   data-bs-dismiss="offcanvas" data-bs-target="#presencePanel"></button>
         </div>
         <div class="offcanvas-body">
-          <div class="text-muted small mb-2 d-none d-lg-block">Connectés (<span id="presenceCount">0</span>)</div>
           <ul class="presence-list" id="presenceList"></ul>
         </div>
       </div>
@@ -56,8 +50,6 @@
 <script th:inline="javascript">
   const ME = /*[[${username}]]*/ '';
   const messages = document.getElementById('messages');
-  const dot = document.getElementById('statusDot');
-  const statusText = document.getElementById('statusText');
   const form = document.getElementById('chat-form');
   const input = document.getElementById('chat-text');
   const presenceList = document.getElementById('presenceList');
@@ -101,15 +93,9 @@
     webSocketFactory: () => new SockJS('/ws'),
     reconnectDelay: 2000,
     onConnect: () => {
-      dot.className = 'status-dot connected';
-      statusText.textContent = 'Connecté';
       client.subscribe('/topic/chat', message => appendMessage(JSON.parse(message.body)));
       client.subscribe('/topic/presence', message => renderPresence(JSON.parse(message.body)));
       client.publish({ destination: '/app/presence.hello', body: '{}' });
-    },
-    onWebSocketClose: () => {
-      dot.className = 'status-dot disconnected';
-      statusText.textContent = 'Déconnecté — reconnexion…';
     }
   });
   client.activate();
