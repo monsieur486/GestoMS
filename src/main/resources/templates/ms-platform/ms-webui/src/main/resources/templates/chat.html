@@ -12,29 +12,90 @@
     <span id="statusText" class="text-muted small">Connexion…</span>
   </div>
 
-  <div class="chat-messages mb-3" id="messages">
-    <div th:each="m : ${history}" class="chat-message">
-      <span class="sender" th:text="${m.user}">user</span>
-      <span class="text ms-1" th:text="${m.text}">text</span>
+  <button class="btn btn-outline-secondary btn-sm d-lg-none mb-2" type="button"
+          data-bs-toggle="offcanvas" data-bs-target="#presencePanel">
+    Connectés (<span id="presenceCountBtn">0</span>)
+  </button>
+
+  <div class="row g-3">
+    <div class="col-lg-3">
+      <div class="offcanvas-lg offcanvas-start" tabindex="-1" id="presencePanel">
+        <div class="offcanvas-header">
+          <h6 class="offcanvas-title mb-0">Connectés</h6>
+          <button type="button" class="btn-close d-lg-none"
+                  data-bs-dismiss="offcanvas" data-bs-target="#presencePanel"></button>
+        </div>
+        <div class="offcanvas-body">
+          <div class="text-muted small mb-2 d-none d-lg-block">Connectés (<span id="presenceCount">0</span>)</div>
+          <ul class="presence-list" id="presenceList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="chat-messages mb-3" id="messages">
+        <div th:each="m : ${history}" class="chat-message"
+             th:classappend="${m.user == username} ? 'own' : 'other'">
+          <span class="sender" th:if="${m.user != username}" th:text="${m.user}">user</span>
+          <div class="bubble" th:text="${m.text}">text</div>
+        </div>
+      </div>
+
+      <form id="chat-form" class="d-flex gap-2">
+        <input class="form-control" type="text" id="chat-text"
+               placeholder="Votre message…" autocomplete="off" required/>
+        <button type="submit" class="btn btn-primary px-4">Envoyer</button>
+      </form>
     </div>
   </div>
-
-  <form id="chat-form" class="d-flex gap-2">
-    <input class="form-control" type="text" id="chat-text"
-           placeholder="Votre message…" autocomplete="off" required/>
-    <button type="submit" class="btn btn-primary px-4">Envoyer</button>
-  </form>
 
 </main>
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
+<script th:inline="javascript">
+  const ME = /*[[${username}]]*/ '';
   const messages = document.getElementById('messages');
   const dot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
   const form = document.getElementById('chat-form');
   const input = document.getElementById('chat-text');
+  const presenceList = document.getElementById('presenceList');
+  const presenceCount = document.getElementById('presenceCount');
+  const presenceCountBtn = document.getElementById('presenceCountBtn');
+
+  function appendMessage(m) {
+    const own = m.user === ME;
+    const div = document.createElement('div');
+    div.className = 'chat-message ' + (own ? 'own' : 'other');
+    if (!own) {
+      const sender = document.createElement('span');
+      sender.className = 'sender';
+      sender.textContent = m.user;
+      div.appendChild(sender);
+    }
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = m.text;
+    div.appendChild(bubble);
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function renderPresence(users) {
+    presenceList.innerHTML = '';
+    users.forEach(u => {
+      const li = document.createElement('li');
+      li.className = 'presence-item';
+      const d = document.createElement('span');
+      d.className = 'online-dot';
+      li.appendChild(d);
+      li.appendChild(document.createTextNode(u === ME ? u + ' (vous)' : u));
+      presenceList.appendChild(li);
+    });
+    presenceCount.textContent = users.length;
+    presenceCountBtn.textContent = users.length;
+  }
 
   const client = new StompJs.Client({
     webSocketFactory: () => new SockJS('/ws'),
@@ -42,14 +103,9 @@
     onConnect: () => {
       dot.className = 'status-dot connected';
       statusText.textContent = 'Connecté';
-      client.subscribe('/topic/chat', message => {
-        const m = JSON.parse(message.body);
-        const div = document.createElement('div');
-        div.className = 'chat-message';
-        div.innerHTML = `<span class="sender">${m.user}</span><span class="text ms-1">${m.text}</span>`;
-        messages.appendChild(div);
-        messages.scrollTop = messages.scrollHeight;
-      });
+      client.subscribe('/topic/chat', message => appendMessage(JSON.parse(message.body)));
+      client.subscribe('/topic/presence', message => renderPresence(JSON.parse(message.body)));
+      client.publish({ destination: '/app/presence.hello', body: '{}' });
     },
     onWebSocketClose: () => {
       dot.className = 'status-dot disconnected';
@@ -65,6 +121,8 @@
     client.publish({ destination: '/app/chat.send', body: JSON.stringify({ text }) });
     input.value = '';
   });
+
+  messages.scrollTop = messages.scrollHeight;
 </script>
 </body>
 </html>
