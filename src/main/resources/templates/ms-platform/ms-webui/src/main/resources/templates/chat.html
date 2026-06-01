@@ -32,6 +32,7 @@
              th:classappend="${m.user == username} ? 'own' : 'other'">
           <span class="sender" th:if="${m.user != username}" th:text="${m.user}">user</span>
           <div class="bubble" th:text="${m.text}">text</div>
+          <span class="time" th:attr="data-ts=${m.timestamp}"></span>
         </div>
       </div>
 
@@ -56,6 +57,16 @@
   const presenceCount = document.getElementById('presenceCount');
   const presenceCountBtn = document.getElementById('presenceCountBtn');
 
+  const DAYS = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+
+  function formatTs(ts) {
+    if (!ts || ts <= 0) return '';
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return DAYS[d.getDay()] + ' ' + hh + ':' + mm;
+  }
+
   function appendMessage(m) {
     const own = m.user === ME;
     const div = document.createElement('div');
@@ -70,23 +81,51 @@
     bubble.className = 'bubble';
     bubble.textContent = m.text;
     div.appendChild(bubble);
+    const time = document.createElement('span');
+    time.className = 'time';
+    time.textContent = formatTs(m.timestamp);
+    div.appendChild(time);
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
   }
 
-  function renderPresence(users) {
+  let lastRoster = [];
+  const typingUsers = new Set();
+  const typingTimers = {};
+
+  function drawPresence() {
     presenceList.innerHTML = '';
-    users.forEach(u => {
+    lastRoster.forEach(u => {
       const li = document.createElement('li');
       li.className = 'presence-item';
-      const d = document.createElement('span');
-      d.className = 'online-dot';
-      li.appendChild(d);
+      const dot = document.createElement('span');
+      dot.className = 'online-dot';
+      li.appendChild(dot);
       li.appendChild(document.createTextNode(u === ME ? u + ' (vous)' : u));
+      if (typingUsers.has(u) && u !== ME) {
+        const t = document.createElement('span');
+        t.className = 'typing-indicator';
+        t.textContent = '…';
+        t.title = 'écrit…';
+        li.appendChild(t);
+      }
       presenceList.appendChild(li);
     });
-    presenceCount.textContent = users.length;
-    presenceCountBtn.textContent = users.length;
+    presenceCount.textContent = lastRoster.length;
+    presenceCountBtn.textContent = lastRoster.length;
+  }
+
+  function renderPresence(users) {
+    lastRoster = users;
+    drawPresence();
+  }
+
+  function markTyping(user) {
+    if (user === ME) return;
+    typingUsers.add(user);
+    clearTimeout(typingTimers[user]);
+    typingTimers[user] = setTimeout(() => { typingUsers.delete(user); drawPresence(); }, 2500);
+    drawPresence();
   }
 
   const client = new StompJs.Client({
@@ -95,6 +134,7 @@
     onConnect: () => {
       client.subscribe('/topic/chat', message => appendMessage(JSON.parse(message.body)));
       client.subscribe('/topic/presence', message => renderPresence(JSON.parse(message.body)));
+      client.subscribe('/topic/typing', message => markTyping(JSON.parse(message.body).user));
       client.publish({ destination: '/app/presence.hello', body: '{}' });
     }
   });
@@ -108,6 +148,19 @@
     input.value = '';
   });
 
+  let lastTypingSent = 0;
+  input.addEventListener('input', () => {
+    if (!input.value.trim()) return;
+    const now = Date.now();
+    if (now - lastTypingSent > 1500) {
+      lastTypingSent = now;
+      client.publish({ destination: '/app/chat.typing', body: '{}' });
+    }
+  });
+
+  document.querySelectorAll('.chat-message .time[data-ts]').forEach(el => {
+    el.textContent = formatTs(Number(el.dataset.ts));
+  });
   messages.scrollTop = messages.scrollHeight;
 </script>
 </body>

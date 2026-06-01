@@ -164,6 +164,7 @@ body { animation: fadeUp .3s ease; }
 .chat-message.other .bubble { background: #1e1e2e; color: #cbd5e1; border-bottom-left-radius: 3px; }
 .chat-message.own { align-items: flex-end; margin-left: auto; }
 .chat-message.own .bubble { background: #6d28d9; color: #fff; border-bottom-right-radius: 3px; }
+.chat-message .time { color: #64748b; font-size: .7rem; margin-top: .15rem; }
 
 /* ── Présence ── */
 .presence-list { list-style: none; padding: 0; margin: 0; }
@@ -172,6 +173,11 @@ body { animation: fadeUp .3s ease; }
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   background: #10b981; box-shadow: 0 0 6px #10b981; margin-right: .5rem; flex: 0 0 auto;
 }
+.typing-indicator {
+  margin-left: .4rem; color: #a78bfa; font-weight: 700; letter-spacing: 1px;
+  animation: typing-blink 1s steps(1, end) infinite;
+}
+@keyframes typing-blink { 50% { opacity: .25; } }
 
 /* ── Service blocks / pre ── */
 .service-block pre {
