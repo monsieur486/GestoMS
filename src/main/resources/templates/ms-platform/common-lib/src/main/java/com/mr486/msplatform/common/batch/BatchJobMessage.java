@@ -6,6 +6,11 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/**
+ * Message RabbitMQ décrivant un job batch à exécuter : identifiant du job,
+ * identifiant de l'utilisateur demandeur, liste de références à traiter,
+ * numéro de tentative et paramètres de simulation d'erreurs.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

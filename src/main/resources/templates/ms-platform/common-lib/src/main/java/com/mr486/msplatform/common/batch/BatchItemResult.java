@@ -5,6 +5,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * DTO représentant le résultat du traitement d'un élément individuel dans un job batch :
+ * référence traitée, fichier généré, durée, instance ayant exécuté le traitement
+ * et éventuelle erreur.
+ */
 @Data
 @Builder
 @NoArgsConstructor

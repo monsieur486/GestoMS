@@ -9,6 +9,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * DTO de réponse décrivant l'état complet d'un job batch : statut, compteurs,
+ * dates de création et de complétion, liste de fichiers générés, métriques de
+ * performance et résultat détaillé par référence.
+ */
 @Data
 @Builder
 @NoArgsConstructor

@@ -14,6 +14,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Service métier d'authentification : orchestre les appels vers Keycloak
+ * (login, refresh, revocation) et gère les refresh tokens opaques stockés dans Redis.
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -33,6 +37,13 @@ public class AuthService {
     @Value("${keycloak.client-secret:changeit-gateway}")
     private String clientSecret;
 
+    /**
+     * Authentifie un utilisateur auprès de Keycloak, génère un refresh token opaque
+     * et le stocke dans Redis avant de retourner la réponse au client.
+     *
+     * @param request les identifiants de connexion
+     * @return la réponse contenant l'access token JWT et le refresh token opaque
+     */
     public LoginResponse login(LoginRequest request) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("grant_type", "password");
@@ -48,9 +59,17 @@ public class AuthService {
         return new LoginResponse(kc.getAccessToken(), opaqueToken, kc.getExpiresIn());
     }
 
+    /**
+     * Rafraîchit l'access token en échangeant le refresh token opaque contre
+     * un nouveau token Keycloak ; l'ancien token opaque est supprimé atomiquement.
+     *
+     * @param request le refresh token opaque émis lors de la connexion précédente
+     * @return la nouvelle paire access token / refresh token opaque
+     */
     public LoginResponse refresh(RefreshRequest request) {
         String kcRefreshToken = blacklistService.getAndDeleteRefreshToken(request.getOpaqueRefreshToken())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token"));
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("grant_type", "refresh_token");
@@ -65,6 +84,13 @@ public class AuthService {
         return new LoginResponse(kc.getAccessToken(), newOpaque, kc.getExpiresIn());
     }
 
+    /**
+     * Déconnecte l'utilisateur : blackliste le JTI de l'access token courant
+     * et révoque le refresh token Keycloak si un token opaque est fourni.
+     *
+     * @param request        le refresh token opaque à révoquer (peut être {@code null})
+     * @param authentication le JWT de l'utilisateur authentifié
+     */
     public void logout(LogoutRequest request, JwtAuthenticationToken authentication) {
         String jti = authentication.getToken().getClaim("jti");
         Instant exp = authentication.getToken().getExpiresAt();
