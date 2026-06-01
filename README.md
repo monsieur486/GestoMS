@@ -68,7 +68,7 @@ flowchart TD
     end
 
     subgraph optional [" ✨ Optionnels "]
-        CLIENT("💻 **ms-client**\n:8090\nBFF Thymeleaf")
+        CLIENT("💻 **ms-webui**\n:8090\nBFF Thymeleaf")
         SBAADM("📊 **ms-admin**\n:9100\nSpring Boot Admin")
         OBS("📈 **observability**\n:3000\nLoki · Promtail · Grafana")
     end
@@ -193,7 +193,7 @@ flowchart TD
 
 - `GET /api/aggregate` — appelle tous les services métier en parallèle et agrège les réponses (réservé `ROLE_ADMIN`)
 - **Broker WebSocket** STOMP : publie les résultats de jobs batch sur `/topic/batch`
-- Les clients (ms-client, navigateur) s'y connectent via SockJS pour recevoir les notifications en temps réel
+- Les clients (ms-webui, navigateur) s'y connectent via SockJS pour recevoir les notifications en temps réel
 
 ---
 
@@ -211,10 +211,10 @@ flowchart TD
 
 ---
 
-#### `ms-client` — BFF Thymeleaf
+#### `ms-webui` — BFF Thymeleaf
 ![Port](https://img.shields.io/badge/port-8090-3b82f6?style=flat-square)
 ![Statut](https://img.shields.io/badge/statut-optionnel-f59e0b?style=flat-square)
-![Feature](https://img.shields.io/badge/feature-clientWebUI%3A_true-7c3aed?style=flat-square)
+![Feature](https://img.shields.io/badge/feature-webUI%3A_true-7c3aed?style=flat-square)
 
 - **Connexion / déconnexion** via ms-auth (session Redis, pas de JWT côté navigateur)
 - **Tableau de bord** avec accès conditionnel selon les rôles (CRUD, Notifications, Chat, Consumer si ADMIN)
@@ -279,7 +279,7 @@ Keycloak (+ `ms-auth`), Redis, RabbitMQ et WebSocket sont **toujours installés*
 | Champ | Défaut | Quand `true`, inclut |
 | ----- | ------- | -------------------- |
 | `springbootAdmin` | `false` | `ms-admin/` — interface de monitoring Spring Boot Admin (`:9100`) |
-| `clientWebUI` | `false` | `ms-client/` — interface BFF Thymeleaf (`:8090`) : connexion via ms-auth, agrégat consumer, CRUD générique, notifications batch en direct, chat public |
+| `webUI` | `false` | `ms-webui/` — interface BFF Thymeleaf (`:8090`) : connexion via ms-auth, agrégat consumer, CRUD générique, notifications batch en direct, chat public |
 
 Les indicateurs hérités/inconnus (`keycloak`, `redis`, `rabbitmq`, `websocket`, `admin`, `grafana`, `loki`) sont **ignorés** — une requête les contenant se désérialise correctement (Jackson `FAIL_ON_UNKNOWN_PROPERTIES=false`), ces indicateurs sont simplement ignorés.
 
@@ -317,7 +317,7 @@ curl -X POST http://localhost:8080/api/generate/platform \
   --output ms-platform.zip
 ```
 
-Cela produit une plateforme complète avec Keycloak + ms-auth + Eureka + Gateway + `admin-application` (toujours installée) + un unique `order-service` sur PostgreSQL, avec les routes `/api/orders`. `ms-admin` et `ms-client` sont absents (tous deux désactivés par défaut) ; l'observabilité est absente (`batch.grafana` à false par défaut).
+Cela produit une plateforme complète avec Keycloak + ms-auth + Eureka + Gateway + `admin-application` (toujours installée) + un unique `order-service` sur PostgreSQL, avec les routes `/api/orders`. `ms-admin` et `ms-webui` sont absents (tous deux désactivés par défaut) ; l'observabilité est absente (`batch.grafana` à false par défaut).
 
 ### Exemple complet — 3 services, tous les indicateurs explicites
 
@@ -362,13 +362,13 @@ curl -X POST http://localhost:8080/api/generate/platform \
     },
     "features": {
       "springbootAdmin": true,
-      "clientWebUI": true
+      "webUI": true
     }
   }' \
   --output ms-platform.zip
 ```
 
-Cela produit la plateforme complète : noyau permanent (keycloak/ms-auth/redis/rabbitmq/eureka/gateway/service-consumer + `admin-application`), les trois services personnalisés, `service-batch`, l'observabilité complète (`batch.grafana=true`), ainsi que les deux modules optionnels `ms-admin` et `ms-client`.
+Cela produit la plateforme complète : noyau permanent (keycloak/ms-auth/redis/rabbitmq/eureka/gateway/service-consumer + `admin-application`), les trois services personnalisés, `service-batch`, l'observabilité complète (`batch.grafana=true`), ainsi que les deux modules optionnels `ms-admin` et `ms-webui`.
 
 ## Utilisateurs Keycloak
 
@@ -384,7 +384,7 @@ Le realm `ms-realm` est importé au premier démarrage avec les utilisateurs de 
 | `test-service-c` | `user123` | `USER_SERVICE_C` |
 
 Rôles realm définis : `ADMIN`, `USER_BATCH`, `USER_SERVICE_A`, `USER_SERVICE_B`, `USER_SERVICE_C`, `SERVICE`.
-Seul `test-admin` (rôle `ADMIN`) peut se connecter à `admin-application` (`:9300`) et à `ms-client` (`:8090`).
+Seul `test-admin` (rôle `ADMIN`) peut se connecter à `admin-application` (`:9300`) et à `ms-webui` (`:8090`).
 
 **Console d'administration Keycloak** (`http://localhost:8089`) — compte master, distinct des utilisateurs du realm :
 

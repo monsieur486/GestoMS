@@ -149,9 +149,9 @@
           </div>
           <div class="col-sm-6">
             <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="clientWebUI"/>
-              <label class="form-check-label" for="clientWebUI">
-                <strong>Interface client (ms-client)</strong>
+              <input class="form-check-input" type="checkbox" id="webUI"/>
+              <label class="form-check-label" for="webUI">
+                <strong>Interface web (ms-webui)</strong>
                 <div class="text-muted small">BFF Thymeleaf sur :8090</div>
               </label>
             </div>
@@ -355,7 +355,7 @@
       javaVersion: document.getElementById('javaVersion').value,
       features: {
         springbootAdmin: document.getElementById('springbootAdmin').checked,
-        clientWebUI:     document.getElementById('clientWebUI').checked,
+        webUI:           document.getElementById('webUI').checked,
       },
       batch: {
         enabled:         batchEnabled,

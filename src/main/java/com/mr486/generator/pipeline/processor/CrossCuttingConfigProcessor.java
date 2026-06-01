@@ -46,7 +46,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     /**
      * Point d'entrée du pipeline : réécrit les fichiers transverses (pom racine, docker-compose,
-     * gateway YAML, realm Keycloak, test-all.sh, README, AggregateController, catalogue ms-client)
+     * gateway YAML, realm Keycloak, test-all.sh, README, AggregateController, catalogue ms-webui)
      * pour refléter l'ensemble final des services défini dans {@code ctx}.
      *
      * @param files liste des fichiers générés en entrée
@@ -79,8 +79,8 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
                     && f.path().endsWith("AggregateController.java")) {
                 result.add(rewriteAggregate(f, ctx));
             } else if (hasResources
-                    && f.path().endsWith("/ms-client/src/main/resources/application.yml")) {
-                result.add(rewriteClientCatalog(f, ctx));
+                    && f.path().endsWith("/ms-webui/src/main/resources/application.yml")) {
+                result.add(rewriteWebUiCatalog(f, ctx));
             } else {
                 result.add(f);
             }
@@ -157,7 +157,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         modules.add("service-consumer");
         if (b.isEnabled())            modules.add("service-batch");
         if (f.isSpringbootAdmin())    modules.add("ms-admin");
-        if (f.isClientWebUI())        modules.add("ms-client");
+        if (f.isWebUI())              modules.add("ms-webui");
         if (hasResources) {
             for (ResourceModuleRequest r : req.getResources()) modules.add(r.getServiceName());
         }
@@ -230,7 +230,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         if (!b.isEnabled())          blocks.add("service-batch");
         if (!b.isGrafana()) { blocks.add("loki"); blocks.add("promtail"); blocks.add("grafana"); }
         if (!f.isSpringbootAdmin())  blocks.add("ms-admin");
-        if (!f.isClientWebUI())      blocks.add("ms-client");
+        if (!f.isWebUI())            blocks.add("ms-webui");
         if (hasResources) {
             blocks.add("service-a-db");
             blocks.add("service-b-db");
@@ -573,7 +573,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         }
         sb.append("wait_for 'service-consumer' routed_up service-consumer/api/aggregate\n");
         if (feat.isSpringbootAdmin()) sb.append("wait_for 'ms-admin' curl -fs http://localhost:9100\n");
-        if (feat.isClientWebUI()) sb.append("wait_for 'ms-client' curl -fs http://localhost:8090/login\n");
+        if (feat.isWebUI()) sb.append("wait_for 'ms-webui' curl -fs http://localhost:8090/login\n");
         sb.append("wait_for 'admin-application' curl -fs http://localhost:9300/login\n"); // toujours installé
         sb.append("echo 'Stack is ready.'\n");
         sb.append("echo\n\n");
@@ -629,7 +629,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("echo 'Testing infrastructure...'\n");
         sb.append("curl -fs http://localhost:8761 >/dev/null && echo 'Eureka OK'\n");
         if (feat.isSpringbootAdmin()) sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
-        if (feat.isClientWebUI()) sb.append("curl -fs http://localhost:8090/login >/dev/null && echo 'Client OK'\n");
+        if (feat.isWebUI()) sb.append("curl -fs http://localhost:8090/login >/dev/null && echo 'WebUI OK'\n");
         sb.append("curl -fs http://localhost:9300/login >/dev/null && echo 'Admin-app OK'\n"); // toujours installé
         sb.append("\n");
 
@@ -838,21 +838,21 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     }
 
     /**
-     * Réécrit le bloc {@code client:} (dernière section de l'application.yml de ms-client) avec le
+     * Réécrit le bloc {@code webui:} (dernière section de l'application.yml de ms-webui) avec le
      * catalogue construit depuis {@code resources[]}. Le bloc étant en fin de fichier, on remplace de
-     * {@code ^client:} jusqu'à la fin du contenu — pas de chirurgie d'indentation.
+     * {@code ^webui:} jusqu'à la fin du contenu — pas de chirurgie d'indentation.
      */
-    private GeneratedFile rewriteClientCatalog(GeneratedFile f, GenerationContext ctx) {
+    private GeneratedFile rewriteWebUiCatalog(GeneratedFile f, GenerationContext ctx) {
         if (ProcessorUtils.containsNullByte(f.content())) return f;
         String text = new String(f.content(), StandardCharsets.UTF_8);
-        StringBuilder block = new StringBuilder("client:\n  resources:\n");
+        StringBuilder block = new StringBuilder("webui:\n  resources:\n");
         for (ResourceModuleRequest r : ctx.getRequest().getResources()) {
             block.append("    - serviceName: ").append(r.getServiceName()).append("\n");
             block.append("      routePrefix: ").append(r.getEffectiveRoutePrefix()).append("\n");
             block.append("      label: ").append(r.getClassName()).append("\n");
             block.append("      role: ").append(roleName(r)).append("\n");
         }
-        String newText = text.replaceAll("(?ms)^client:.*\\z",
+        String newText = text.replaceAll("(?ms)^webui:.*\\z",
                 Matcher.quoteReplacement(block.toString().stripTrailing() + "\n"));
         return new GeneratedFile(f.path(), newText.getBytes(StandardCharsets.UTF_8), f.executable());
     }

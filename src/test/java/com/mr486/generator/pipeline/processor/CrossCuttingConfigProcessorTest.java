@@ -15,7 +15,7 @@ import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
  * Vérifie que {@link CrossCuttingConfigProcessor} réécrit correctement les
  * fichiers transversaux de la plateforme : pom.xml racine (modules), docker-compose
  * (blocs de services et volumes), routes du gateway, realm Keycloak, script
- * test-all.sh, AggregateController, et catalogue ms-client — en fonction des
+ * test-all.sh, AggregateController, et catalogue ms-webui — en fonction des
  * features activées et de la liste de resources.
  */
 class CrossCuttingConfigProcessorTest {
@@ -62,8 +62,8 @@ class CrossCuttingConfigProcessorTest {
         "  ms-admin:\n" +
         "    build: ./ms-admin\n" +
         "\n" +
-        "  ms-client:\n" +
-        "    build: ./ms-client\n" +
+        "  ms-webui:\n" +
+        "    build: ./ms-webui\n" +
         "\n" +
         "  service-a-db:\n" +
         "    image: postgres:16\n" +
@@ -215,12 +215,12 @@ class CrossCuttingConfigProcessorTest {
 
     @Test
     void root_pom_includes_ms_client_when_client_web_ui_enabled() {
-        FeatureOptions f = new FeatureOptions(); f.setClientWebUI(true);
+        FeatureOptions f = new FeatureOptions(); f.setWebUI(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String pom = contentOf(result.stream()
             .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
             .findFirst().orElseThrow());
-        assertThat(pom).contains("<module>ms-client</module>");
+        assertThat(pom).contains("<module>ms-webui</module>");
     }
 
     @Test
@@ -229,17 +229,17 @@ class CrossCuttingConfigProcessorTest {
         String pom = contentOf(result.stream()
             .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
             .findFirst().orElseThrow());
-        assertThat(pom).doesNotContain("<module>ms-client</module>");
+        assertThat(pom).doesNotContain("<module>ms-webui</module>");
     }
 
     @Test
     void compose_keeps_ms_client_block_when_client_web_ui_enabled() {
-        FeatureOptions f = new FeatureOptions(); f.setClientWebUI(true);
+        FeatureOptions f = new FeatureOptions(); f.setWebUI(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String compose = contentOf(result.stream()
             .filter(g -> g.path().endsWith("docker-compose.yml"))
             .findFirst().orElseThrow());
-        assertThat(compose).contains("  ms-client:");
+        assertThat(compose).contains("  ms-webui:");
     }
 
     @Test
@@ -248,7 +248,7 @@ class CrossCuttingConfigProcessorTest {
         String compose = contentOf(result.stream()
             .filter(g -> g.path().endsWith("docker-compose.yml"))
             .findFirst().orElseThrow());
-        assertThat(compose).doesNotContain("  ms-client:");
+        assertThat(compose).doesNotContain("  ms-webui:");
     }
 
     @Test
@@ -603,11 +603,11 @@ class CrossCuttingConfigProcessorTest {
     void test_all_includes_ms_client_smoke_when_client_web_ui_enabled() {
         PlatformGenerationRequest req = new PlatformGenerationRequest();
         req.setResources(List.of(res("order-service", "Order", DatabaseType.POSTGRES)));
-        req.getFeatures().setClientWebUI(true);
+        req.getFeatures().setWebUI(true);
         List<GeneratedFile> result = processor.process(
                 List.of(file(TESTALL_PATH, "old", true)), GenerationContext.from(req));
         String s = testAllOf(result);
-        assertThat(s).contains("wait_for 'ms-client'").contains("Client OK");
+        assertThat(s).contains("wait_for 'ms-webui'").contains("WebUI OK");
     }
 
     @Test
@@ -617,7 +617,7 @@ class CrossCuttingConfigProcessorTest {
         List<GeneratedFile> result = processor.process(
                 List.of(file(TESTALL_PATH, "old", true)), GenerationContext.from(req));
         String s = testAllOf(result);
-        assertThat(s).doesNotContain("ms-client").doesNotContain("Client OK");
+        assertThat(s).doesNotContain("ms-webui").doesNotContain("WebUI OK");
     }
 
     // ── AggregateController regeneration ─────────────────────────────────────
@@ -663,14 +663,14 @@ class CrossCuttingConfigProcessorTest {
         assertThat(aggOf(result)).isEqualTo(SAMPLE_AGG);
     }
 
-    // ── ms-client application.yml catalog rewrite ─────────────────────────────
+    // ── ms-webui application.yml catalog rewrite ─────────────────────────────
 
     private static final String CLIENT_YML_PATH =
-        "ms-platform/ms-client/src/main/resources/application.yml";
+        "ms-platform/ms-webui/src/main/resources/application.yml";
 
     private static final String SAMPLE_CLIENT_YML =
         "server:\n  port: 8090\n" +
-        "client:\n" +
+        "webui:\n" +
         "  resources:\n" +
         "    - serviceName: service-a\n" +
         "      routePrefix: /api/resources-a\n" +
@@ -688,7 +688,7 @@ class CrossCuttingConfigProcessorTest {
             ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES),
                              res("product-service", "Product", DatabaseType.MONGO)));
         String yml = contentOf(result.stream()
-            .filter(g -> g.path().endsWith("ms-client/src/main/resources/application.yml"))
+            .filter(g -> g.path().endsWith("ms-webui/src/main/resources/application.yml"))
             .findFirst().orElseThrow());
         assertThat(yml).contains("serviceName: order-service")
                        .contains("routePrefix: /api/orders")
@@ -706,7 +706,7 @@ class CrossCuttingConfigProcessorTest {
         List<GeneratedFile> result = processor.process(
             List.of(file(CLIENT_YML_PATH, SAMPLE_CLIENT_YML)), defaultCtx());
         String yml = contentOf(result.stream()
-            .filter(g -> g.path().endsWith("ms-client/src/main/resources/application.yml"))
+            .filter(g -> g.path().endsWith("ms-webui/src/main/resources/application.yml"))
             .findFirst().orElseThrow());
         assertThat(yml).isEqualTo(SAMPLE_CLIENT_YML);
     }

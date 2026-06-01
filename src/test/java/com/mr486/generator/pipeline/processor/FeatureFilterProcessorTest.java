@@ -11,7 +11,7 @@ import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
 
 /**
  * Vérifie que {@link FeatureFilterProcessor} conserve ou supprime les fichiers
- * selon les features activées : springbootAdmin, clientWebUI, grafana (observabilité),
+ * selon les features activées : springbootAdmin, webUI, grafana (observabilité),
  * et batch — tout en préservant toujours les composants permanents.
  */
 class FeatureFilterProcessorTest {
@@ -23,7 +23,7 @@ class FeatureFilterProcessorTest {
             file("ms-platform/keycloak/import/realm.json", "{}"),
             file("ms-platform/ms-auth/pom.xml", "<project/>"),
             file("ms-platform/ms-admin/pom.xml", "<project/>"),
-            file("ms-platform/ms-client/pom.xml", "<project/>"),
+            file("ms-platform/ms-webui/pom.xml", "<project/>"),
             file("ms-platform/observability/grafana/dashboards/d.json", "{}"),
             file("ms-platform/observability/promtail/config.yml", ""),
             file("ms-platform/observability/loki/config.yml", ""),
@@ -38,7 +38,7 @@ class FeatureFilterProcessorTest {
 
     @Test
     void keeps_permanent_components_regardless_of_options() {
-        // defaults: springbootAdmin=false, clientWebUI=false, batch.grafana=false, batch.enabled=true
+        // defaults: springbootAdmin=false, webUI=false, batch.grafana=false, batch.enabled=true
         List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
         assertThat(result).anyMatch(e -> e.path().contains("/keycloak/"));
         assertThat(result).anyMatch(e -> e.path().contains("/ms-auth/"));
@@ -65,15 +65,15 @@ class FeatureFilterProcessorTest {
     @Test
     void removes_ms_client_when_client_web_ui_disabled() {
         List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
-        assertThat(result).noneMatch(e -> e.path().contains("/ms-client/"));
+        assertThat(result).noneMatch(e -> e.path().contains("/ms-webui/"));
     }
 
     @Test
     void keeps_ms_client_when_client_web_ui_enabled() {
         FeatureOptions f = new FeatureOptions();
-        f.setClientWebUI(true);
+        f.setWebUI(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        assertThat(result).anyMatch(e -> e.path().contains("/ms-client/"));
+        assertThat(result).anyMatch(e -> e.path().contains("/ms-webui/"));
     }
 
     @Test

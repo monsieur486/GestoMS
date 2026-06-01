@@ -13,6 +13,6 @@ import lombok.Data;
 public class FeatureOptions {
     /** Si {@code false} (défaut), retire le module {@code ms-admin} (monitoring Spring Boot Admin). */
     private boolean springbootAdmin = false;
-    /** Si {@code false} (défaut), retire le module {@code ms-client} (UI Thymeleaf). [module créé en Phase 2] */
-    private boolean clientWebUI = false;
+    /** Si {@code false} (défaut), retire le module {@code ms-webui} (UI Thymeleaf). [module créé en Phase 2] */
+    private boolean webUI = false;
 }
