@@ -207,7 +207,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         import org.springframework.data.mongodb.core.mapping.Document;
 
         /**
-         * Document MongoDB de la ressource {@code {CLASS}}, stocké dans la collection {@code {COLLECTION}}.
+         * Document MongoDB de la ressource {@code {CLASS}} (collection {@code {COLLECTION}}).
          */
         @Getter
         @Setter
@@ -219,6 +219,7 @@ public class ResourceExpandProcessor implements FileProcessor {
 
             @Id
             private String id;
+
             private String name;
             private String description;
         }
