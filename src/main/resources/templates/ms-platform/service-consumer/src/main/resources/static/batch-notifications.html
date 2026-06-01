@@ -22,7 +22,8 @@
       client.subscribe('/topic/batch', message => {
         const payload = JSON.parse(message.body);
         const li = document.createElement('li');
-        li.textContent = `${payload.jobId} - ${payload.status} - ${payload.generatedCount} fichiers - ${payload.totalSeconds}s - ${payload.instance}`;
+        li.textContent = `${payload.jobId} - ${payload.status} - ${payload.generatedCount} fichiers`
+          + ` - ${payload.totalSeconds}s - ${payload.instance}`;
         list.prepend(li);
       });
     }
