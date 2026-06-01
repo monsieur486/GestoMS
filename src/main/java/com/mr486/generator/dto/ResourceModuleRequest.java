@@ -18,9 +18,11 @@ public class ResourceModuleRequest {
     private String className;
     /** Préfixe REST exposé par le contrôleur. Si {@code null}, valeur dérivée : {@code /api/{classNameLower}s}. */
     private String routePrefix;
-    /** Type de base à utiliser : {@link DatabaseType#POSTGRES} par défaut, {@link DatabaseType#H2} en mémoire, {@link DatabaseType#MONGO}. */
+    /** Type de base : {@link DatabaseType#POSTGRES} par défaut, {@link DatabaseType#H2} en mémoire,
+     *  {@link DatabaseType#MONGO}. */
     private DatabaseType databaseType;
-    /** Type d'identifiant pour les entités SQL : {@link IdType#LONG} par défaut. Ignoré pour Mongo (toujours String). */
+    /** Type d'identifiant pour les entités SQL : {@link IdType#LONG} par défaut.
+     *  Ignoré pour Mongo (toujours String). */
     private IdType idType;
 
     /** Retourne {@link #routePrefix} s'il est défini, sinon dérive {@code /api/{classNameLower}s}. */

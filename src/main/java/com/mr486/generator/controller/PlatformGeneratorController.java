@@ -33,7 +33,8 @@ public class PlatformGeneratorController {
     @PostMapping(value = "/platform", produces = "application/zip")
     public ResponseEntity<byte[]> generate(@RequestBody PlatformGenerationRequest request) {
         byte[] data = zipService.zip(generatorService.generate(request));
-        String filename = (request.getName() == null || request.getName().isBlank() ? "ms-platform" : request.getName()) + ".zip";
+        String filename = (request.getName() == null || request.getName().isBlank()
+                ? "ms-platform" : request.getName()) + ".zip";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
                 .body(data);
