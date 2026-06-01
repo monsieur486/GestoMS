@@ -6,6 +6,7 @@ import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.zip.GeneratedFile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -36,11 +37,21 @@ public class BatchConfigProcessor implements FileProcessor {
         if (!path.endsWith(".env") && !path.endsWith("dist.env") && !path.endsWith("docker-compose.yml")) return f;
         if (ProcessorUtils.containsNullByte(f.content())) return f;
         String text = new String(f.content(), StandardCharsets.UTF_8);
-        text = text.replace("BATCH_REPLICAS="         + DEFAULTS.getReplicas(),         "BATCH_REPLICAS="         + b.getReplicas());
-        text = text.replace("BATCH_FILE_CONCURRENCY=" + DEFAULTS.getFileConcurrency(),  "BATCH_FILE_CONCURRENCY=" + b.getFileConcurrency());
-        text = text.replace("BATCH_MIN_DELAY_MS="     + DEFAULTS.getMinDelayMs(),       "BATCH_MIN_DELAY_MS="     + b.getMinDelayMs());
-        text = text.replace("BATCH_MAX_DELAY_MS="     + DEFAULTS.getMaxDelayMs(),       "BATCH_MAX_DELAY_MS="     + b.getMaxDelayMs());
-        text = text.replace("BATCH_MEMORY_LIMIT="     + DEFAULTS.getMemoryLimit(),      "BATCH_MEMORY_LIMIT="     + b.getMemoryLimit());
+        text = text.replace(
+            "BATCH_REPLICAS=" + DEFAULTS.getReplicas(),
+            "BATCH_REPLICAS=" + b.getReplicas());
+        text = text.replace(
+            "BATCH_FILE_CONCURRENCY=" + DEFAULTS.getFileConcurrency(),
+            "BATCH_FILE_CONCURRENCY=" + b.getFileConcurrency());
+        text = text.replace(
+            "BATCH_MIN_DELAY_MS=" + DEFAULTS.getMinDelayMs(),
+            "BATCH_MIN_DELAY_MS=" + b.getMinDelayMs());
+        text = text.replace(
+            "BATCH_MAX_DELAY_MS=" + DEFAULTS.getMaxDelayMs(),
+            "BATCH_MAX_DELAY_MS=" + b.getMaxDelayMs());
+        text = text.replace(
+            "BATCH_MEMORY_LIMIT=" + DEFAULTS.getMemoryLimit(),
+            "BATCH_MEMORY_LIMIT=" + b.getMemoryLimit());
         return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 

@@ -16,7 +16,10 @@ final class ProcessorUtils {
     static String toPascalCase(String kebab) {
         StringBuilder sb = new StringBuilder();
         for (String part : kebab.split("[-_]")) {
-            if (!part.isEmpty()) sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1).toLowerCase());
+            if (!part.isEmpty()) {
+                sb.append(Character.toUpperCase(part.charAt(0)))
+                  .append(part.substring(1).toLowerCase());
+            }
         }
         return sb.toString();
     }

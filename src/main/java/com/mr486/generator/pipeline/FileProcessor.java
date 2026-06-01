@@ -14,13 +14,27 @@ import java.util.List;
  * <p>
  * Ordre courant des processors :
  * <ol>
- *   <li>{@code @Order(10)} {@link com.mr486.generator.pipeline.processor.RootRenameProcessor} — renomme le préfixe racine.</li>
- *   <li>{@code @Order(20)} {@link com.mr486.generator.pipeline.processor.FeatureFilterProcessor} — filtre par {@code FeatureOptions}.</li>
- *   <li>{@code @Order(30)} {@link com.mr486.generator.pipeline.processor.PackagePlaceholderProcessor} — remplace groupId / basePackage / javaVersion.</li>
- *   <li>{@code @Order(40)} {@link com.mr486.generator.pipeline.processor.BatchConfigProcessor} — injecte les valeurs de {@code BatchOptions}.</li>
- *   <li>{@code @Order(50)} {@link com.mr486.generator.pipeline.processor.ResourceExpandProcessor} — dérive les services métier depuis {@code resources[]}.</li>
- *   <li>{@code @Order(60)} {@link com.mr486.generator.pipeline.processor.CrossCuttingConfigProcessor} — synchronise pom racine, docker-compose et routes du gateway.</li>
- *   <li>{@code @Order(70)} {@link com.mr486.generator.pipeline.processor.VersionInjectionProcessor} — injecte les versions centralisées (images Docker, .env, poms).</li>
+ *   <li>{@code @Order(10)}
+ *       {@link com.mr486.generator.pipeline.processor.RootRenameProcessor}
+ *       — renomme le préfixe racine.</li>
+ *   <li>{@code @Order(20)}
+ *       {@link com.mr486.generator.pipeline.processor.FeatureFilterProcessor}
+ *       — filtre par {@code FeatureOptions}.</li>
+ *   <li>{@code @Order(30)}
+ *       {@link com.mr486.generator.pipeline.processor.PackagePlaceholderProcessor}
+ *       — remplace groupId / basePackage / javaVersion.</li>
+ *   <li>{@code @Order(40)}
+ *       {@link com.mr486.generator.pipeline.processor.BatchConfigProcessor}
+ *       — injecte les valeurs de {@code BatchOptions}.</li>
+ *   <li>{@code @Order(50)}
+ *       {@link com.mr486.generator.pipeline.processor.ResourceExpandProcessor}
+ *       — dérive les services métier depuis {@code resources[]}.</li>
+ *   <li>{@code @Order(60)}
+ *       {@link com.mr486.generator.pipeline.processor.CrossCuttingConfigProcessor}
+ *       — synchronise pom racine, docker-compose et routes du gateway.</li>
+ *   <li>{@code @Order(70)}
+ *       {@link com.mr486.generator.pipeline.processor.VersionInjectionProcessor}
+ *       — injecte les versions centralisées (images Docker, .env, poms).</li>
  * </ol>
  */
 public interface FileProcessor {

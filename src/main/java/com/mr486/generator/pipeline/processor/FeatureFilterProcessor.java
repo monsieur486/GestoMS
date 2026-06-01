@@ -7,6 +7,7 @@ import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.zip.GeneratedFile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+
 import java.util.List;
 
 /**
