@@ -17,10 +17,10 @@ class FeatureOptionsDeserializationTest {
 
     @Test
     void maps_camel_case_flags() throws Exception {
-        String json = "{\"springbootAdmin\":true,\"clientWebUI\":true}";
+        String json = "{\"springbootAdmin\":true,\"webUI\":true}";
         FeatureOptions f = mapper.readValue(json, FeatureOptions.class);
         assertThat(f.isSpringbootAdmin()).isTrue();
-        assertThat(f.isClientWebUI()).isTrue();
+        assertThat(f.isWebUI()).isTrue();
     }
 
     @Test
@@ -29,6 +29,6 @@ class FeatureOptionsDeserializationTest {
         String json = "{\"keycloak\":true,\"redis\":true,\"loki\":false,\"springbootAdmin\":true}";
         FeatureOptions f = mapper.readValue(json, FeatureOptions.class);
         assertThat(f.isSpringbootAdmin()).isTrue();
-        assertThat(f.isClientWebUI()).isFalse(); // défaut
+        assertThat(f.isWebUI()).isFalse(); // défaut
     }
 }

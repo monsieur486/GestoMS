@@ -35,7 +35,7 @@ public class FeatureFilterProcessor implements FileProcessor {
     private boolean include(String path, String root, FeatureOptions f, BatchOptions b) {
         String rel = ProcessorUtils.relative(path, root);
         if (!f.isSpringbootAdmin() && rel.startsWith("ms-admin/"))      return false;
-        if (!f.isClientWebUI()     && rel.startsWith("ms-client/"))     return false;
+        if (!f.isWebUI()           && rel.startsWith("ms-webui/"))      return false;
         if (!b.isGrafana()         && rel.startsWith("observability/")) return false;
         if (!b.isEnabled()         && rel.startsWith("service-batch/")) return false;
         return true;
