@@ -13,6 +13,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Vérifie que la sortie générée respecte les contraintes de mise en forme Java :
+ * aucune ligne ne dépasse 120 caractères, pas d'imports collés, et que les
+ * variantes UUID et Mongo sont correctement appliquées après reformatage.
+ */
 @SpringBootTest
 class GeneratedOutputLayoutTest {
 

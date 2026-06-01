@@ -5,6 +5,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Vérifie que {@link TemplateLoader} charge correctement l'ensemble des fichiers
+ * du template embarqué : dotfiles, chemins relatifs complets, exécutabilité des
+ * scripts shell, et absence d'artefacts de développement.
+ */
 class TemplateLoaderTest {
 
     private final TemplateLoader loader = new TemplateLoader();

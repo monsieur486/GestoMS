@@ -6,6 +6,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Vérifie que {@link PlatformVersions} est correctement lié aux propriétés
+ * {@code platform.versions.*} de l'application, que les valeurs par défaut
+ * correspondent aux littéraux du template, et que le binding YAML peut être
+ * surchargé via des propriétés Spring.
+ */
 @SpringBootTest
 class PlatformVersionsTest {
 
@@ -45,7 +51,7 @@ class PlatformVersionsTest {
 
         @org.junit.jupiter.api.Test
         void overridden_values_come_from_binding_not_field_defaults() {
-            // Si le binding YAML/properties était cassé, on retomberait sur les défauts ("16", "eclipse-temurin:17-jre").
+            // Binding cassé -> retour aux défauts ("16", "eclipse-temurin:17-jre").
             org.assertj.core.api.Assertions.assertThat(versions.getPostgres()).isEqualTo("99");
             org.assertj.core.api.Assertions.assertThat(versions.getJavaImage()).isEqualTo("custom:tag");
         }

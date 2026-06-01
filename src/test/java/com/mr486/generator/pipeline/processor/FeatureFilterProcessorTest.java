@@ -9,6 +9,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
 
+/**
+ * Vérifie que {@link FeatureFilterProcessor} conserve ou supprime les fichiers
+ * selon les features activées : springbootAdmin, clientWebUI, grafana (observabilité),
+ * et batch — tout en préservant toujours les composants permanents.
+ */
 class FeatureFilterProcessorTest {
 
     private final FeatureFilterProcessor processor = new FeatureFilterProcessor();

@@ -8,6 +8,12 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
 
+/**
+ * Vérifie que {@link BatchConfigProcessor} remplace les valeurs batch dans le
+ * fichier {@code .env} lorsque les options sont personnalisées, et qu'il est
+ * sans effet lorsque le batch est désactivé ou que les valeurs par défaut
+ * sont inchangées.
+ */
 class BatchConfigProcessorTest {
 
     private final BatchConfigProcessor processor = new BatchConfigProcessor();

@@ -7,6 +7,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
 
+/**
+ * Vérifie que {@link RootRenameProcessor} renomme le répertoire racine
+ * {@code ms-platform} en le nom choisi par l'utilisateur, préserve le contenu
+ * et le flag exécutable, et est sans effet lorsque le nom par défaut est utilisé.
+ */
 class RootRenameProcessorTest {
 
     private final RootRenameProcessor processor = new RootRenameProcessor();

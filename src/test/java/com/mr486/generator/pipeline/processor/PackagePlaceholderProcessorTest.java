@@ -7,6 +7,13 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
 
+/**
+ * Vérifie que {@link PackagePlaceholderProcessor} remplace correctement les
+ * placeholders de package ({@code com.mr486.msplatform} et {@code com.mr486})
+ * dans le contenu et les chemins des fichiers, y compris la version Java dans
+ * les pom.xml, sans altérer les fichiers binaires ni effectuer de double
+ * remplacement.
+ */
 class PackagePlaceholderProcessorTest {
 
     private final PackagePlaceholderProcessor processor = new PackagePlaceholderProcessor();

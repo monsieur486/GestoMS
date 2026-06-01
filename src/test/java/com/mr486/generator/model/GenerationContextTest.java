@@ -4,6 +4,11 @@ import com.mr486.generator.dto.PlatformGenerationRequest;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Vérifie que {@link GenerationContext#from(PlatformGenerationRequest)} calcule
+ * correctement la racine cible à partir du nom de la requête, et se replie sur
+ * {@code ms-platform} lorsque le nom est absent ou vide.
+ */
 class GenerationContextTest {
 
     @Test

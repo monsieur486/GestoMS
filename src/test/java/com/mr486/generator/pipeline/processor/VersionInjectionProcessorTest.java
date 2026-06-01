@@ -10,6 +10,13 @@ import java.util.List;
 import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Vérifie que {@link VersionInjectionProcessor} injecte correctement les
+ * versions d'images dans docker-compose (interpolation env), les Dockerfiles
+ * (ARG JAVA_IMAGE), les fichiers .env (bloc de versions), et les pom.xml
+ * (parent Spring Boot, spring-cloud, mongock) — et que ces transformations
+ * sont idempotentes.
+ */
 class VersionInjectionProcessorTest {
 
     private final VersionInjectionProcessor processor =
@@ -122,8 +129,10 @@ class VersionInjectionProcessorTest {
         VersionInjectionProcessor p = new VersionInjectionProcessor(cfg);
         String src = "<dependency><groupId>de.codecentric</groupId>"
             + "<artifactId>spring-boot-admin-starter-server</artifactId><version>3.5.5</version></dependency>";
-        String out = contentOf(p.process(List.of(file("ms-platform/ms-admin/pom.xml", src)), defaultCtx()).get(0));
-        assertThat(out).contains("<artifactId>spring-boot-admin-starter-server</artifactId><version>3.6.0</version>");
+        String out = contentOf(
+            p.process(List.of(file("ms-platform/ms-admin/pom.xml", src)), defaultCtx()).get(0));
+        assertThat(out).contains(
+            "<artifactId>spring-boot-admin-starter-server</artifactId><version>3.6.0</version>");
     }
 
     @Test

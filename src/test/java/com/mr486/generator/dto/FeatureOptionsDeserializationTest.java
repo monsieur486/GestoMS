@@ -5,6 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Vérifie que {@link FeatureOptions} est correctement désérialisé depuis JSON :
+ * les flags camelCase sont reconnus et les flags inconnus (anciens ou supprimés)
+ * n'empêchent pas la désérialisation.
+ */
 class FeatureOptionsDeserializationTest {
 
     private final ObjectMapper mapper = new ObjectMapper()

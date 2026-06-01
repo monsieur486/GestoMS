@@ -9,6 +9,14 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
 
+/**
+ * Vérifie que {@link ResourceExpandProcessor} clone correctement le module
+ * service-a pour chaque ressource demandée : remplacement du nom, de la classe,
+ * des variantes de base de données (Postgres/JPA, Mongo, H2) et des types d'id
+ * (Long, Integer, UUID, String pour Mongo) — et qu'il supprime les modules
+ * par défaut (service-a, service-b, service-c) lorsque des resources sont
+ * fournies.
+ */
 class ResourceExpandProcessorTest {
 
     private final ResourceExpandProcessor processor = new ResourceExpandProcessor();
@@ -17,10 +25,17 @@ class ResourceExpandProcessorTest {
     private List<GeneratedFile> serviceAFiles(String root) {
         String base = root + "/service-a/";
         String javaPkg = base + "src/main/java/com/mr486/msplatform/servicea/";
+        // fixture: pom.xml is intentionally long (minified XML) — do not reformat
         return new ArrayList<>(List.of(
-            file(base + "pom.xml", "<artifactId>service-a</artifactId><dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency><dependency><groupId>org.liquibase</groupId><artifactId>liquibase-core</artifactId></dependency>"),
+            file(base + "pom.xml",
+                "<artifactId>service-a</artifactId>"
+                + "<dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId></dependency>"
+                + "<dependency><groupId>org.springframework.boot</groupId>"
+                + "<artifactId>spring-boot-starter-data-jpa</artifactId></dependency>"
+                + "<dependency><groupId>org.liquibase</groupId><artifactId>liquibase-core</artifactId></dependency>"),
             file(base + "Dockerfile", "FROM eclipse-temurin:17-jre-jammy"),
-            file(javaPkg + "ServiceAApplication.java", "package com.mr486.msplatform.servicea;\npublic class ServiceAApplication{}"),
+            file(javaPkg + "ServiceAApplication.java",
+                "package com.mr486.msplatform.servicea;\npublic class ServiceAApplication{}"),
             file(javaPkg + "entity/ResourceA.java",
                 "package com.mr486.msplatform.servicea.entity;\n"
               + "import jakarta.persistence.*;\n"
@@ -32,13 +47,26 @@ class ResourceExpandProcessorTest {
                 "package com.mr486.msplatform.servicea.repository;\n"
               + "import org.springframework.data.jpa.repository.JpaRepository;\n"
               + "public interface ResourceARepository extends JpaRepository<ResourceA, Long> {\n}"),
-            file(javaPkg + "dto/ResourceADto.java", "package com.mr486.msplatform.servicea.dto;\npublic class ResourceADto{ private Long id; private String name; }"),
-            file(javaPkg + "controller/ResourceAController.java", "package com.mr486.msplatform.servicea.controller;\n@RequestMapping(\"/api/resources-a\")\npublic class ResourceAController{}"),
-            file(javaPkg + "service/ResourceAService.java", "package com.mr486.msplatform.servicea.service;\nimport com.mr486.msplatform.servicea.entity.ResourceA;\nimport com.mr486.msplatform.servicea.repository.ResourceARepository;\npublic class ResourceAService{ ResourceA build(){return ResourceA.builder().build();} }"),
+            file(javaPkg + "dto/ResourceADto.java",
+                "package com.mr486.msplatform.servicea.dto;\n"
+              + "public class ResourceADto{ private Long id; private String name; }"),
+            file(javaPkg + "controller/ResourceAController.java",
+                "package com.mr486.msplatform.servicea.controller;\n"
+              + "@RequestMapping(\"/api/resources-a\")\n"
+              + "public class ResourceAController{}"),
+            // fixture: service file is intentionally long (minified Java) — do not reformat
+            file(javaPkg + "service/ResourceAService.java",
+                "package com.mr486.msplatform.servicea.service;\n"
+              + "import com.mr486.msplatform.servicea.entity.ResourceA;\n"
+              + "import com.mr486.msplatform.servicea.repository.ResourceARepository;\n"
+              + "public class ResourceAService{ ResourceA build(){return ResourceA.builder().build();} }"),
             file(base + "src/main/resources/application.yml",
-                "spring:\n  application:\n    name: service-a\n  datasource:\n    url: ${SERVICE_A_DATASOURCE_URL:jdbc:postgresql://localhost:5432/service_a_db}\n    driver-class-name: org.postgresql.Driver"),
+                "spring:\n  application:\n    name: service-a\n  datasource:\n"
+              + "    url: ${SERVICE_A_DATASOURCE_URL:jdbc:postgresql://localhost:5432/service_a_db}\n"
+              + "    driver-class-name: org.postgresql.Driver"),
             file(base + "src/main/resources/db/changelog/001-init.sql",
-                "CREATE TABLE IF NOT EXISTS resources_a (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, name VARCHAR(100) NOT NULL);"),
+                "CREATE TABLE IF NOT EXISTS resources_a "
+              + "(id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, name VARCHAR(100) NOT NULL);"),
             file(base + "src/main/resources/db/changelog/002-seed.sql",
                 "INSERT INTO resources_a (name) VALUES ('A') ON CONFLICT(name) DO NOTHING;"),
             // patch subdirs that must NOT be cloned
@@ -78,7 +106,9 @@ class ResourceExpandProcessorTest {
             resource("invoice", "Invoice", "/api/invoices", DatabaseType.POSTGRES, IdType.LONG)
         ));
         List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
-        assertThat(result).noneMatch(f -> f.path().contains("/service-a/") && !f.path().contains("/service-a/service-batch/") && !f.path().contains("/service-a/service-consumer/"));
+        assertThat(result).noneMatch(f -> f.path().contains("/service-a/")
+            && !f.path().contains("/service-a/service-batch/")
+            && !f.path().contains("/service-a/service-consumer/"));
         assertThat(result).noneMatch(f -> f.path().contains("/service-b/"));
         assertThat(result).noneMatch(f -> f.path().contains("/service-c/"));
     }
@@ -386,13 +416,15 @@ class ResourceExpandProcessorTest {
     /** Builds a service-a fixture where ResourceAService has realistic Long id method params. */
     private List<GeneratedFile> serviceAFilesWithServiceParams(String root) {
         List<GeneratedFile> files = new ArrayList<>(serviceAFiles(root));
-        String svcPath = root + "/service-a/src/main/java/com/mr486/msplatform/servicea/service/ResourceAService.java";
+        String svcPath = root
+            + "/service-a/src/main/java/com/mr486/msplatform/servicea/service/ResourceAService.java";
         files.removeIf(f -> f.path().equals(svcPath));
         files.add(file(svcPath,
             "package com.mr486.msplatform.servicea.service;\n" +
             "public class ResourceAService{\n" +
             "  public ResourceADto findById(Long id){return toDto(repository.findById(id).orElseThrow());}\n" +
-            "  public ResourceADto update(Long id,ResourceADto dto){ ResourceA e=repository.findById(id).orElseThrow(); return toDto(repository.save(e)); }\n" +
+            "  public ResourceADto update(Long id,ResourceADto dto)"
+            + "{ ResourceA e=repository.findById(id).orElseThrow(); return toDto(repository.save(e)); }\n" +
             "  public void delete(Long id){ repository.deleteById(id); }\n" +
             "}"));
         return files;

@@ -11,6 +11,13 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
 
+/**
+ * Vérifie que {@link CrossCuttingConfigProcessor} réécrit correctement les
+ * fichiers transversaux de la plateforme : pom.xml racine (modules), docker-compose
+ * (blocs de services et volumes), routes du gateway, realm Keycloak, script
+ * test-all.sh, AggregateController, et catalogue ms-client — en fonction des
+ * features activées et de la liste de resources.
+ */
 class CrossCuttingConfigProcessorTest {
 
     private final CrossCuttingConfigProcessor processor = new CrossCuttingConfigProcessor();
@@ -155,7 +162,9 @@ class CrossCuttingConfigProcessorTest {
     void root_pom_includes_all_default_modules_when_all_features_enabled() {
         FeatureOptions f = new FeatureOptions(); f.setSpringbootAdmin(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
+        String pom = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
+            .findFirst().orElseThrow());
         assertThat(pom).contains("<module>common-lib</module>")
                        .contains("<module>ms-eureka</module>")
                        .contains("<module>ms-gateway</module>")
@@ -172,19 +181,25 @@ class CrossCuttingConfigProcessorTest {
     void root_pom_always_includes_admin_application() {
         // sans features ni resources
         List<GeneratedFile> a = processor.process(sampleFiles(), defaultCtx());
-        assertThat(contentOf(a.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow()))
+        assertThat(contentOf(a.stream()
+            .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
+            .findFirst().orElseThrow()))
                 .contains("<module>admin-application</module>");
         // avec resources
         List<GeneratedFile> b = processor.process(sampleFiles(),
                 ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES)));
-        assertThat(contentOf(b.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow()))
+        assertThat(contentOf(b.stream()
+            .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
+            .findFirst().orElseThrow()))
                 .contains("<module>admin-application</module>");
     }
 
     @Test
     void compose_always_keeps_admin_application_block() {
         List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
         assertThat(compose).contains("  admin-application:");
     }
 
@@ -192,7 +207,9 @@ class CrossCuttingConfigProcessorTest {
     void root_pom_excludes_ms_admin_when_admin_disabled() {
         FeatureOptions f = new FeatureOptions(); f.setSpringbootAdmin(false);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
+        String pom = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
+            .findFirst().orElseThrow());
         assertThat(pom).doesNotContain("<module>ms-admin</module>");
     }
 
@@ -200,14 +217,18 @@ class CrossCuttingConfigProcessorTest {
     void root_pom_includes_ms_client_when_client_web_ui_enabled() {
         FeatureOptions f = new FeatureOptions(); f.setClientWebUI(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
+        String pom = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
+            .findFirst().orElseThrow());
         assertThat(pom).contains("<module>ms-client</module>");
     }
 
     @Test
     void root_pom_excludes_ms_client_when_client_web_ui_disabled() {
         List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
-        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
+        String pom = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
+            .findFirst().orElseThrow());
         assertThat(pom).doesNotContain("<module>ms-client</module>");
     }
 
@@ -215,14 +236,18 @@ class CrossCuttingConfigProcessorTest {
     void compose_keeps_ms_client_block_when_client_web_ui_enabled() {
         FeatureOptions f = new FeatureOptions(); f.setClientWebUI(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
         assertThat(compose).contains("  ms-client:");
     }
 
     @Test
     void compose_removes_ms_client_block_when_client_web_ui_disabled() {
         List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
         assertThat(compose).doesNotContain("  ms-client:");
     }
 
@@ -233,7 +258,9 @@ class CrossCuttingConfigProcessorTest {
         req.setBatch(b);
         GenerationContext ctx = GenerationContext.from(req);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
-        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
+        String pom = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
+            .findFirst().orElseThrow());
         assertThat(pom).doesNotContain("<module>service-batch</module>");
     }
 
@@ -248,7 +275,9 @@ class CrossCuttingConfigProcessorTest {
         GenerationContext ctx = GenerationContext.from(req);
 
         List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
-        String pom = contentOf(result.stream().filter(g -> g.path().endsWith("ms-platform/pom.xml")).findFirst().orElseThrow());
+        String pom = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
+            .findFirst().orElseThrow());
 
         assertThat(pom).doesNotContain("<module>service-a</module>")
                        .doesNotContain("<module>service-b</module>")
@@ -263,7 +292,9 @@ class CrossCuttingConfigProcessorTest {
     void compose_keeps_all_blocks_when_all_features_enabled() {
         FeatureOptions f = new FeatureOptions();
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
         assertThat(compose).contains("  keycloak:").contains("  ms-auth:").contains("  service-a:");
     }
 
@@ -276,7 +307,9 @@ class CrossCuttingConfigProcessorTest {
         GenerationContext ctx = GenerationContext.from(req);
 
         List<GeneratedFile> result = processor.process(sampleFiles(), ctx);
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
 
         assertThat(compose).doesNotContain("  service-a:")
                            .doesNotContain("  service-b:")
@@ -324,7 +357,9 @@ class CrossCuttingConfigProcessorTest {
     @Test
     void non_target_files_are_passed_through_unchanged() {
         List<GeneratedFile> result = processor.process(sampleFiles(), defaultCtx());
-        GeneratedFile servicePom = result.stream().filter(g -> g.path().endsWith("service-a/pom.xml")).findFirst().orElseThrow();
+        GeneratedFile servicePom = result.stream()
+            .filter(g -> g.path().endsWith("service-a/pom.xml"))
+            .findFirst().orElseThrow();
         assertThat(contentOf(servicePom)).isEqualTo("<project/>");
     }
 
@@ -348,7 +383,9 @@ class CrossCuttingConfigProcessorTest {
     void compose_adds_postgres_resource_with_db_block_and_volume() {
         ResourceModuleRequest r = res("order-service", "Order", DatabaseType.POSTGRES);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
 
         assertThat(compose).contains("  order-service-db:")
                            .contains("image: postgres:16")
@@ -357,7 +394,8 @@ class CrossCuttingConfigProcessorTest {
         assertThat(compose).contains("  order-service:")
                            .contains("build: ./order-service")
                            .contains("depends_on: [ms-eureka, keycloak, order-service-db]")
-                           .contains("ORDER_SERVICE_DATASOURCE_URL: jdbc:postgresql://order-service-db:5432/order_service_db");
+                           .contains("ORDER_SERVICE_DATASOURCE_URL: "
+                               + "jdbc:postgresql://order-service-db:5432/order_service_db");
         assertThat(compose).contains("  order_service_db_data:");
     }
 
@@ -365,14 +403,18 @@ class CrossCuttingConfigProcessorTest {
     void compose_adds_mongo_resource_with_mongo_db_block() {
         ResourceModuleRequest r = res("product-service", "Product", DatabaseType.MONGO);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
 
         assertThat(compose).contains("  product-service-db:")
                            .contains("image: mongo:7")
                            .contains("MONGO_INITDB_ROOT_USERNAME: product_service")
                            .contains("MONGO_INITDB_DATABASE: product_service_db");
         assertThat(compose).contains("  product-service:")
-                           .contains("PRODUCT_SERVICE_MONGO_URI: mongodb://product_service:product_service@product-service-db:27017/product_service_db?authSource=admin");
+                           .contains("PRODUCT_SERVICE_MONGO_URI: "
+                               + "mongodb://product_service:product_service"
+                               + "@product-service-db:27017/product_service_db?authSource=admin");
         assertThat(compose).contains("  product_service_db_data:");
     }
 
@@ -380,7 +422,9 @@ class CrossCuttingConfigProcessorTest {
     void compose_adds_h2_resource_without_db_block_or_volume() {
         ResourceModuleRequest r = res("light-service", "Light", DatabaseType.H2);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
 
         assertThat(compose).contains("  light-service:")
                            .contains("build: ./light-service")
@@ -395,7 +439,9 @@ class CrossCuttingConfigProcessorTest {
     void compose_removes_default_service_volumes_when_resources_provided() {
         ResourceModuleRequest r = res("order-service", "Order", DatabaseType.POSTGRES);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
         assertThat(compose).doesNotContain("  service_a_db_data:")
                            .doesNotContain("  service_b_db_data:");
         assertThat(compose).contains("  keycloak_db_data:")
@@ -407,7 +453,9 @@ class CrossCuttingConfigProcessorTest {
     void compose_resource_blocks_inserted_before_volumes_section() {
         ResourceModuleRequest r = res("order-service", "Order", DatabaseType.POSTGRES);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithResources(r));
-        String compose = contentOf(result.stream().filter(g -> g.path().endsWith("docker-compose.yml")).findFirst().orElseThrow());
+        String compose = contentOf(result.stream()
+            .filter(g -> g.path().endsWith("docker-compose.yml"))
+            .findFirst().orElseThrow());
 
         // top-level volumes: section starts at column 0 (no leading space)
         int orderIdx = compose.indexOf("  order-service:");
@@ -419,6 +467,7 @@ class CrossCuttingConfigProcessorTest {
 
     private static final String REALM_PATH = "ms-platform/keycloak/import/ms-realm-realm.json";
 
+    // fixture: minified JSON user lines in SAMPLE_REALM are intentionally long — do not reformat
     private static final String SAMPLE_REALM =
         "{\n" +
         "  \"realm\": \"ms-realm\",\n" +
@@ -440,7 +489,9 @@ class CrossCuttingConfigProcessorTest {
         "}\n";
 
     private String realmOf(List<GeneratedFile> result) {
-        return contentOf(result.stream().filter(g -> g.path().endsWith("ms-realm-realm.json")).findFirst().orElseThrow());
+        return contentOf(result.stream()
+            .filter(g -> g.path().endsWith("ms-realm-realm.json"))
+            .findFirst().orElseThrow());
     }
 
     private static JsonNode parse(String json) {
@@ -505,7 +556,9 @@ class CrossCuttingConfigProcessorTest {
     private static final String TESTALL_PATH = "ms-platform/test-all.sh";
 
     private String testAllOf(List<GeneratedFile> result) {
-        return contentOf(result.stream().filter(g -> g.path().endsWith("/test-all.sh")).findFirst().orElseThrow());
+        return contentOf(result.stream()
+            .filter(g -> g.path().endsWith("/test-all.sh"))
+            .findFirst().orElseThrow());
     }
 
     @Test
@@ -540,7 +593,9 @@ class CrossCuttingConfigProcessorTest {
         List<GeneratedFile> result = processor.process(
             List.of(file(TESTALL_PATH, "old", true)),
             ctxWithResources(res("order-service", "Order", DatabaseType.POSTGRES)));
-        GeneratedFile f = result.stream().filter(g -> g.path().endsWith("/test-all.sh")).findFirst().orElseThrow();
+        GeneratedFile f = result.stream()
+            .filter(g -> g.path().endsWith("/test-all.sh"))
+            .findFirst().orElseThrow();
         assertThat(f.executable()).isTrue();
     }
 
@@ -570,6 +625,7 @@ class CrossCuttingConfigProcessorTest {
     private static final String AGG_PATH =
         "ms-platform/service-consumer/src/main/java/com/acme/shop/consumer/controller/AggregateController.java";
 
+    // fixture: SAMPLE_AGG contains a minified imports line — intentionally long, do not reformat
     private static final String SAMPLE_AGG =
         "package com.acme.shop.consumer.controller;\n" +
         "import lombok.RequiredArgsConstructor;import org.springframework.web.bind.annotation.*;import reactor.core.publisher.Mono;import java.util.*;\n" +
@@ -577,7 +633,9 @@ class CrossCuttingConfigProcessorTest {
         "public class AggregateController{ return Mono.zip(uri(\"lb://service-a/api/resources-a\"),uri(\"lb://service-b/api/resources-b\")); }";
 
     private String aggOf(List<GeneratedFile> result) {
-        return contentOf(result.stream().filter(g -> g.path().endsWith("AggregateController.java")).findFirst().orElseThrow());
+        return contentOf(result.stream()
+            .filter(g -> g.path().endsWith("AggregateController.java"))
+            .findFirst().orElseThrow());
     }
 
     @Test
