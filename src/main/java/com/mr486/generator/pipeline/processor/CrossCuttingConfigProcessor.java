@@ -681,6 +681,79 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("if [ \"$STALE_REFRESH_STATUS\" != \"401\" ]; then\n  echo \"FAIL stale refresh expected 401 got $STALE_REFRESH_STATUS\"\n  exit 1\nfi\n");
         sb.append("echo \"OK stale refresh token -> 401\"\n\n");
 
+        sb.append("echo 'Testing admin user creation + self password change...'\n");
+        sb.append("KC_ADMIN=${KEYCLOAK_ADMIN:-admin}\n");
+        sb.append("KC_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}\n");
+        sb.append("KC_ADMIN_TOKEN=$(curl -s -X POST \"$KEYCLOAK_URL/realms/master/protocol/openid-connect/token\" "
+                + "-H \"Content-Type: application/x-www-form-urlencoded\" "
+                + "--data-urlencode \"grant_type=password\" --data-urlencode \"client_id=admin-cli\" "
+                + "--data-urlencode \"username=$KC_ADMIN\" --data-urlencode \"password=$KC_ADMIN_PASSWORD\" "
+                + "| jq -r '.access_token // empty')\n");
+        sb.append("if [ -z \"$KC_ADMIN_TOKEN\" ]; then "
+                + "echo 'FAIL could not obtain Keycloak master admin token'; exit 1; fi\n");
+        sb.append("echo 'OK Keycloak master admin token obtained'\n\n");
+
+        sb.append("CREATE_ADMIN2_STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" -X POST "
+                + "\"$KEYCLOAK_URL/admin/realms/ms-realm/users\" "
+                + "-H \"Authorization: Bearer $KC_ADMIN_TOKEN\" -H \"Content-Type: application/json\" "
+                + "-d '{\"username\":\"admin2\",\"enabled\":true,\"email\":\"admin2@example.com\","
+                + "\"firstName\":\"Admin\",\"lastName\":\"Two\","
+                + "\"credentials\":[{\"type\":\"password\",\"value\":\"admin2pass\",\"temporary\":false}]}')\n");
+        sb.append("if [ \"$CREATE_ADMIN2_STATUS\" != \"201\" ] && [ \"$CREATE_ADMIN2_STATUS\" != \"409\" ]; then\n");
+        sb.append("  echo \"FAIL create admin2 expected 201 or 409 got $CREATE_ADMIN2_STATUS\"; exit 1\n");
+        sb.append("fi\n");
+        sb.append("echo \"OK admin2 created by admin (status $CREATE_ADMIN2_STATUS)\"\n\n");
+
+        sb.append("ADMIN2_ID=$(curl -s "
+                + "\"$KEYCLOAK_URL/admin/realms/ms-realm/users?username=admin2&exact=true\" "
+                + "-H \"Authorization: Bearer $KC_ADMIN_TOKEN\" | jq -r '.[0].id // empty')\n");
+        sb.append("if [ -z \"$ADMIN2_ID\" ]; then echo 'FAIL could not resolve admin2 id'; exit 1; fi\n");
+        sb.append("curl -s -o /dev/null -X PUT "
+                + "\"$KEYCLOAK_URL/admin/realms/ms-realm/users/$ADMIN2_ID/reset-password\" "
+                + "-H \"Authorization: Bearer $KC_ADMIN_TOKEN\" -H \"Content-Type: application/json\" "
+                + "-d '{\"type\":\"password\",\"value\":\"admin2pass\",\"temporary\":false}'\n");
+        sb.append("ADMIN_ROLE_JSON=$(curl -s \"$KEYCLOAK_URL/admin/realms/ms-realm/roles/ADMIN\" "
+                + "-H \"Authorization: Bearer $KC_ADMIN_TOKEN\")\n");
+        sb.append("curl -s -o /dev/null -X POST "
+                + "\"$KEYCLOAK_URL/admin/realms/ms-realm/users/$ADMIN2_ID/role-mappings/realm\" "
+                + "-H \"Authorization: Bearer $KC_ADMIN_TOKEN\" -H \"Content-Type: application/json\" "
+                + "-d \"[$ADMIN_ROLE_JSON]\"\n");
+        sb.append("echo 'OK admin2 granted realm role ADMIN'\n\n");
+
+        sb.append("ADMIN2_LOGIN=$(auth_login admin2 admin2pass)\n");
+        sb.append("TOKEN_ADMIN2=$(echo \"$ADMIN2_LOGIN\" | jq -r '.access_token // empty')\n");
+        sb.append("check_token TOKEN_ADMIN2 ADMIN2\n");
+        sb.append(assertHttp("admin2 (ADMIN) can access " + first.getServiceName(),
+                "200", "$TOKEN_ADMIN2", firstUrl));
+        sb.append("\n");
+
+        sb.append("PWD_CHANGE_STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" -X POST "
+                + "\"$GATEWAY_URL/auth/account/password\" "
+                + "-H \"Authorization: Bearer $TOKEN_ADMIN2\" -H \"Content-Type: application/json\" "
+                + "-d '{\"oldPassword\":\"admin2pass\",\"newPassword\":\"admin2new\"}')\n");
+        sb.append("if [ \"$PWD_CHANGE_STATUS\" != \"204\" ]; then\n");
+        sb.append("  echo \"FAIL admin2 self password change expected 204 got $PWD_CHANGE_STATUS\"; exit 1\n");
+        sb.append("fi\n");
+        sb.append("echo 'OK admin2 self password change -> 204'\n\n");
+
+        sb.append("NEW_PWD_TOKEN=$(auth_login admin2 admin2new | jq -r '.access_token // empty')\n");
+        sb.append("if [ -z \"$NEW_PWD_TOKEN\" ]; then echo 'FAIL admin2 login with new password failed'; exit 1; fi\n");
+        sb.append("echo 'OK admin2 logs in with new password'\n\n");
+
+        sb.append("OLD_PWD_CODE=$(curl -s -o /dev/null -w \"%{http_code}\" -X POST \"$GATEWAY_URL/auth/login\" "
+                + "-H \"Content-Type: application/json\" -d '{\"username\":\"admin2\",\"password\":\"admin2pass\"}')\n");
+        sb.append("if [ \"$OLD_PWD_CODE\" != \"401\" ]; then "
+                + "echo \"FAIL admin2 old password expected 401 got $OLD_PWD_CODE\"; exit 1; fi\n");
+        sb.append("echo 'OK admin2 old password rejected -> 401'\n\n");
+
+        sb.append("WRONG_OLD_CODE=$(curl -s -o /dev/null -w \"%{http_code}\" -X POST "
+                + "\"$GATEWAY_URL/auth/account/password\" "
+                + "-H \"Authorization: Bearer $NEW_PWD_TOKEN\" -H \"Content-Type: application/json\" "
+                + "-d '{\"oldPassword\":\"definitelywrong\",\"newPassword\":\"whatever123\"}')\n");
+        sb.append("if [ \"$WRONG_OLD_CODE\" != \"422\" ]; then "
+                + "echo \"FAIL wrong old password expected 422 got $WRONG_OLD_CODE\"; exit 1; fi\n");
+        sb.append("echo 'OK wrong old password rejected -> 422'\n\n");
+
         sb.append("echo 'All tests passed. tokens.env generated.'\n");
 
         return new GeneratedFile(f.path(), sb.toString().getBytes(StandardCharsets.UTF_8), f.executable());

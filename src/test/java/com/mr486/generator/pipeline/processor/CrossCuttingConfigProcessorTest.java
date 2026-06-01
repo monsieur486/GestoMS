@@ -620,6 +620,22 @@ class CrossCuttingConfigProcessorTest {
         assertThat(s).doesNotContain("ms-webui").doesNotContain("WebUI OK");
     }
 
+    @Test
+    void test_all_includes_admin2_creation_and_self_password_change() {
+        PlatformGenerationRequest req = new PlatformGenerationRequest();
+        req.setResources(List.of(res("order-service", "Order", DatabaseType.POSTGRES)));
+        List<GeneratedFile> result = processor.process(
+                List.of(file(TESTALL_PATH, "old", true)), GenerationContext.from(req));
+        String s = testAllOf(result);
+        assertThat(s)
+                .contains("Testing admin user creation + self password change")
+                .contains("/admin/realms/ms-realm/users")
+                .contains("\"username\":\"admin2\"")
+                .contains("/auth/account/password")
+                .contains("admin2 self password change -> 204")
+                .contains("wrong old password rejected -> 422");
+    }
+
     // ── AggregateController regeneration ─────────────────────────────────────
 
     private static final String AGG_PATH =
