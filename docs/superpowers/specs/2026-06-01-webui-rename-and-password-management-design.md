@@ -7,16 +7,25 @@
 
 Le générateur produit un module UI Thymeleaf nommé `ms-client`. Ce nom prête à
 confusion avec une éventuelle entité métier `Client`. On le renomme en `ms-webui`,
-plus explicite. Par ailleurs, la page « Mon compte » ne propose aujourd'hui qu'un
-lien vers Keycloak ; on veut un vrai formulaire de changement de mot de passe, et
-une nouvelle section d'administration des utilisateurs où un ADMIN peut forcer un
-nouveau mot de passe.
+plus explicite. Par ailleurs, la page « Mon compte » de `ms-webui` ne propose
+aujourd'hui qu'un lien vers Keycloak ; on veut un vrai formulaire de changement de
+mot de passe (self-service). Enfin, on veut qu'un ADMIN puisse **forcer** un nouveau
+mot de passe lors de la modification d'un utilisateur.
+
+> **Découverte (post-spec initiale) :** l'administration des utilisateurs **existe
+> déjà** dans le module `admin-application` (toujours installé) : `UsersController` +
+> `users.html` + `edit.html`, avec liste paginée/recherche, création, suppression,
+> édition (email/prénom/nom/actif) et **réinitialisation du mot de passe** via
+> `KeycloakAdminClient` (token admin **master** `admin-cli`). La partie « admin force
+> le mot de passe » est donc à ~95 % déjà là ; il ne manque que le 2ᵉ champ « retaper ».
+> Le « socle commun / rôles `realm-management` sur `ms-gateway` » envisagé initialement
+> est **abandonné** : on réutilise les creds admin master déjà en place.
 
 Le travail est découpé en **2 lots indépendants et vérifiables séparément** :
 
 - **Lot 1** — renommage `ms-client` → `ms-webui` (mécanique, transversal).
-- **Lot 2** — changement de mot de passe (self + admin), qui s'appuie sur l'API
-  Admin Keycloak.
+- **Lot 2** — changement de mot de passe : self-service dans `ms-webui` (nouveau) +
+  confirmation à 2 champs sur le reset admin existant d'`admin-application`.
 
 Le Lot 1 est livré et vérifié **avant** d'entamer le Lot 2.
 
@@ -77,97 +86,106 @@ avec `webUI: true` et un `resources[]` non vide.
 
 ## Lot 2 — Changement de mot de passe (self + admin)
 
-### Socle commun — accès API Admin Keycloak depuis `ms-auth`
+Deux parties indépendantes. **Aucun changement de realm**, aucun rôle
+`realm-management` : on réutilise l'accès admin **master** déjà éprouvé dans
+`admin-application` (`KeycloakAdminClient` via `admin-cli`, grant password,
+variables `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD`).
 
-- **Realm** (`keycloak/import/ms-realm-realm.json`) : ajouter au service account du
-  client `ms-gateway` les rôles client `realm-management` → `["view-users", "manage-users"]`
-  (champ `serviceAccountClientRoles`). `serviceAccountsEnabled` est déjà `true`.
-- **`ms-auth`** : nouveau `KeycloakAdminClient` (service) qui obtient un token
-  `client_credentials` avec les creds `ms-gateway` existants et appelle l'API Admin :
-  - `GET /admin/realms/{realm}/users?max=…` — liste des utilisateurs.
-  - `PUT /admin/realms/{realm}/users/{id}/reset-password` — `{"type":"password","value":…,"temporary":false}`.
-- **`SecurityConfig` (`ms-auth`)** :
-  - ajouter un `JwtAuthenticationConverter` qui mappe `realm_access.roles` → `ROLE_*`,
-  - `/auth/admin/**` → `hasRole('ADMIN')`, `/auth/account/**` → authentifié,
-  - `/auth/login`, `/auth/refresh`, `/actuator/**` restent ouverts.
-- ⚠️ **Gotcha re-import realm** (mémoire `keycloak_realm_reimport`) : un volume
-  `keycloak_db_data` obsolète masque les nouveaux rôles SA. Vérifier après
-  `clean-docker.sh` (problème d'état, pas de code).
-- ⚠️ **Réécriture per-resource du realm** : `CrossCuttingConfigProcessor.rewriteRealm()`
-  régénère le realm par resource (ajout des users `test-<service>`). Vérifier que
-  `serviceAccountClientRoles` sur `ms-gateway` **survit** à cette réécriture (édition
-  d'arbre Jackson, le nœud client ne doit pas être reconstruit à plat).
+### A. Mon compte — changer son mot de passe (nouveau, `ms-webui` + `ms-auth`)
 
-### A. Mon compte — changer son mot de passe
+La page « Mon compte » de `ms-webui` ne fait aujourd'hui que pointer vers Keycloak.
+On ajoute un vrai formulaire self-service. La logique backend vit dans **`ms-auth`**
+(pas dans `ms-webui`) pour garder les creds admin hors de l'app user-facing.
 
-**Frontend (`ms-webui` / `account.html` + `AccountController`)**
-- Remplacer le lien Keycloak par un formulaire à 3 champs :
+**Backend (`ms-auth`)** — nouvel endpoint `POST /auth/account/password` (authentifié) :
+- Corps : `{ "oldPassword": …, "newPassword": … }` (DTO `ChangePasswordRequest`).
+- Identité lue dans le **JWT validé** : `preferred_username` et `sub` (= id Keycloak).
+- Étapes :
+  1. **Vérifie l'ancien mot de passe** via un *password grant* (`client_id=ms-gateway`,
+     `username=preferred_username`, `password=oldPassword`). Échec → **HTTP 422**
+     (code distinct du 401, voir piège ci-dessous).
+  2. **Pose le nouveau** via l'API Admin Keycloak `PUT /admin/realms/{realm}/users/{sub}/reset-password`
+     avec `{"type":"password","value":newPassword,"temporary":false}`, en utilisant un
+     **token admin master** (mêmes creds qu'`admin-application`).
+  3. Retour **204** si ok.
+- `SecurityConfig` : `/auth/account/**` tombe déjà sous `anyRequest().authenticated()`
+  (aucune règle de rôle, aucun `JwtAuthenticationConverter` nécessaire — pas de `hasRole`).
+- Helper admin : un petit `KeycloakAdminClient` (ou méthode dans `AuthService`) reprenant
+  le pattern `adminToken()` (grant `admin-cli` sur le realm `master`) + `resetPassword(id, pwd)`
+  d'`admin-application`. Nouvelles props `keycloak.admin-username`/`admin-password` dans
+  l'`application.yml` de `ms-auth` + env `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` dans
+  le bloc `ms-auth` de `docker-compose.yml`.
+
+⚠️ **Piège 401 vs business-error :** un « ancien mot de passe faux » **ne doit pas**
+renvoyer 401, sinon le `GatewayClient` de `ms-webui` interprète 401 = token expiré,
+tente un refresh + rejeu, puis déconnecte l'utilisateur. → ms-auth renvoie **422**
+pour cette erreur métier, et `ms-webui` n'utilise **pas** `GatewayClient` pour cet
+appel (voir frontend).
+
+**Frontend (`ms-webui` / `account.html` + `AccountController` + `MsAuthClient`)**
+- Remplacer le lien Keycloak par un formulaire à 3 champs (CSRF inclus comme les autres
+  formulaires) :
   - *Ancien mot de passe*
   - *Nouveau mot de passe* (aucune restriction ; peut être identique à l'ancien)
   - *Retaper le nouveau mot de passe* (doit correspondre)
-- Validation **client** (les deux nouveaux champs correspondent) **et** serveur.
-- `AccountController.POST /account/password` → `GatewayClient.post(...)` →
-  `ms-auth POST /auth/account/password {oldPassword, newPassword}`.
-- Affichage : alerte **verte** « mot de passe modifié » si 2xx ; **rouge** sinon
-  (ancien mot de passe faux, ou mismatch).
+- Validation **client** (JS : les deux nouveaux champs correspondent) **et serveur**
+  (`AccountController` recompare avant l'appel).
+- `AccountController.POST /account/password` : lit `oldPassword`/`newPassword`/`confirm`,
+  vérifie `newPassword == confirm` (sinon rouge « les mots de passe ne correspondent pas »),
+  puis appelle **`MsAuthClient.changePassword(accessToken, old, new)`** — méthode dédiée
+  (pas `GatewayClient`) qui POST `gateway/auth/account/password` avec le Bearer de session :
+  - 204 → succès ; 422 → `WrongOldPasswordException` ; 401 → refresh une fois via
+    `MsAuthClient.refresh(refreshToken)` + maj session + rejeu ; autre → `AuthUnavailableException`.
+- Affichage : alerte **verte** « Mot de passe modifié » si succès ; **rouge** sinon
+  (ancien faux / non-correspondance / indisponible). On reste sur `/account`.
 
-**Backend (`ms-auth`)**
-- `POST /auth/account/password` (authentifié) :
-  1. Vérifie l'ancien mot de passe via *password grant* sur `preferred_username`
-     du JWT (401/erreur si faux).
-  2. `reset-password` sur le `sub` du JWT, `temporary:false`.
-  3. Retour `204` si ok, `400/401` si échec.
+### B. Forcer un mot de passe côté ADMIN — confirmation à 2 champs (`admin-application`)
 
-### B. Administration des utilisateurs (ADMIN)
+L'admin users **existe déjà** (`UsersController` + `edit.html` + `KeycloakAdminClient.resetPassword`,
+`temporary:false`). La carte « Réinitialiser le mot de passe » d'`edit.html` n'a qu'un
+champ. **Seul ajout** : un 2ᵉ champ « Retaper » + validation de correspondance.
 
-**Frontend (`ms-webui`)**
-- Nav (`layout.html`) : lien « Utilisateurs » avec `sec:authorize="hasRole('ADMIN')"`.
-- `/admin/users` — page liste (table : username, email, activé, bouton « Modifier »)
-  alimentée par `ms-auth GET /auth/admin/users`.
-- `/admin/users/{id}` — page modification : infos utilisateur (lecture seule pour ce
-  périmètre) + formulaire **forcer mot de passe** à **2 champs** (mot de passe +
-  retaper, doivent correspondre).
-- `UserAdminController` (méthodes protégées par `hasRole('ADMIN')` côté webui) →
-  `GatewayClient` → endpoints `ms-auth` ci-dessous.
-
-**Backend (`ms-auth`)**
-- `GET /auth/admin/users` (`hasRole('ADMIN')`) → liste `{id, username, email, enabled}`.
-- `POST /auth/admin/users/{id}/password` (`hasRole('ADMIN')`) → `{newPassword}` →
-  `reset-password` sur `{id}`, `temporary:false`.
-- L'autorisation **utilisateur** se fait via le rôle ADMIN du JWT ; l'autorisation
-  **Keycloak** via le service account (`client_credentials`). Séparation nette.
+- `edit.html` : ajouter le champ *Retaper le nouveau mot de passe* dans la carte de reset,
+  + un petit script JS qui bloque la soumission si les deux champs diffèrent (message rouge).
+- `UsersController.resetPassword(id, password, confirm)` : garde serveur — si
+  `password != confirm`, redirige vers `…/edit?error=mismatch` (et `edit.html` affiche
+  l'alerte rouge correspondante) ; sinon `resetPassword` existant inchangé (vert `?pwd`).
+- Aucune autre modification : pas de nouvelle page, pas de nouvel endpoint, pas de realm.
 
 ### Décisions retenues
 
-1. Mot de passe forcé par l'ADMIN = **permanent** (`temporary:false`). L'utilisateur
-   se connecte directement avec le nouveau mot de passe.
-2. La liste utilisateurs affiche **tous les utilisateurs du realm** (y compris `test-*`).
-3. Le nouveau mot de passe (self ou admin) n'a **aucune restriction** de complexité ;
-   seule la correspondance retape/saisie est exigée.
+1. Mot de passe forcé par l'ADMIN = **permanent** (`temporary:false`, déjà le cas).
+2. Le nouveau mot de passe (self ou admin) n'a **aucune restriction** de complexité ;
+   seule la correspondance saisie/retape est exigée.
+3. Accès Keycloak Admin = **creds admin master** (réutilisés dans `ms-auth`, déjà en
+   place dans `admin-application`) — pas de service account `realm-management`.
 
 ### Tests Lot 2
 
-- **Modules générés** : tests de contrôleur sur le modèle de `ChatControllerTest`
-  (`AccountController` : mismatch → erreur ; `UserAdminController` : accès non-ADMIN
-  refusé). Côté `ms-auth` : test de mapping des rôles + protection `/auth/admin/**`.
-- **Générateur** : garder verts `CrossCuttingConfigProcessorTest` (realm avec
-  `serviceAccountClientRoles` préservé après réécriture per-resource), gateway routes,
-  et `GeneratedOutputLayoutTest`.
+- **`ms-auth`** : test du service de changement self (mock `RestTemplate`) — succès
+  (grant ok → reset appelé), mauvais ancien mot de passe (grant 401 → 422, reset **non**
+  appelé). Modèle : `admin-application/.../KeycloakAdminClientTest`.
+- **`ms-webui`** : test `AccountController` (modèle `ChatControllerTest`) — non-correspondance
+  → rouge sans appel backend ; `MsAuthClient.changePassword` mappe 422 → erreur, 204 → succès.
+- **`admin-application`** : test `UsersController.resetPassword` — `password != confirm`
+  → redirection `error=mismatch` sans appel `resetPassword` ; égal → appel effectué.
 
 ### Vérification Lot 2
 
 - Génération avec `webUI: true` + `resources[]` non vide ; plateforme démarrée après
   `clean-docker.sh`.
-- Self : connexion utilisateur, `/account` → changement réussi (vert), nouvelle
-  connexion avec le nouveau mot de passe ; ancien faux → rouge.
-- Admin : `/admin/users` liste les comptes ; modification d'un user → force un mot de
-  passe → vert ; l'utilisateur ciblé se connecte avec le nouveau mot de passe.
-- Accès `/admin/users` par un non-ADMIN → refusé.
+- **Self** (`ms-webui` `/account`) : connexion utilisateur, changement réussi (vert),
+  reconnexion avec le nouveau mot de passe ; ancien faux → rouge ; non-correspondance → rouge.
+- **Admin** (`admin-application` `/users/{id}/edit`) : reset avec 2 champs correspondants
+  → vert, l'utilisateur ciblé se connecte avec le nouveau mot de passe ; champs différents → rouge.
 
 ---
 
 ## Hors périmètre (YAGNI)
 
-- CRUD complet utilisateurs (création/suppression, gestion des rôles, email, enabled).
+- Refonte de l'admin users d'`admin-application` (déjà fonctionnel : liste/recherche,
+  création, suppression, édition, reset) — on n'y touche que pour le 2ᵉ champ de confirmation.
+- Création d'une section admin users dans `ms-webui` (redondant avec `admin-application`).
+- Service account `realm-management` sur `ms-gateway` (remplacé par les creds admin master).
 - Politique de complexité des mots de passe.
 - Mot de passe temporaire imposé à la 1ʳᵉ connexion (alternative documentée, non retenue).
