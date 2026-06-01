@@ -8,6 +8,7 @@ import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.zip.GeneratedFile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,12 +27,21 @@ import java.util.stream.Collectors;
  * configure le datasource en mémoire et active la console.
  * Mode MongoDB : remplace l'entité JPA par un {@code @Document}, supprime les fichiers Liquibase,
  * ajuste le pom et l'application.yml.
- * Type d'identifiant UUID : substitue {@code Long}/{@code BIGINT IDENTITY} par {@code UUID}/{@code gen_random_uuid()}.
+ * Type d'identifiant UUID : substitue {@code Long}/{@code BIGINT IDENTITY} par
+ * {@code UUID}/{@code gen_random_uuid()}.
  */
 @Component
 @Order(50)
 public class ResourceExpandProcessor implements FileProcessor {
 
+    /**
+     * Applique l'expansion des ressources : clone {@code service-a/} pour chaque entrée de
+     * {@code resources[]}, en substituant noms, types de base de données et types d'identifiants.
+     *
+     * @param files liste de fichiers à transformer
+     * @param ctx   contexte de génération portant la requête
+     * @return liste mise à jour avec les services générés
+     */
     @Override
     public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
         List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
@@ -48,7 +58,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         return result;
     }
 
-    // ── Extract service-a template (excluding patch subdirs) ──────────────────
+    // ── Extract service-a template (excluding patch subdirs) ──────────────
 
     private List<GeneratedFile> extractServiceATemplate(List<GeneratedFile> files, String root) {
         String serviceAPrefix = root + "/service-a/";
@@ -74,7 +84,7 @@ public class ResourceExpandProcessor implements FileProcessor {
             || rel.startsWith("service-c/");
     }
 
-    // ── Generate one service ──────────────────────────────────────────────────
+    // ── Generate one service ──────────────────────────────────────────────
 
     private List<GeneratedFile> generateService(List<GeneratedFile> template,
                                                 ResourceModuleRequest res,
@@ -94,7 +104,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         return generated;
     }
 
-    // ── Path transformations ──────────────────────────────────────────────────
+    // ── Path transformations ──────────────────────────────────────────────
 
     private String transformPath(String path, ResourceModuleRequest res, String root) {
         String serviceClass   = ProcessorUtils.toPascalCase(res.getServiceName());
@@ -114,7 +124,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         return path;
     }
 
-    // ── Content transformations ───────────────────────────────────────────────
+    // ── Content transformations ───────────────────────────────────────────
 
     private byte[] transformContent(byte[] content, ResourceModuleRequest res) {
         if (ProcessorUtils.containsNullByte(content)) return content;
@@ -146,9 +156,20 @@ public class ResourceExpandProcessor implements FileProcessor {
         return text;
     }
 
-    // ── DatabaseType (Tasks 8 and 9) ──────────────────────────────────────────
+    // ── DatabaseType (Tasks 8 and 9) ──────────────────────────────────────
 
-    protected byte[] applyDatabaseType(String path, byte[] content, ResourceModuleRequest res, String basePackage) {
+    /**
+     * Adapte le contenu d'un fichier au type de base de données demandé (H2 ou MongoDB).
+     * Retourne {@code null} si le fichier doit être supprimé (ex. : changelog Liquibase pour Mongo).
+     *
+     * @param path        chemin du fichier généré
+     * @param content     contenu binaire du fichier
+     * @param res         description de la ressource (contient le {@link DatabaseType})
+     * @param basePackage package de base du projet généré
+     * @return contenu transformé, ou {@code null} pour signaler la suppression du fichier
+     */
+    protected byte[] applyDatabaseType(String path, byte[] content,
+                                       ResourceModuleRequest res, String basePackage) {
         DatabaseType db = res.getDatabaseType();
         if (db == null) return content;
         return switch (db) {
@@ -198,7 +219,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         return text.getBytes(StandardCharsets.UTF_8);
     }
 
-    // ── MongoDB templates ─────────────────────────────────────────────────────
+    // ── MongoDB templates ─────────────────────────────────────────────────
 
     private static final String MONGO_ENTITY_TEMPLATE = """
         package {PKG}.document;
@@ -326,8 +347,18 @@ public class ResourceExpandProcessor implements FileProcessor {
         return content;
     }
 
-    // ── IdType (Task 10) ──────────────────────────────────────────────────────
+    // ── IdType (Task 10) ──────────────────────────────────────────────────
 
+    /**
+     * Adapte le type d'identifiant de l'entité générée (UUID ou Integer).
+     * Sans effet si {@code idType} est {@code null}, {@code LONG} ou si la base est MongoDB
+     * (déjà gérée par {@link #applyDatabaseType}).
+     *
+     * @param path    chemin du fichier généré
+     * @param content contenu binaire du fichier
+     * @param res     description de la ressource (contient le {@link IdType})
+     * @return contenu avec le type d'identifiant substitué
+     */
     protected byte[] applyIdType(String path, byte[] content, ResourceModuleRequest res) {
         IdType idType = res.getIdType();
         if (idType == null || idType == IdType.LONG) return content;
@@ -373,8 +404,15 @@ public class ResourceExpandProcessor implements FileProcessor {
         return text;
     }
 
-    // ── Utilities ─────────────────────────────────────────────────────────────
+    // ── Utilities ─────────────────────────────────────────────────────────
 
+    /**
+     * Convertit un nom kebab-case ou snake_case en minuscules sans séparateur
+     * (ex. : {@code "service-a"} → {@code "servicea"}).
+     *
+     * @param kebab nom en kebab-case ou snake_case
+     * @return nom concaténé en minuscules
+     */
     protected String toConcatLower(String kebab) {
         return kebab.replace("-", "").replace("_", "").toLowerCase();
     }

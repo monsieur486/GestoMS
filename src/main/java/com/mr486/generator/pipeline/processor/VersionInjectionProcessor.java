@@ -21,13 +21,17 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>{@code docker-compose.yml} : {@code image: repo:tag} → {@code image: repo:${VAR:-tag}} ;
  *       {@code build: ./svc} → forme longue + {@code args: JAVA_IMAGE} ;</li>
- *   <li>{@code Dockerfile} : {@code FROM <javaImage>} → {@code ARG JAVA_IMAGE=…} + {@code FROM ${JAVA_IMAGE}} ;</li>
+ *   <li>{@code Dockerfile} : {@code FROM <javaImage>} →
+ *       {@code ARG JAVA_IMAGE=…} + {@code FROM ${JAVA_IMAGE}} ;</li>
  *   <li>{@code .env}/{@code dist.env} : ajout d'un bloc de versions d'images ;</li>
- *   <li>poms : parent {@code spring-boot}, {@code spring-cloud}/{@code mongock} properties, {@code spring-boot-admin}.</li>
+ *   <li>poms : parent {@code spring-boot}, {@code spring-cloud}/{@code mongock} properties,
+ *       {@code spring-boot-admin}.</li>
  * </ul>
- * Le {@code <java.version>} N'est PAS géré ici (déjà piloté par {@link PackagePlaceholderProcessor}).
+ * Le {@code <java.version>} N'est PAS géré ici (déjà piloté par
+ * {@link PackagePlaceholderProcessor}).
  * La constante {@link #TEMPLATE} (instance neuve) fournit les littéraux de recherche du template ;
- * l'instance injectée {@code cfg} fournit les valeurs cibles (surchargées par {@code application.yml}).
+ * l'instance injectée {@code cfg} fournit les valeurs cibles (surchargées par
+ * {@code application.yml}).
  */
 @Component
 @Order(70)
@@ -38,10 +42,22 @@ public class VersionInjectionProcessor implements FileProcessor {
 
     private final PlatformVersions cfg;
 
+    /**
+     * Construit le processeur avec la configuration de versions injectée par Spring.
+     *
+     * @param cfg versions cibles lues depuis {@code application.yml}
+     */
     public VersionInjectionProcessor(PlatformVersions cfg) {
         this.cfg = cfg;
     }
 
+    /**
+     * Applique les substitutions de versions sur l'ensemble des fichiers générés.
+     *
+     * @param files liste des fichiers en cours de génération
+     * @param ctx   contexte de génération
+     * @return liste mise à jour avec les versions normalisées
+     */
     @Override
     public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
         return files.stream().map(this::transform).toList();
@@ -67,14 +83,22 @@ public class VersionInjectionProcessor implements FileProcessor {
     }
 
     private String rewriteComposeImages(String text) {
-        text = replaceImage(text, "postgres",                  TEMPLATE.getPostgres(), cfg.getPostgres(), "POSTGRES_VERSION");
-        text = replaceImage(text, "quay.io/keycloak/keycloak", TEMPLATE.getKeycloak(), cfg.getKeycloak(), "KEYCLOAK_VERSION");
-        text = replaceImage(text, "rabbitmq",                  TEMPLATE.getRabbitmq(), cfg.getRabbitmq(), "RABBITMQ_VERSION");
-        text = replaceImage(text, "redis",                     TEMPLATE.getRedis(),    cfg.getRedis(),    "REDIS_VERSION");
-        text = replaceImage(text, "mongo",                     TEMPLATE.getMongo(),    cfg.getMongo(),    "MONGO_VERSION");
-        text = replaceImage(text, "grafana/loki",              TEMPLATE.getLoki(),     cfg.getLoki(),     "LOKI_VERSION");
-        text = replaceImage(text, "grafana/promtail",          TEMPLATE.getPromtail(), cfg.getPromtail(), "PROMTAIL_VERSION");
-        text = replaceImage(text, "grafana/grafana",           TEMPLATE.getGrafana(),  cfg.getGrafana(),  "GRAFANA_VERSION");
+        text = replaceImage(text, "postgres",
+                TEMPLATE.getPostgres(), cfg.getPostgres(), "POSTGRES_VERSION");
+        text = replaceImage(text, "quay.io/keycloak/keycloak",
+                TEMPLATE.getKeycloak(), cfg.getKeycloak(), "KEYCLOAK_VERSION");
+        text = replaceImage(text, "rabbitmq",
+                TEMPLATE.getRabbitmq(), cfg.getRabbitmq(), "RABBITMQ_VERSION");
+        text = replaceImage(text, "redis",
+                TEMPLATE.getRedis(), cfg.getRedis(), "REDIS_VERSION");
+        text = replaceImage(text, "mongo",
+                TEMPLATE.getMongo(), cfg.getMongo(), "MONGO_VERSION");
+        text = replaceImage(text, "grafana/loki",
+                TEMPLATE.getLoki(), cfg.getLoki(), "LOKI_VERSION");
+        text = replaceImage(text, "grafana/promtail",
+                TEMPLATE.getPromtail(), cfg.getPromtail(), "PROMTAIL_VERSION");
+        text = replaceImage(text, "grafana/grafana",
+                TEMPLATE.getGrafana(), cfg.getGrafana(), "GRAFANA_VERSION");
         return text;
     }
 
@@ -125,14 +149,26 @@ public class VersionInjectionProcessor implements FileProcessor {
 
     private String rewritePom(String text) {
         String[][] replacements = {
-            { "<artifactId>spring-boot-starter-parent</artifactId><version>" + TEMPLATE.getSpringBoot()      + "</version>",
-              "<artifactId>spring-boot-starter-parent</artifactId><version>" + cfg.getSpringBoot()           + "</version>" },
-            { "<spring-cloud.version>"                                        + TEMPLATE.getSpringCloud()     + "</spring-cloud.version>",
-              "<spring-cloud.version>"                                        + cfg.getSpringCloud()          + "</spring-cloud.version>" },
-            { "<mongock.version>"                                             + TEMPLATE.getMongock()         + "</mongock.version>",
-              "<mongock.version>"                                             + cfg.getMongock()              + "</mongock.version>" },
-            { "<artifactId>spring-boot-admin-starter-server</artifactId><version>" + TEMPLATE.getSpringBootAdmin() + "</version>",
-              "<artifactId>spring-boot-admin-starter-server</artifactId><version>" + cfg.getSpringBootAdmin()      + "</version>" },
+            {
+                "<artifactId>spring-boot-starter-parent</artifactId><version>"
+                    + TEMPLATE.getSpringBoot() + "</version>",
+                "<artifactId>spring-boot-starter-parent</artifactId><version>"
+                    + cfg.getSpringBoot() + "</version>"
+            },
+            {
+                "<spring-cloud.version>" + TEMPLATE.getSpringCloud() + "</spring-cloud.version>",
+                "<spring-cloud.version>" + cfg.getSpringCloud() + "</spring-cloud.version>"
+            },
+            {
+                "<mongock.version>" + TEMPLATE.getMongock() + "</mongock.version>",
+                "<mongock.version>" + cfg.getMongock() + "</mongock.version>"
+            },
+            {
+                "<artifactId>spring-boot-admin-starter-server</artifactId><version>"
+                    + TEMPLATE.getSpringBootAdmin() + "</version>",
+                "<artifactId>spring-boot-admin-starter-server</artifactId><version>"
+                    + cfg.getSpringBootAdmin() + "</version>"
+            },
         };
         for (String[] r : replacements) text = text.replace(r[0], r[1]);
         return text;
