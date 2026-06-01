@@ -1,10 +1,12 @@
 package com.mr486.msplatform.webui.web;
 
 import com.mr486.msplatform.webui.dto.ChatMessage;
+import com.mr486.msplatform.webui.dto.PrivateMessageRequest;
 import com.mr486.msplatform.webui.service.ChatHistory;
 import com.mr486.msplatform.webui.service.PresenceService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,10 +23,13 @@ public class ChatController {
 
     private final ChatHistory chatHistory;
     private final PresenceService presenceService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public ChatController(ChatHistory chatHistory, PresenceService presenceService) {
+    public ChatController(ChatHistory chatHistory, PresenceService presenceService,
+                          SimpMessagingTemplate messagingTemplate) {
         this.chatHistory = chatHistory;
         this.presenceService = presenceService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /**
@@ -67,6 +72,20 @@ public class ChatController {
     @SendTo("/topic/typing")
     public Map<String, String> typing(Principal principal) {
         return Map.of("user", principal.getName());
+    }
+
+    /**
+     * Route un message privé vers le destinataire via une user destination
+     * ({@code /user/{to}/queue/private}). L'expéditeur est signé par le Principal ;
+     * le message n'est pas persisté.
+     *
+     * @param in        la requête {@code {to, text}}
+     * @param principal le Principal de l'expéditeur
+     */
+    @MessageMapping("/chat.private")
+    public void privateMessage(PrivateMessageRequest in, Principal principal) {
+        ChatMessage message = new ChatMessage(principal.getName(), in.text(), System.currentTimeMillis());
+        messagingTemplate.convertAndSendToUser(in.to(), "/queue/private", message);
     }
 
     /**

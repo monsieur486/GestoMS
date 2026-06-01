@@ -7,8 +7,8 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
- * Configuration STOMP/WebSocket : endpoint SockJS {@code /ws},
- * broker en mémoire sur {@code /topic}, préfixe applicatif {@code /app}.
+ * Configuration STOMP/WebSocket : endpoint SockJS {@code /ws}, broker en mémoire sur {@code /topic}
+ * et {@code /queue} (files privées), préfixe applicatif {@code /app}, préfixe utilisateur {@code /user}.
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -27,14 +27,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     /**
-     * Active le broker simple sur {@code /topic} et définit le préfixe {@code /app}
-     * pour les messages destinés aux méthodes {@code @MessageMapping}.
+     * Active le broker simple sur {@code /topic} (diffusion publique) et {@code /queue}
+     * (files privées), définit le préfixe {@code /app} pour les messages destinés aux
+     * méthodes {@code @MessageMapping}, et le préfixe utilisateur {@code /user} pour les
+     * user destinations ({@code convertAndSendToUser}).
      *
      * @param registry le registre de configuration du broker de messages
      */
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker("/topic");
+        registry.enableSimpleBroker("/topic", "/queue");
         registry.setApplicationDestinationPrefixes("/app");
+        registry.setUserDestinationPrefix("/user");
     }
 }
