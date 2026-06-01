@@ -76,8 +76,8 @@ services:
       EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
     ports: ["9100:9100"]
 
-  ms-client:
-    build: ./ms-client
+  ms-webui:
+    build: ./ms-webui
     env_file: [.env]
     depends_on: [ms-eureka, ms-gateway, redis, ms-auth]
     environment:
@@ -85,7 +85,7 @@ services:
       REDIS_HOST: redis
       GATEWAY_URL: http://ms-gateway:9000
       GATEWAY_PUBLIC_URL: http://localhost:9000
-      MS_CLIENT_PORT: 8090
+      MS_WEBUI_PORT: 8090
     ports: ["8090:8090"]
 
   service-a-db:
