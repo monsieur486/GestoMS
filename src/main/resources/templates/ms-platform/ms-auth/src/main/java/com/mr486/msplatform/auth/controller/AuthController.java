@@ -60,4 +60,21 @@ public class AuthController {
         }
         authService.logout(request, jwt);
     }
+
+    /**
+     * Change le mot de passe de l'utilisateur authentifié après vérification de l'ancien.
+     * <p>Nécessite un JWT valide (protégé par {@code SecurityConfig.anyRequest().authenticated()}).
+     *
+     * @param request        l'ancien et le nouveau mot de passe
+     * @param authentication l'authentification JWT de la requête courante
+     */
+    @PostMapping("/account/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody ChangePasswordRequest request,
+                               Authentication authentication) {
+        if (!(authentication instanceof JwtAuthenticationToken jwt)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        authService.changeOwnPassword(jwt, request.getOldPassword(), request.getNewPassword());
+    }
 }

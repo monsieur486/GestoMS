@@ -18,6 +18,8 @@ keycloak:
   realm: ms-realm
   client-id: ms-gateway
   client-secret: ${KEYCLOAK_CLIENT_SECRET:changeit-gateway}
+  admin-username: ${KEYCLOAK_ADMIN:admin}
+  admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
 eureka:
   client:
     service-url:

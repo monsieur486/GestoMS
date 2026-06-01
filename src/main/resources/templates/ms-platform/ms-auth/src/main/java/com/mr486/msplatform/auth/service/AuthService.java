@@ -24,6 +24,7 @@ public class AuthService {
 
     private final TokenBlacklistService blacklistService;
     private final RestTemplate restTemplate;
+    private final KeycloakAdminClient keycloakAdminClient;
 
     @Value("${keycloak.internal-url:http://keycloak:8080}")
     private String keycloakInternalUrl;
@@ -105,6 +106,35 @@ public class AuthService {
             blacklistService.deleteRefreshToken(request.getOpaqueRefreshToken());
             if (kcRefresh != null) revokeKeycloak(kcRefresh);
         }
+    }
+
+    /**
+     * Change le mot de passe de l'utilisateur courant : vérifie l'ancien mot de passe via
+     * un password grant, puis pose le nouveau via l'API Admin Keycloak.
+     *
+     * @param authentication le JWT de l'utilisateur authentifié (fournit username et sub)
+     * @param oldPassword    l'ancien mot de passe à vérifier
+     * @param newPassword    le nouveau mot de passe à poser (permanent)
+     * @throws ResponseStatusException 422 si l'ancien mot de passe est invalide
+     */
+    public void changeOwnPassword(JwtAuthenticationToken authentication,
+                                  String oldPassword, String newPassword) {
+        String username = authentication.getToken().getClaimAsString("preferred_username");
+        String userId = authentication.getToken().getSubject();
+
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("grant_type", "password");
+        body.add("client_id", clientId);
+        body.add("client_secret", clientSecret);
+        body.add("username", username);
+        body.add("password", oldPassword);
+        try {
+            callKeycloak(body);
+        } catch (ResponseStatusException e) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Ancien mot de passe incorrect");
+        }
+
+        keycloakAdminClient.resetPassword(userId, newPassword);
     }
 
     private KeycloakTokenResponse callKeycloak(MultiValueMap<String, String> body) {
