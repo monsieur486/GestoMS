@@ -2,6 +2,7 @@ package com.mr486.msplatform.webui.web;
 
 import com.mr486.msplatform.webui.dto.ChatMessage;
 import com.mr486.msplatform.webui.service.ChatHistory;
+import com.mr486.msplatform.webui.service.PresenceService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
@@ -9,6 +10,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.security.Principal;
+import java.util.List;
 
 /**
  * Contrôleur du chat temps réel : affiche l'historique et diffuse les messages via STOMP/WebSocket.
@@ -17,20 +19,24 @@ import java.security.Principal;
 public class ChatController {
 
     private final ChatHistory chatHistory;
+    private final PresenceService presenceService;
 
-    public ChatController(ChatHistory chatHistory) {
+    public ChatController(ChatHistory chatHistory, PresenceService presenceService) {
         this.chatHistory = chatHistory;
+        this.presenceService = presenceService;
     }
 
     /**
      * Affiche la page de chat avec l'historique récent.
      *
-     * @param model le modèle Thymeleaf
+     * @param model     le modèle Thymeleaf
+     * @param principal le Principal Spring Security de l'utilisateur courant
      * @return le nom de la vue {@code chat}
      */
     @GetMapping("/chat")
-    public String chat(Model model) {
+    public String chat(Model model, Principal principal) {
         model.addAttribute("history", chatHistory.recent());
+        model.addAttribute("username", principal.getName());
         return "chat";
     }
 
@@ -48,5 +54,16 @@ public class ChatController {
         ChatMessage message = new ChatMessage(principal.getName(), in.text());
         chatHistory.add(message);
         return message;
+    }
+
+    /**
+     * Répond à un client qui vient de s'abonner en rediffusant la liste des connectés.
+     *
+     * @return la liste des utilisateurs connectés
+     */
+    @MessageMapping("/presence.hello")
+    @SendTo("/topic/presence")
+    public List<String> presenceHello() {
+        return presenceService.connectedUsers();
     }
 }
