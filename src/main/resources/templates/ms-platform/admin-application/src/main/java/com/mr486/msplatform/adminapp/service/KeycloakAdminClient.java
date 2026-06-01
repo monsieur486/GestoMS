@@ -30,6 +30,15 @@ public class KeycloakAdminClient {
     private final String adminUsername;
     private final String adminPassword;
 
+    /**
+     * Construit le client en injectant les paramètres de connexion Keycloak.
+     *
+     * @param restTemplate  le client HTTP partagé
+     * @param internalUrl   l'URL interne de Keycloak (ex. {@code http://keycloak:8080})
+     * @param realm         le nom du realm applicatif
+     * @param adminUsername le nom d'utilisateur de l'admin master
+     * @param adminPassword le mot de passe de l'admin master
+     */
     public KeycloakAdminClient(RestTemplate restTemplate,
                                @Value("${keycloak.internal-url}") String internalUrl,
                                @Value("${keycloak.realm}") String realm,
@@ -42,6 +51,14 @@ public class KeycloakAdminClient {
         this.adminPassword = adminPassword;
     }
 
+    /**
+     * Retourne une page d'utilisateurs du realm, avec filtre de recherche optionnel.
+     *
+     * @param search terme de recherche (sur username/email/prénom/nom), {@code null} ou vide pour tous
+     * @param first  index du premier résultat (pagination)
+     * @param max    nombre maximum de résultats
+     * @return la liste des utilisateurs correspondants
+     */
     public List<KeycloakUser> listUsers(String search, int first, int max) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
@@ -65,6 +82,12 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Retourne le nombre total d'utilisateurs du realm correspondant au filtre de recherche.
+     *
+     * @param search terme de recherche, {@code null} ou vide pour compter tous les utilisateurs
+     * @return le nombre d'utilisateurs correspondants
+     */
     public int countUsers(String search) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
@@ -86,6 +109,17 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Crée un nouvel utilisateur dans le realm avec un mot de passe permanent.
+     *
+     * @param username  le nom d'utilisateur
+     * @param email     l'adresse e-mail
+     * @param firstName le prénom
+     * @param lastName  le nom de famille
+     * @param password  le mot de passe initial (permanent, non temporaire)
+     * @throws UserConflictException        si le nom d'utilisateur est déjà pris
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     public void createUser(String username, String email, String firstName, String lastName, String password) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -110,6 +144,12 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Supprime un utilisateur du realm par son identifiant Keycloak.
+     *
+     * @param id l'identifiant unique de l'utilisateur dans Keycloak
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     public void deleteUser(String id) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
@@ -123,6 +163,16 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Met à jour les champs modifiables d'un utilisateur existant (GET-then-PUT pour préserver le username).
+     *
+     * @param id        l'identifiant unique de l'utilisateur dans Keycloak
+     * @param email     la nouvelle adresse e-mail
+     * @param firstName le nouveau prénom
+     * @param lastName  le nouveau nom de famille
+     * @param enabled   {@code true} pour activer le compte, {@code false} pour le désactiver
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     @SuppressWarnings("rawtypes")
     public void updateUser(String id, String email, String firstName, String lastName, boolean enabled) {
         HttpHeaders getHeaders = new HttpHeaders();
@@ -151,6 +201,13 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Réinitialise le mot de passe d'un utilisateur (credential permanent, non temporaire).
+     *
+     * @param id       l'identifiant unique de l'utilisateur dans Keycloak
+     * @param password le nouveau mot de passe
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     public void resetPassword(String id, String password) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -166,6 +223,13 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Récupère un utilisateur du realm par son identifiant Keycloak.
+     *
+     * @param id l'identifiant unique de l'utilisateur dans Keycloak
+     * @return le {@link KeycloakUser} correspondant, ou {@code null} si non trouvé
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     public KeycloakUser getUser(String id) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
@@ -181,6 +245,13 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Retourne la liste des rôles du realm en excluant les rôles Keycloak internes
+     * ({@code offline_access}, {@code uma_authorization}, {@code default-roles-*}).
+     *
+     * @return la liste des rôles applicatifs du realm
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     public List<KeycloakRole> listRealmRoles() {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
@@ -193,7 +264,8 @@ public class KeycloakAdminClient {
             List<KeycloakRole> result = new ArrayList<>();
             for (KeycloakRole r : body) {
                 String n = r.name();
-                if (n == null || n.equals("offline_access") || n.equals("uma_authorization") || n.startsWith("default-roles-")) {
+                if (n == null || n.equals("offline_access")
+                        || n.equals("uma_authorization") || n.startsWith("default-roles-")) {
                     continue;
                 }
                 result.add(r);
@@ -206,6 +278,13 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Retourne la liste des rôles realm actuellement assignés à un utilisateur.
+     *
+     * @param userId l'identifiant de l'utilisateur dans Keycloak
+     * @return la liste des rôles realm de l'utilisateur
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     public List<KeycloakRole> listUserRealmRoles(String userId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
@@ -222,6 +301,13 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Assigne un rôle realm à un utilisateur (résolution du rôle par nom, puis POST de la représentation).
+     *
+     * @param userId   l'identifiant de l'utilisateur dans Keycloak
+     * @param roleName le nom du rôle realm à assigner
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     public void addRealmRole(String userId, String roleName) {
         KeycloakRole role = roleByName(roleName);
         HttpHeaders headers = new HttpHeaders();
@@ -238,6 +324,13 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Retire un rôle realm d'un utilisateur (résolution du rôle par nom, puis DELETE de la représentation).
+     *
+     * @param userId   l'identifiant de l'utilisateur dans Keycloak
+     * @param roleName le nom du rôle realm à retirer
+     * @throws KeycloakUnavailableException si Keycloak est inaccessible
+     */
     public void removeRealmRole(String userId, String roleName) {
         KeycloakRole role = roleByName(roleName);
         HttpHeaders headers = new HttpHeaders();
@@ -299,7 +392,9 @@ public class KeycloakAdminClient {
         }
     }
 
+    /** Exception levée lorsque Keycloak est inaccessible ou retourne une erreur inattendue. */
     public static class KeycloakUnavailableException extends RuntimeException {}
 
+    /** Exception levée lorsque la création d'un utilisateur échoue en raison d'un conflit (409). */
     public static class UserConflictException extends RuntimeException {}
 }

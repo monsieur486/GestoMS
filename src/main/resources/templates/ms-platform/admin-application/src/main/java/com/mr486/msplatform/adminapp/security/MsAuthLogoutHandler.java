@@ -18,10 +18,22 @@ public class MsAuthLogoutHandler implements LogoutHandler {
 
     private final MsAuthClient msAuthClient;
 
+    /**
+     * Construit le handler en injectant le client ms-auth.
+     *
+     * @param msAuthClient le client BFF vers ms-auth
+     */
     public MsAuthLogoutHandler(MsAuthClient msAuthClient) {
         this.msAuthClient = msAuthClient;
     }
 
+    /**
+     * Révoque les tokens stockés en session en appelant ms-auth avant l'invalidation de session.
+     *
+     * @param request        la requête HTTP entrante
+     * @param response       la réponse HTTP
+     * @param authentication le contexte d'authentification courant (peut être {@code null})
+     */
     @Override
     public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
         HttpSession session = request.getSession(false);

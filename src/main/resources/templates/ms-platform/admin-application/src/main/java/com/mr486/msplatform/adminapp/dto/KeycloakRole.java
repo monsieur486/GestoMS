@@ -2,5 +2,8 @@ package com.mr486.msplatform.adminapp.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+/**
+ * DTO représentant un rôle Keycloak (id + nom).
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record KeycloakRole(String id, String name) {}

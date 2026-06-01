@@ -15,15 +15,31 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Contrôleur gérant l'affichage et la modification des rôles realm d'un utilisateur Keycloak.
+ */
 @Controller
 public class RolesController {
 
     private final KeycloakAdminClient keycloakAdminClient;
 
+    /**
+     * Construit le contrôleur en injectant le client Keycloak Admin.
+     *
+     * @param keycloakAdminClient le client d'accès à la Keycloak Admin REST API
+     */
     public RolesController(KeycloakAdminClient keycloakAdminClient) {
         this.keycloakAdminClient = keycloakAdminClient;
     }
 
+    /**
+     * Affiche la page de gestion des rôles d'un utilisateur (rôles assignés et assignables).
+     *
+     * @param id             l'identifiant Keycloak de l'utilisateur
+     * @param authentication le contexte d'authentification de l'administrateur connecté
+     * @param model          le modèle Thymeleaf
+     * @return le nom du template {@code roles}
+     */
     @GetMapping("/users/{id}/roles")
     public String roles(@PathVariable String id, Authentication authentication, Model model) {
         model.addAttribute("currentUsername", authentication.getName());
@@ -44,6 +60,13 @@ public class RolesController {
         return "roles";
     }
 
+    /**
+     * Assigne un rôle realm à un utilisateur.
+     *
+     * @param id       l'identifiant Keycloak de l'utilisateur
+     * @param roleName le nom du rôle à assigner
+     * @return une redirection vers la page de rôles de l'utilisateur
+     */
     @PostMapping("/users/{id}/roles/add")
     public String add(@PathVariable String id, @RequestParam String roleName) {
         try {
@@ -54,6 +77,13 @@ public class RolesController {
         }
     }
 
+    /**
+     * Retire un rôle realm d'un utilisateur.
+     *
+     * @param id       l'identifiant Keycloak de l'utilisateur
+     * @param roleName le nom du rôle à retirer
+     * @return une redirection vers la page de rôles de l'utilisateur
+     */
     @PostMapping("/users/{id}/roles/remove")
     public String remove(@PathVariable String id, @RequestParam String roleName) {
         try {

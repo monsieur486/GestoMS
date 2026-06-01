@@ -20,22 +20,47 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
+/**
+ * Contrôleur gérant l'affichage et le traitement du formulaire de connexion via ms-auth.
+ */
 @Controller
 public class LoginController {
 
     private final MsAuthClient msAuthClient;
     private final SecurityContextRepository securityContextRepository;
 
+    /**
+     * Construit le contrôleur en injectant le client ms-auth et le dépôt de contexte de sécurité.
+     *
+     * @param msAuthClient              le client BFF vers ms-auth
+     * @param securityContextRepository le dépôt pour persister le contexte de sécurité en session
+     */
     public LoginController(MsAuthClient msAuthClient, SecurityContextRepository securityContextRepository) {
         this.msAuthClient = msAuthClient;
         this.securityContextRepository = securityContextRepository;
     }
 
+    /**
+     * Affiche le formulaire de connexion.
+     *
+     * @return le nom du template {@code login}
+     */
     @GetMapping("/login")
     public String loginForm() {
         return "login";
     }
 
+    /**
+     * Traite la soumission du formulaire de connexion : authentifie via ms-auth, régénère
+     * la session et initialise le contexte de sécurité Spring.
+     *
+     * @param username le nom d'utilisateur saisi
+     * @param password le mot de passe saisi
+     * @param request  la requête HTTP (pour la gestion de session)
+     * @param response la réponse HTTP (pour la persistance du contexte de sécurité)
+     * @param model    le modèle Thymeleaf (pour les messages d'erreur)
+     * @return une redirection vers {@code /} en cas de succès, ou le template {@code login} en cas d'erreur
+     */
     @PostMapping("/login")
     public String doLogin(@RequestParam String username,
                           @RequestParam String password,

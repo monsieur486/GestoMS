@@ -25,6 +25,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Tests unitaires de {@link KeycloakAdminClient} : vérifie les appels REST vers
+ * la Keycloak Admin API (listUsers, createUser, updateUser, deleteUser, gestion des rôles, etc.)
+ * à l'aide d'un {@link RestTemplate} mocké.
+ */
 class KeycloakAdminClientTest {
 
     private RestTemplate restTemplate;
@@ -44,10 +49,12 @@ class KeycloakAdminClientTest {
                 new KeycloakUser("1", "alice", "alice@x.io", "Al", "Ice", true),
                 new KeycloakUser("2", "bob", "bob@x.io", "Bo", "B", false)
         };
-        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users"), eq(HttpMethod.GET), any(), eq(KeycloakUser[].class)))
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users"),
+                eq(HttpMethod.GET), any(), eq(KeycloakUser[].class)))
                 .thenReturn(ResponseEntity.ok(users));
 
-        assertThat(client.listUsers(null, 0, 20)).extracting(KeycloakUser::username).containsExactly("alice", "bob");
+        assertThat(client.listUsers(null, 0, 20))
+                .extracting(KeycloakUser::username).containsExactly("alice", "bob");
     }
 
     @Test
@@ -67,7 +74,8 @@ class KeycloakAdminClientTest {
         client.createUser("carol", "carol@x.io", "Ca", "Rol", "secret");
 
         ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
-        verify(restTemplate).postForEntity(contains("/admin/realms/ms-realm/users"), captor.capture(), eq(Void.class));
+        verify(restTemplate).postForEntity(
+                contains("/admin/realms/ms-realm/users"), captor.capture(), eq(Void.class));
         Map body = (Map) captor.getValue().getBody();
         assertThat(body.get("username")).isEqualTo("carol");
         assertThat(body.get("enabled")).isEqualTo(true);
@@ -110,20 +118,24 @@ class KeycloakAdminClientTest {
                 new KeycloakRole("d", "uma_authorization"),
                 new KeycloakRole("e", "default-roles-ms-realm")
         };
-        when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles"), eq(HttpMethod.GET), any(), eq(KeycloakRole[].class)))
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles"),
+                eq(HttpMethod.GET), any(), eq(KeycloakRole[].class)))
                 .thenReturn(ResponseEntity.ok(roles));
 
-        assertThat(client.listRealmRoles()).extracting(KeycloakRole::name).containsExactly("ADMIN", "USER_SERVICE_A");
+        assertThat(client.listRealmRoles())
+                .extracting(KeycloakRole::name).containsExactly("ADMIN", "USER_SERVICE_A");
     }
 
     @Test
     void list_user_realm_roles_parses() {
         when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
-        when(restTemplate.exchange(contains("/users/uid/role-mappings/realm"), eq(HttpMethod.GET), any(), eq(KeycloakRole[].class)))
+        when(restTemplate.exchange(contains("/users/uid/role-mappings/realm"),
+                eq(HttpMethod.GET), any(), eq(KeycloakRole[].class)))
                 .thenReturn(ResponseEntity.ok(new KeycloakRole[]{new KeycloakRole("a", "ADMIN")}));
 
-        assertThat(client.listUserRealmRoles("uid")).extracting(KeycloakRole::name).containsExactly("ADMIN");
+        assertThat(client.listUserRealmRoles("uid"))
+                .extracting(KeycloakRole::name).containsExactly("ADMIN");
     }
 
     @Test
@@ -131,13 +143,15 @@ class KeycloakAdminClientTest {
     void add_realm_role_resolves_then_posts_representation() {
         when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
-        when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles/ADMIN"), eq(HttpMethod.GET), any(), eq(KeycloakRole.class)))
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles/ADMIN"),
+                eq(HttpMethod.GET), any(), eq(KeycloakRole.class)))
                 .thenReturn(ResponseEntity.ok(new KeycloakRole("rid", "ADMIN")));
 
         client.addRealmRole("uid", "ADMIN");
 
         ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
-        verify(restTemplate).postForEntity(contains("/users/uid/role-mappings/realm"), captor.capture(), eq(Void.class));
+        verify(restTemplate).postForEntity(
+                contains("/users/uid/role-mappings/realm"), captor.capture(), eq(Void.class));
         List body = (List) captor.getValue().getBody();
         assertThat(body).hasSize(1);
         KeycloakRole sent = (KeycloakRole) body.get(0);
@@ -149,7 +163,8 @@ class KeycloakAdminClientTest {
     void remove_realm_role_sends_delete_with_representation() {
         when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
-        when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles/USER_BATCH"), eq(HttpMethod.GET), any(), eq(KeycloakRole.class)))
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles/USER_BATCH"),
+                eq(HttpMethod.GET), any(), eq(KeycloakRole.class)))
                 .thenReturn(ResponseEntity.ok(new KeycloakRole("rid", "USER_BATCH")));
 
         client.removeRealmRole("uid", "USER_BATCH");
@@ -167,13 +182,15 @@ class KeycloakAdminClientTest {
         existing.put("username", "carol");
         existing.put("email", "old@x.io");
         existing.put("enabled", true);
-        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users/uid"), eq(HttpMethod.GET), any(), eq(Map.class)))
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users/uid"),
+                eq(HttpMethod.GET), any(), eq(Map.class)))
                 .thenReturn(ResponseEntity.ok(existing));
 
         client.updateUser("uid", "new@x.io", "Ca", "Rol", false);
 
         ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
-        verify(restTemplate).exchange(contains("/admin/realms/ms-realm/users/uid"), eq(HttpMethod.PUT), captor.capture(), eq(Void.class));
+        verify(restTemplate).exchange(contains("/admin/realms/ms-realm/users/uid"),
+                eq(HttpMethod.PUT), captor.capture(), eq(Void.class));
         Map put = (Map) captor.getValue().getBody();
         assertThat(put.get("username")).isEqualTo("carol");   // préservé (GET puis PUT)
         assertThat(put.get("email")).isEqualTo("new@x.io");   // modifié
@@ -190,7 +207,8 @@ class KeycloakAdminClientTest {
         client.resetPassword("uid", "secret");
 
         ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
-        verify(restTemplate).exchange(contains("/users/uid/reset-password"), eq(HttpMethod.PUT), captor.capture(), eq(Void.class));
+        verify(restTemplate).exchange(contains("/users/uid/reset-password"),
+                eq(HttpMethod.PUT), captor.capture(), eq(Void.class));
         Map body = (Map) captor.getValue().getBody();
         assertThat(body.get("type")).isEqualTo("password");
         assertThat(body.get("value")).isEqualTo("secret");
@@ -201,13 +219,15 @@ class KeycloakAdminClientTest {
     void list_users_builds_url_with_paging_and_search() {
         when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
-        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users"), eq(HttpMethod.GET), any(), eq(KeycloakUser[].class)))
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users"),
+                eq(HttpMethod.GET), any(), eq(KeycloakUser[].class)))
                 .thenReturn(ResponseEntity.ok(new KeycloakUser[0]));
 
         client.listUsers("bob", 20, 20);
 
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(restTemplate).exchange(urlCaptor.capture(), eq(HttpMethod.GET), any(), eq(KeycloakUser[].class));
+        verify(restTemplate).exchange(
+                urlCaptor.capture(), eq(HttpMethod.GET), any(), eq(KeycloakUser[].class));
         assertThat(urlCaptor.getValue())
                 .contains("first=20")
                 .contains("max=20")
@@ -218,7 +238,8 @@ class KeycloakAdminClientTest {
     void count_users_returns_total() {
         when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
-        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users/count"), eq(HttpMethod.GET), any(), eq(Integer.class)))
+        when(restTemplate.exchange(contains("/admin/realms/ms-realm/users/count"),
+                eq(HttpMethod.GET), any(), eq(Integer.class)))
                 .thenReturn(ResponseEntity.ok(42));
 
         assertThat(client.countUsers("")).isEqualTo(42);

@@ -8,9 +8,19 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.List;
 
+/**
+ * Contrôleur de la page d'accueil de l'application d'administration.
+ */
 @Controller
 public class HomeController {
 
+    /**
+     * Affiche la page d'accueil avec le nom d'utilisateur et les rôles de l'utilisateur connecté.
+     *
+     * @param authentication le contexte d'authentification Spring Security
+     * @param model          le modèle Thymeleaf
+     * @return le nom du template {@code home}
+     */
     @GetMapping("/")
     public String home(Authentication authentication, Model model) {
         model.addAttribute("username", authentication.getName());
