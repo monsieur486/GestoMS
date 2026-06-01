@@ -25,13 +25,38 @@
 
           <hr class="border-secondary my-3"/>
 
-          <p class="text-muted small mb-3">
-            Pour changer votre mot de passe, utilisez votre espace Keycloak.
-          </p>
-          <a th:href="${keycloakAccountUrl}" target="_blank" rel="noopener noreferrer"
-             class="btn btn-outline-primary w-100">
-            Changer mon mot de passe (Keycloak) ↗
-          </a>
+          <div th:if="${param.ok}" class="alert alert-success">Mot de passe modifié.</div>
+          <div th:if="${param.mismatch}" class="alert alert-danger">Les mots de passe ne correspondent pas.</div>
+          <div th:if="${param.wrong}" class="alert alert-danger">Ancien mot de passe incorrect.</div>
+          <div th:if="${param.error}" class="alert alert-danger">Erreur, réessayez plus tard.</div>
+
+          <h6 class="fw-bold mb-3">Changer mon mot de passe</h6>
+          <form th:action="@{/account/password}" method="post" id="pwdForm" class="row g-3">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div class="col-12">
+              <label class="form-label">Ancien mot de passe</label>
+              <input class="form-control" type="password" name="oldPassword" required/>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Nouveau mot de passe</label>
+              <input class="form-control" type="password" name="newPassword" id="newPassword" required/>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Retaper le nouveau mot de passe</label>
+              <input class="form-control" type="password" name="confirm" id="confirm" required/>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary w-100">Changer le mot de passe</button>
+            </div>
+          </form>
+          <script>
+            document.getElementById('pwdForm').addEventListener('submit', function (e) {
+              if (document.getElementById('newPassword').value !== document.getElementById('confirm').value) {
+                e.preventDefault();
+                alert('Les mots de passe ne correspondent pas.');
+              }
+            });
+          </script>
         </div>
       </div>
     </div>

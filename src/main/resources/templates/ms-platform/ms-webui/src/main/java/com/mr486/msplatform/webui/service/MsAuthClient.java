@@ -99,9 +99,46 @@ public class MsAuthClient {
         }
     }
 
+    /**
+     * Change le mot de passe de l'utilisateur via ms-auth (endpoint authentifié).
+     *
+     * @param accessToken l'access token JWT de session
+     * @param oldPassword l'ancien mot de passe
+     * @param newPassword le nouveau mot de passe
+     * @throws MsAuthClient.WrongOldPasswordException si ms-auth renvoie 422 (ancien mot de passe faux)
+     * @throws MsAuthClient.TokenExpiredException     si ms-auth renvoie 401 (access token expiré)
+     * @throws MsAuthClient.AuthUnavailableException  si ms-auth est injoignable ou en erreur
+     */
+    public void changePassword(String accessToken, String oldPassword, String newPassword) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(accessToken == null ? "" : accessToken);
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(
+                Map.of("oldPassword", oldPassword, "newPassword", newPassword), headers);
+        try {
+            restTemplate.postForEntity(gatewayUrl + "/auth/account/password", entity, Void.class);
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_ENTITY) {
+                throw new WrongOldPasswordException();
+            }
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                throw new TokenExpiredException();
+            }
+            throw new AuthUnavailableException();
+        } catch (HttpServerErrorException | ResourceAccessException e) {
+            throw new AuthUnavailableException();
+        }
+    }
+
     /** Levée lorsque les identifiants fournis sont invalides (401 ou 400 retourné par ms-auth). */
     public static class InvalidCredentialsException extends RuntimeException {}
 
     /** Levée lorsque ms-auth est injoignable ou retourne une erreur serveur. */
     public static class AuthUnavailableException extends RuntimeException {}
+
+    /** Levée lorsque ms-auth renvoie 422 : l'ancien mot de passe fourni est incorrect. */
+    public static class WrongOldPasswordException extends RuntimeException {}
+
+    /** Levée lorsque ms-auth renvoie 401 : l'access token de session est expiré. */
+    public static class TokenExpiredException extends RuntimeException {}
 }
