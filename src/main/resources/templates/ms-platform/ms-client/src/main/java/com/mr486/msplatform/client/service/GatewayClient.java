@@ -43,6 +43,16 @@ public class GatewayClient {
         return exchangeWithRefresh(session, path, HttpMethod.POST, jsonBody);
     }
 
+    /** PUT {@code jsonBody} vers {@code path} via le gateway ; refresh + rejeu sur 401. */
+    public String put(HttpSession session, String path, String jsonBody) {
+        return exchangeWithRefresh(session, path, HttpMethod.PUT, jsonBody);
+    }
+
+    /** DELETE {@code path} via le gateway ; refresh + rejeu sur 401. */
+    public void delete(HttpSession session, String path) {
+        exchangeWithRefresh(session, path, HttpMethod.DELETE, null);
+    }
+
     private String exchangeWithRefresh(HttpSession session, String path, HttpMethod method, String body) {
         String accessToken = (String) session.getAttribute(SessionKeys.ACCESS_TOKEN);
         try {

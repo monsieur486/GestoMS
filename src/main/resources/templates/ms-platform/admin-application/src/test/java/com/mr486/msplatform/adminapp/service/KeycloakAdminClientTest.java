@@ -112,11 +112,11 @@ class KeycloakAdminClientTest {
         when(restTemplate.postForEntity(contains("/realms/master/"), any(), eq(Map.class)))
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
         KeycloakRole[] roles = {
-                new KeycloakRole("a", "ADMIN"),
-                new KeycloakRole("b", "USER_SERVICE_A"),
-                new KeycloakRole("c", "offline_access"),
-                new KeycloakRole("d", "uma_authorization"),
-                new KeycloakRole("e", "default-roles-ms-realm")
+                new KeycloakRole("a", "ADMIN", null),
+                new KeycloakRole("b", "USER_SERVICE_A", null),
+                new KeycloakRole("c", "offline_access", null),
+                new KeycloakRole("d", "uma_authorization", null),
+                new KeycloakRole("e", "default-roles-ms-realm", null)
         };
         when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles"),
                 eq(HttpMethod.GET), any(), eq(KeycloakRole[].class)))
@@ -132,7 +132,7 @@ class KeycloakAdminClientTest {
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
         when(restTemplate.exchange(contains("/users/uid/role-mappings/realm"),
                 eq(HttpMethod.GET), any(), eq(KeycloakRole[].class)))
-                .thenReturn(ResponseEntity.ok(new KeycloakRole[]{new KeycloakRole("a", "ADMIN")}));
+                .thenReturn(ResponseEntity.ok(new KeycloakRole[]{new KeycloakRole("a", "ADMIN", null)}));
 
         assertThat(client.listUserRealmRoles("uid"))
                 .extracting(KeycloakRole::name).containsExactly("ADMIN");
@@ -145,7 +145,7 @@ class KeycloakAdminClientTest {
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
         when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles/ADMIN"),
                 eq(HttpMethod.GET), any(), eq(KeycloakRole.class)))
-                .thenReturn(ResponseEntity.ok(new KeycloakRole("rid", "ADMIN")));
+                .thenReturn(ResponseEntity.ok(new KeycloakRole("rid", "ADMIN", null)));
 
         client.addRealmRole("uid", "ADMIN");
 
@@ -165,7 +165,7 @@ class KeycloakAdminClientTest {
                 .thenReturn(ResponseEntity.ok(Map.of("access_token", "tok")));
         when(restTemplate.exchange(contains("/admin/realms/ms-realm/roles/USER_BATCH"),
                 eq(HttpMethod.GET), any(), eq(KeycloakRole.class)))
-                .thenReturn(ResponseEntity.ok(new KeycloakRole("rid", "USER_BATCH")));
+                .thenReturn(ResponseEntity.ok(new KeycloakRole("rid", "USER_BATCH", null)));
 
         client.removeRealmRole("uid", "USER_BATCH");
 

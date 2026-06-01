@@ -32,20 +32,11 @@ public class FeatureFilterProcessor implements FileProcessor {
     }
 
     private boolean include(String path, String root, FeatureOptions f, BatchOptions b) {
-        String rel = relative(path, root);
-        // springboot-admin (monitoring) optionnel
+        String rel = ProcessorUtils.relative(path, root);
         if (!f.isSpringbootAdmin() && rel.startsWith("ms-admin/"))      return false;
-        // ms-client (UI) optionnel — module créé en Phase 2 ; règle inerte tant que le dossier est absent
         if (!f.isClientWebUI()     && rel.startsWith("ms-client/"))     return false;
-        // observabilité complète (loki + promtail + grafana) pilotée par batch.grafana
         if (!b.isGrafana()         && rel.startsWith("observability/")) return false;
-        // service-batch piloté par batch.enabled seul (rabbitmq toujours présent)
         if (!b.isEnabled()         && rel.startsWith("service-batch/")) return false;
         return true;
-    }
-
-    private String relative(String path, String root) {
-        String prefix = root + "/";
-        return path.startsWith(prefix) ? path.substring(prefix.length()) : path;
     }
 }

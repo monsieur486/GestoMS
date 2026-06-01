@@ -112,4 +112,67 @@ public class ResourceController {
             return "redirect:/resources/" + serviceName + "?error";
         }
     }
+
+    @GetMapping("/{serviceName}/{id}/edit")
+    public String editForm(@PathVariable String serviceName, @PathVariable String id,
+                           Authentication authentication, HttpServletRequest request, Model model) {
+        ResourceEntry entry = ResourceAccess.find(
+                clientProperties.resources(), authentication.getAuthorities(), serviceName);
+        if (entry == null) {
+            return "redirect:/resources";
+        }
+        model.addAttribute("entry", entry);
+        model.addAttribute("rowId", id);
+        HttpSession session = request.getSession(false);
+        try {
+            String json = gatewayClient.get(session, "/" + entry.serviceName() + entry.routePrefix() + "/" + id);
+            Map<String, Object> row = mapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+            model.addAttribute("row", row);
+        } catch (GatewayClient.SessionExpiredException e) {
+            return "redirect:/login?expired";
+        } catch (Exception e) {
+            return "redirect:/resources/" + serviceName + "?error";
+        }
+        return "resource-edit";
+    }
+
+    @PostMapping("/{serviceName}/{id}/edit")
+    public String edit(@PathVariable String serviceName, @PathVariable String id,
+                       @RequestParam String name, @RequestParam String description,
+                       Authentication authentication, HttpServletRequest request) {
+        ResourceEntry entry = ResourceAccess.find(
+                clientProperties.resources(), authentication.getAuthorities(), serviceName);
+        if (entry == null) {
+            return "redirect:/resources";
+        }
+        HttpSession session = request.getSession(false);
+        try {
+            String body = mapper.writeValueAsString(Map.of("name", name, "description", description));
+            gatewayClient.put(session, "/" + entry.serviceName() + entry.routePrefix() + "/" + id, body);
+            return "redirect:/resources/" + serviceName;
+        } catch (GatewayClient.SessionExpiredException e) {
+            return "redirect:/login?expired";
+        } catch (Exception e) {
+            return "redirect:/resources/" + serviceName + "?error";
+        }
+    }
+
+    @PostMapping("/{serviceName}/{id}/delete")
+    public String delete(@PathVariable String serviceName, @PathVariable String id,
+                         Authentication authentication, HttpServletRequest request) {
+        ResourceEntry entry = ResourceAccess.find(
+                clientProperties.resources(), authentication.getAuthorities(), serviceName);
+        if (entry == null) {
+            return "redirect:/resources";
+        }
+        HttpSession session = request.getSession(false);
+        try {
+            gatewayClient.delete(session, "/" + entry.serviceName() + entry.routePrefix() + "/" + id);
+            return "redirect:/resources/" + serviceName;
+        } catch (GatewayClient.SessionExpiredException e) {
+            return "redirect:/login?expired";
+        } catch (Exception e) {
+            return "redirect:/resources/" + serviceName + "?error";
+        }
+    }
 }

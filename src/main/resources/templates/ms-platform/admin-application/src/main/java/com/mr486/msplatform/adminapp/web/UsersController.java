@@ -1,5 +1,6 @@
 package com.mr486.msplatform.adminapp.web;
 
+import com.mr486.msplatform.adminapp.dto.KeycloakUser;
 import com.mr486.msplatform.adminapp.service.KeycloakAdminClient;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -92,8 +93,12 @@ public class UsersController {
      * @return une redirection vers {@code /users}
      */
     @PostMapping("/users/{id}/delete")
-    public String delete(@PathVariable String id) {
+    public String delete(@PathVariable String id, Authentication authentication) {
         try {
+            KeycloakUser user = keycloakAdminClient.getUser(id);
+            if (user != null && user.username().equals(authentication.getName())) {
+                return "redirect:/users?error=self";
+            }
             keycloakAdminClient.deleteUser(id);
             return "redirect:/users";
         } catch (KeycloakAdminClient.KeycloakUnavailableException e) {

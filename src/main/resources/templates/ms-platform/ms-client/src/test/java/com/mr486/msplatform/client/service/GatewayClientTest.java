@@ -109,4 +109,43 @@ class GatewayClientTest {
         assertThat(gatewayClient.post(session, PATH, "{}")).isEqualTo("created");
         assertThat(session.getAttribute(SessionKeys.ACCESS_TOKEN)).isEqualTo("new-access");
     }
+
+    @Test
+    void put_returns_body_on_success() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.PUT), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"id\":1,\"name\":\"updated\"}"));
+        assertThat(gatewayClient.put(session, PATH, "{\"name\":\"updated\",\"description\":\"d\"}"))
+                .isEqualTo("{\"id\":1,\"name\":\"updated\"}");
+    }
+
+    @Test
+    void put_refreshes_and_retries_once_on_401() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.PUT), any(), eq(String.class)))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "401", null, null, null))
+                .thenReturn(ResponseEntity.ok("updated"));
+        when(msAuthClient.refresh("old-refresh"))
+                .thenReturn(new MsAuthTokens("new-access", "new-refresh", 300));
+
+        assertThat(gatewayClient.put(session, PATH, "{}")).isEqualTo("updated");
+        assertThat(session.getAttribute(SessionKeys.ACCESS_TOKEN)).isEqualTo("new-access");
+    }
+
+    @Test
+    void delete_succeeds() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.DELETE), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.noContent().build());
+        gatewayClient.delete(session, PATH); // no exception = success
+    }
+
+    @Test
+    void delete_refreshes_and_retries_once_on_401() {
+        when(restTemplate.exchange(eq(URL), eq(HttpMethod.DELETE), any(), eq(String.class)))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "401", null, null, null))
+                .thenReturn(ResponseEntity.noContent().build());
+        when(msAuthClient.refresh("old-refresh"))
+                .thenReturn(new MsAuthTokens("new-access", "new-refresh", 300));
+
+        gatewayClient.delete(session, PATH);
+        assertThat(session.getAttribute(SessionKeys.ACCESS_TOKEN)).isEqualTo("new-access");
+    }
 }

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -41,6 +42,8 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
+    private static final Pattern DEPENDS_ON_PATTERN = Pattern.compile("(depends_on: \\[)([^\\]]+)(\\])");
+
     @Override
     public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
         String rootPomPath  = ctx.getTargetRoot() + "/pom.xml";
@@ -57,6 +60,8 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
                                                     result.add(rewriteRealm(f, ctx));
             else if (hasResources && f.path().endsWith("/test-all.sh"))
                                                     result.add(rewriteTestAll(f, ctx));
+            else if (hasResources && f.path().endsWith("/README.md"))
+                                                    result.add(rewriteReadme(f, ctx));
             else if (hasResources && f.path().contains("/service-consumer/") && f.path().endsWith("AggregateController.java"))
                                                     result.add(rewriteAggregate(f, ctx));
             else if (hasResources && f.path().endsWith("/ms-client/src/main/resources/application.yml"))
@@ -85,35 +90,20 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         return "test-" + r.getServiceName();
     }
 
-    /** routePrefix as requested, else the ResourceExpandProcessor default {@code /api/<class>s}. */
-    private String routePrefix(ResourceModuleRequest r) {
-        String p = r.getRoutePrefix();
-        if (p != null && !p.isBlank()) return p;
-        return "/api/" + r.getClassName().toLowerCase() + "s";
-    }
-
     /** Full gateway URL a client hits: {@code $GATEWAY_URL/<service><routePrefix>} (Path=/<service>/** + StripPrefix=1). */
     private String gatewayUrl(ResourceModuleRequest r) {
-        return "$GATEWAY_URL/" + r.getServiceName() + routePrefix(r);
+        return "$GATEWAY_URL/" + r.getServiceName() + r.getEffectiveRoutePrefix();
     }
 
     /** Path under the gateway (no host), as fed to the routed_up readiness probe. */
     private String routePath(ResourceModuleRequest r) {
-        return r.getServiceName() + routePrefix(r);
-    }
-
-    private String pascalCase(String kebab) {
-        StringBuilder sb = new StringBuilder();
-        for (String part : kebab.split("[-_]")) {
-            if (!part.isEmpty()) sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1).toLowerCase());
-        }
-        return sb.toString();
+        return r.getServiceName() + r.getEffectiveRoutePrefix();
     }
 
     // ── Root pom <modules> ────────────────────────────────────────────────────
 
     private GeneratedFile rewriteRootPom(GeneratedFile f, GenerationContext ctx) {
-        if (containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
         String text = new String(f.content(), StandardCharsets.UTF_8);
         StringBuilder block = new StringBuilder("<modules>\n");
         for (String m : desiredModules(ctx)) {
@@ -128,7 +118,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         PlatformGenerationRequest req = ctx.getRequest();
         FeatureOptions f = req.getFeatures();
         BatchOptions b = req.getBatch();
-        boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
+        boolean hasResources = hasResources(ctx);
 
         List<String> modules = new ArrayList<>();
         modules.add("common-lib");
@@ -154,7 +144,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── docker-compose service blocks ─────────────────────────────────────────
 
     private GeneratedFile rewriteCompose(GeneratedFile f, GenerationContext ctx) {
-        if (containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
         String text = new String(f.content(), StandardCharsets.UTF_8);
         List<String> removedBlocks = blocksToRemove(ctx);
         for (String block : removedBlocks) {
@@ -176,17 +166,17 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
      */
     private String cleanDependsOnReferences(String text, List<String> removedBlocks) {
         if (removedBlocks.isEmpty()) return text;
-        java.util.regex.Pattern p = java.util.regex.Pattern.compile("(depends_on: \\[)([^\\]]+)(\\])");
-        java.util.regex.Matcher m = p.matcher(text);
+        Set<String> removed = new HashSet<>(removedBlocks);
+        Matcher m = DEPENDS_ON_PATTERN.matcher(text);
         StringBuffer sb = new StringBuffer();
         while (m.find()) {
             String[] deps = m.group(2).split(",\\s*");
             List<String> kept = new ArrayList<>();
             for (String dep : deps) {
                 String trimmed = dep.trim();
-                if (!removedBlocks.contains(trimmed)) kept.add(trimmed);
+                if (!removed.contains(trimmed)) kept.add(trimmed);
             }
-            m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(
+            m.appendReplacement(sb, Matcher.quoteReplacement(
                 m.group(1) + String.join(", ", kept) + m.group(3)
             ));
         }
@@ -195,11 +185,8 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     }
 
     private List<String> volumesToRemove(GenerationContext ctx) {
-        PlatformGenerationRequest req = ctx.getRequest();
-        boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
-
         List<String> vols = new ArrayList<>();
-        if (hasResources) {
+        if (hasResources(ctx)) {
             vols.add("service_a_db_data");
             vols.add("service_b_db_data");
         }
@@ -214,7 +201,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         PlatformGenerationRequest req = ctx.getRequest();
         FeatureOptions f = req.getFeatures();
         BatchOptions b = req.getBatch();
-        boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
+        boolean hasResources = hasResources(ctx);
 
         List<String> blocks = new ArrayList<>();
         if (!b.isEnabled())          blocks.add("service-batch");
@@ -234,12 +221,11 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     private String addResourceBlocks(String text, GenerationContext ctx) {
         PlatformGenerationRequest req = ctx.getRequest();
         if (req.getResources() == null || req.getResources().isEmpty()) return text;
-        boolean keycloak = true; // keycloak permanent — les blocs resource incluent toujours la dép + KEYCLOAK_ISSUER_URI
 
         StringBuilder newServices = new StringBuilder();
         StringBuilder newVolumes = new StringBuilder();
         for (ResourceModuleRequest r : req.getResources()) {
-            newServices.append(buildResourceServiceBlock(r, keycloak));
+            newServices.append(buildResourceServiceBlock(r));
             newVolumes.append(buildResourceVolumeEntry(r));
         }
 
@@ -257,73 +243,62 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         return text;
     }
 
-    private String buildResourceServiceBlock(ResourceModuleRequest r, boolean keycloak) {
+    private String buildResourceServiceBlock(ResourceModuleRequest r) {
         DatabaseType db = r.getDatabaseType() == null ? DatabaseType.POSTGRES : r.getDatabaseType();
-        String name = r.getServiceName();
+        String name  = r.getServiceName();
         String snake = name.replace("-", "_");
         String upper = snake.toUpperCase();
-        String depsApp = keycloak
-            ? (db == DatabaseType.H2 ? "[ms-eureka, keycloak]" : "[ms-eureka, keycloak, " + name + "-db]")
-            : (db == DatabaseType.H2 ? "[ms-eureka]" : "[ms-eureka, " + name + "-db]");
-        String kcEnv = keycloak
-            ? "      KEYCLOAK_ISSUER_URI: http://localhost:8089/realms/ms-realm\n"
-            : "";
 
         StringBuilder sb = new StringBuilder();
         switch (db) {
-            case MONGO -> sb
-                .append("  ").append(name).append("-db:\n")
-                .append("    image: mongo:7\n")
-                .append("    env_file: [.env]\n")
-                .append("    environment:\n")
-                .append("      MONGO_INITDB_ROOT_USERNAME: ").append(snake).append("\n")
-                .append("      MONGO_INITDB_ROOT_PASSWORD: ").append(snake).append("\n")
-                .append("      MONGO_INITDB_DATABASE: ").append(snake).append("_db\n")
-                .append("    volumes: [").append(snake).append("_db_data:/data/db]\n\n")
-                .append("  ").append(name).append(":\n")
-                .append("    build: ./").append(name).append("\n")
-                .append("    env_file: [.env]\n")
-                .append("    depends_on: ").append(depsApp).append("\n")
-                .append("    environment:\n")
-                .append("      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/\n")
-                .append(kcEnv)
-                .append("      ").append(upper).append("_MONGO_URI: mongodb://").append(snake).append(":").append(snake)
-                .append("@").append(name).append("-db:27017/").append(snake).append("_db?authSource=admin\n");
-            case H2 -> sb
-                .append("  ").append(name).append(":\n")
-                .append("    build: ./").append(name).append("\n")
-                .append("    env_file: [.env]\n")
-                .append("    depends_on: ").append(depsApp).append("\n")
-                .append("    environment:\n")
-                .append("      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/\n")
-                .append(kcEnv);
-            default -> sb     // POSTGRES
-                .append("  ").append(name).append("-db:\n")
-                .append("    image: postgres:16\n")
-                .append("    env_file: [.env]\n")
-                .append("    environment:\n")
-                .append("      POSTGRES_DB: ").append(snake).append("_db\n")
-                .append("      POSTGRES_USER: ").append(snake).append("\n")
-                .append("      POSTGRES_PASSWORD: ").append(snake).append("\n")
-                .append("    volumes: [").append(snake).append("_db_data:/var/lib/postgresql/data]\n")
-                .append("    healthcheck:\n")
-                .append("      test: [\"CMD-SHELL\", \"pg_isready -U ").append(snake).append("\"]\n")
-                .append("      interval: 5s\n")
-                .append("      timeout: 5s\n")
-                .append("      retries: 20\n\n")
-                .append("  ").append(name).append(":\n")
-                .append("    build: ./").append(name).append("\n")
-                .append("    env_file: [.env]\n")
-                .append("    depends_on: ").append(depsApp).append("\n")
-                .append("    environment:\n")
-                .append("      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/\n")
-                .append(kcEnv)
-                .append("      ").append(upper).append("_DATASOURCE_URL: jdbc:postgresql://").append(name).append("-db:5432/").append(snake).append("_db\n")
-                .append("      ").append(upper).append("_DB_USERNAME: ").append(snake).append("\n")
-                .append("      ").append(upper).append("_DB_PASSWORD: ").append(snake).append("\n");
+            case POSTGRES -> {
+                sb.append("  ").append(name).append("-db:\n")
+                  .append("    image: postgres:16\n")
+                  .append("    env_file: [.env]\n")
+                  .append("    environment:\n")
+                  .append("      POSTGRES_DB: ").append(snake).append("_db\n")
+                  .append("      POSTGRES_USER: ").append(snake).append("\n")
+                  .append("      POSTGRES_PASSWORD: ").append(snake).append("\n")
+                  .append("    volumes: [").append(snake).append("_db_data:/var/lib/postgresql/data]\n")
+                  .append("    healthcheck:\n")
+                  .append("      test: [\"CMD-SHELL\", \"pg_isready -U ").append(snake).append("\"]\n")
+                  .append("      interval: 5s\n")
+                  .append("      timeout: 5s\n")
+                  .append("      retries: 20\n\n");
+                appendAppService(sb, name, "[ms-eureka, keycloak, " + name + "-db]");
+                sb.append("      ").append(upper).append("_DATASOURCE_URL: jdbc:postgresql://")
+                  .append(name).append("-db:5432/").append(snake).append("_db\n")
+                  .append("      ").append(upper).append("_DB_USERNAME: ").append(snake).append("\n")
+                  .append("      ").append(upper).append("_DB_PASSWORD: ").append(snake).append("\n");
+            }
+            case MONGO -> {
+                sb.append("  ").append(name).append("-db:\n")
+                  .append("    image: mongo:7\n")
+                  .append("    env_file: [.env]\n")
+                  .append("    environment:\n")
+                  .append("      MONGO_INITDB_ROOT_USERNAME: ").append(snake).append("\n")
+                  .append("      MONGO_INITDB_ROOT_PASSWORD: ").append(snake).append("\n")
+                  .append("      MONGO_INITDB_DATABASE: ").append(snake).append("_db\n")
+                  .append("    volumes: [").append(snake).append("_db_data:/data/db]\n\n");
+                appendAppService(sb, name, "[ms-eureka, keycloak, " + name + "-db]");
+                sb.append("      ").append(upper).append("_MONGO_URI: mongodb://").append(snake)
+                  .append(":").append(snake).append("@").append(name).append("-db:27017/")
+                  .append(snake).append("_db?authSource=admin\n");
+            }
+            case H2 -> appendAppService(sb, name, "[ms-eureka, keycloak]");
         }
         sb.append("\n");
         return sb.toString();
+    }
+
+    private void appendAppService(StringBuilder sb, String name, String deps) {
+        sb.append("  ").append(name).append(":\n")
+          .append("    build: ./").append(name).append("\n")
+          .append("    env_file: [.env]\n")
+          .append("    depends_on: ").append(deps).append("\n")
+          .append("    environment:\n")
+          .append("      EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/\n")
+          .append("      KEYCLOAK_ISSUER_URI: http://localhost:8089/realms/ms-realm\n");
     }
 
     private String buildResourceVolumeEntry(ResourceModuleRequest r) {
@@ -335,7 +310,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── ms-gateway routes ─────────────────────────────────────────────────────
 
     private GeneratedFile rewriteGatewayYml(GeneratedFile f, GenerationContext ctx) {
-        if (containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
         String text = new String(f.content(), StandardCharsets.UTF_8);
         PlatformGenerationRequest req = ctx.getRequest();
         boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
@@ -447,7 +422,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     private static final Set<String> DEFAULT_SERVICE_USERS = Set.of("test-service-a", "test-service-b", "test-service-c");
 
     private GeneratedFile rewriteRealm(GeneratedFile f, GenerationContext ctx) {
-        if (containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
         List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
         try {
             ObjectNode root = (ObjectNode) mapper.readTree(f.content());
@@ -491,7 +466,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         u.put("enabled", true);
         u.put("emailVerified", true);
         u.put("firstName", "Test");
-        u.put("lastName", pascalCase(r.getServiceName()));
+        u.put("lastName", ProcessorUtils.toPascalCase(r.getServiceName()));
         u.put("email", r.getServiceName() + "@example.local");
         u.set("requiredActions", mapper.createArrayNode());
         ArrayNode creds = mapper.createArrayNode();
@@ -501,6 +476,50 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         rr.add(roleName(r));
         u.set("realmRoles", rr);
         return u;
+    }
+
+
+    // ── README (Keycloak users per resource) ────────────────────────────────
+
+    private GeneratedFile rewriteReadme(GeneratedFile f, GenerationContext ctx) {
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
+
+        String text = new String(f.content(), StandardCharsets.UTF_8);
+        List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
+
+        StringBuilder table = new StringBuilder();
+        table.append("## Utilisateurs Keycloak\n");
+        table.append("| Utilisateur | Mot de passe | Rôles |\n");
+        table.append("|---|---|---|\n");
+        table.append("| `test-admin` | `admin123` | ADMIN, USER_BATCH");
+        for (ResourceModuleRequest r : resources) {
+            table.append(", ").append(roleName(r));
+        }
+        table.append(" |\n");
+        table.append("| `test-batch` | `user123` | USER_BATCH |\n");
+        for (ResourceModuleRequest r : resources) {
+            table.append("| `")
+                    .append(testUser(r))
+                    .append("` | `user123` | ")
+                    .append(roleName(r))
+                    .append(" |\n");
+        }
+
+        String heading = "## Utilisateurs Keycloak";
+        int sectionStart = text.indexOf(heading);
+        if (sectionStart < 0) {
+            return f;
+        }
+
+        int nextSection = text.indexOf("\n## ", sectionStart + heading.length());
+        String updated;
+        if (nextSection < 0) {
+            updated = text.substring(0, sectionStart) + table;
+        } else {
+            updated = text.substring(0, sectionStart) + table + text.substring(nextSection);
+        }
+
+        return new GeneratedFile(f.path(), updated.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 
     // ── test-all.sh (role matrix + URLs derived from resources[]) ─────────────
@@ -716,7 +735,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── service-consumer AggregateController (zip over N resources) ────────────
 
     private GeneratedFile rewriteAggregate(GeneratedFile f, GenerationContext ctx) {
-        if (containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
         String original = new String(f.content(), StandardCharsets.UTF_8);
         String pkg = firstPackage(original);
         List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
@@ -725,7 +744,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         StringBuilder puts = new StringBuilder();
         for (int i = 0; i < resources.size(); i++) {
             ResourceModuleRequest r = resources.get(i);
-            calls.append("                call(\"lb://").append(r.getServiceName()).append(routePrefix(r))
+            calls.append("                call(\"lb://").append(r.getServiceName()).append(r.getEffectiveRoutePrefix())
                  .append("\", authorization)").append(i < resources.size() - 1 ? ",\n" : "\n");
             puts.append("                result.put(\"").append(r.getServiceName())
                 .append("\", (String) results[").append(i).append("]);\n");
@@ -780,12 +799,12 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
      * {@code ^client:} jusqu'à la fin du contenu — pas de chirurgie d'indentation.
      */
     private GeneratedFile rewriteClientCatalog(GeneratedFile f, GenerationContext ctx) {
-        if (containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
         String text = new String(f.content(), StandardCharsets.UTF_8);
         StringBuilder block = new StringBuilder("client:\n  resources:\n");
         for (ResourceModuleRequest r : ctx.getRequest().getResources()) {
             block.append("    - serviceName: ").append(r.getServiceName()).append("\n");
-            block.append("      routePrefix: ").append(routePrefix(r)).append("\n");
+            block.append("      routePrefix: ").append(r.getEffectiveRoutePrefix()).append("\n");
             block.append("      label: ").append(r.getClassName()).append("\n");
             block.append("      role: ").append(roleName(r)).append("\n");
         }
@@ -802,8 +821,4 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         return "consumer.controller";
     }
 
-    private boolean containsNullByte(byte[] content) {
-        for (byte b : content) if (b == 0) return true;
-        return false;
-    }
 }

@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -f tokens.env ]; then
-  source tokens.env
+GATEWAY_URL=${GATEWAY_URL:-http://localhost:9000}
+BATCH_USER=${BATCH_USER:-test-batch}
+BATCH_PASSWORD=${BATCH_PASSWORD:-user123}
+
+# Re-authenticate at each run so the token is always fresh.
+echo "Authenticating as ${BATCH_USER}..."
+BATCH_LOGIN=$(curl -s -X POST "${GATEWAY_URL}/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"username\":\"${BATCH_USER}\",\"password\":\"${BATCH_PASSWORD}\"}")
+TOKEN_BATCH=$(echo "$BATCH_LOGIN" | jq -r '.access_token // empty')
+if [ -z "$TOKEN_BATCH" ]; then
+  echo "Authentication failed. Check GATEWAY_URL / BATCH_USER / BATCH_PASSWORD."
+  exit 1
 fi
 
 REQUESTS="${1:-10}"
@@ -11,11 +22,6 @@ FAILURE_RATE=0
 
 if [ "${3:-}" = "--failure-rate" ]; then
   FAILURE_RATE="${4:-0}"
-fi
-
-if [ -z "${TOKEN_BATCH:-}" ]; then
-  echo "TOKEN_BATCH is missing. Run ./test-all.sh first."
-  exit 1
 fi
 
 RESULT_DIR="benchmark-results"
@@ -109,7 +115,8 @@ fi
 
 echo "Sample final job:"
 if ls "$RESULT_DIR"/json/job-*.json >/dev/null 2>&1; then
-  cat "$(ls "$RESULT_DIR"/json/job-*.json | tail -n 1)"
+  last_job=$(ls "$RESULT_DIR"/json/job-*.json | tail -n 1)
+  cat "$last_job"
 else
   cat "$RESULT_DIR/json/create-1.json"
 fi

@@ -68,8 +68,13 @@ public class RolesController {
      * @return une redirection vers la page de rôles de l'utilisateur
      */
     @PostMapping("/users/{id}/roles/add")
-    public String add(@PathVariable String id, @RequestParam String roleName) {
+    public String add(@PathVariable String id, @RequestParam String roleName,
+                      Authentication authentication) {
         try {
+            KeycloakUser user = keycloakAdminClient.getUser(id);
+            if (user != null && user.username().equals(authentication.getName())) {
+                return "redirect:/users/" + id + "/roles?error=self";
+            }
             keycloakAdminClient.addRealmRole(id, roleName);
             return "redirect:/users/" + id + "/roles";
         } catch (KeycloakAdminClient.KeycloakUnavailableException e) {
@@ -85,8 +90,13 @@ public class RolesController {
      * @return une redirection vers la page de rôles de l'utilisateur
      */
     @PostMapping("/users/{id}/roles/remove")
-    public String remove(@PathVariable String id, @RequestParam String roleName) {
+    public String remove(@PathVariable String id, @RequestParam String roleName,
+                         Authentication authentication) {
         try {
+            KeycloakUser user = keycloakAdminClient.getUser(id);
+            if (user != null && user.username().equals(authentication.getName())) {
+                return "redirect:/users/" + id + "/roles?error=self";
+            }
             keycloakAdminClient.removeRealmRole(id, roleName);
             return "redirect:/users/" + id + "/roles";
         } catch (KeycloakAdminClient.KeycloakUnavailableException e) {

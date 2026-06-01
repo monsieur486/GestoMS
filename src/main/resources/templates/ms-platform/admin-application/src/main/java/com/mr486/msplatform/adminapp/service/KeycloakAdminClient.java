@@ -347,6 +347,40 @@ public class KeycloakAdminClient {
         }
     }
 
+    public void createRealmRole(String name, String description) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(adminToken());
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", name);
+        if (description != null && !description.isBlank()) {
+            body.put("description", description);
+        }
+        try {
+            restTemplate.postForEntity(internalUrl + "/admin/realms/" + realm + "/roles",
+                    new HttpEntity<>(body, headers), Void.class);
+        } catch (HttpClientErrorException.Conflict e) {
+            throw new RoleConflictException();
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
+    public void deleteRealmRole(String name) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(adminToken());
+        try {
+            restTemplate.exchange(internalUrl + "/admin/realms/" + realm + "/roles/" + name,
+                    HttpMethod.DELETE, new HttpEntity<>(headers), Void.class);
+        } catch (KeycloakUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new KeycloakUnavailableException();
+        }
+    }
+
     private KeycloakRole roleByName(String name) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminToken());
@@ -397,4 +431,6 @@ public class KeycloakAdminClient {
 
     /** Exception levée lorsque la création d'un utilisateur échoue en raison d'un conflit (409). */
     public static class UserConflictException extends RuntimeException {}
+
+    public static class RoleConflictException extends RuntimeException {}
 }

@@ -3,6 +3,24 @@ server:
 spring:
   application:
     name: ms-admin
+  boot:
+    admin:
+      ui:
+        title: ms-admin
+        brand: "<span style='font-weight:700;background:linear-gradient(90deg,#8b5cf6,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:.03em'>ms-admin</span>"
+        theme:
+          color: "#8b5cf6"
+          palette:
+            50:  "#f5f3ff"
+            100: "#ede9fe"
+            200: "#ddd6fe"
+            300: "#c4b5fd"
+            400: "#a78bfa"
+            500: "#8b5cf6"
+            600: "#7c3aed"
+            700: "#6d28d9"
+            800: "#5b21b6"
+            900: "#4c1d95"
 eureka:
   client:
     service-url:

@@ -48,7 +48,7 @@ public class VersionInjectionProcessor implements FileProcessor {
     }
 
     private GeneratedFile transform(GeneratedFile f) {
-        if (containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
         String path = f.path();
         String text = new String(f.content(), StandardCharsets.UTF_8);
         String out = text;
@@ -124,23 +124,17 @@ public class VersionInjectionProcessor implements FileProcessor {
     }
 
     private String rewritePom(String text) {
-        text = text.replace(
-            "<artifactId>spring-boot-starter-parent</artifactId><version>" + TEMPLATE.getSpringBoot() + "</version>",
-            "<artifactId>spring-boot-starter-parent</artifactId><version>" + cfg.getSpringBoot() + "</version>");
-        text = text.replace(
-            "<spring-cloud.version>" + TEMPLATE.getSpringCloud() + "</spring-cloud.version>",
-            "<spring-cloud.version>" + cfg.getSpringCloud() + "</spring-cloud.version>");
-        text = text.replace(
-            "<mongock.version>" + TEMPLATE.getMongock() + "</mongock.version>",
-            "<mongock.version>" + cfg.getMongock() + "</mongock.version>");
-        text = text.replace(
-            "<artifactId>spring-boot-admin-starter-server</artifactId><version>" + TEMPLATE.getSpringBootAdmin() + "</version>",
-            "<artifactId>spring-boot-admin-starter-server</artifactId><version>" + cfg.getSpringBootAdmin() + "</version>");
+        String[][] replacements = {
+            { "<artifactId>spring-boot-starter-parent</artifactId><version>" + TEMPLATE.getSpringBoot()      + "</version>",
+              "<artifactId>spring-boot-starter-parent</artifactId><version>" + cfg.getSpringBoot()           + "</version>" },
+            { "<spring-cloud.version>"                                        + TEMPLATE.getSpringCloud()     + "</spring-cloud.version>",
+              "<spring-cloud.version>"                                        + cfg.getSpringCloud()          + "</spring-cloud.version>" },
+            { "<mongock.version>"                                             + TEMPLATE.getMongock()         + "</mongock.version>",
+              "<mongock.version>"                                             + cfg.getMongock()              + "</mongock.version>" },
+            { "<artifactId>spring-boot-admin-starter-server</artifactId><version>" + TEMPLATE.getSpringBootAdmin() + "</version>",
+              "<artifactId>spring-boot-admin-starter-server</artifactId><version>" + cfg.getSpringBootAdmin()      + "</version>" },
+        };
+        for (String[] r : replacements) text = text.replace(r[0], r[1]);
         return text;
-    }
-
-    private boolean containsNullByte(byte[] content) {
-        for (byte b : content) if (b == 0) return true;
-        return false;
     }
 }

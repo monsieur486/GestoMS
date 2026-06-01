@@ -31,18 +31,17 @@ public class BatchConfigProcessor implements FileProcessor {
     }
 
     private GeneratedFile replace(GeneratedFile f, BatchOptions b) {
-        if (containsNullByte(f.content())) return f;
-        try {
-            String text = new String(f.content(), StandardCharsets.UTF_8);
-            text = text.replace("BATCH_REPLICAS="      + DEFAULTS.getReplicas(),      "BATCH_REPLICAS="      + b.getReplicas());
-            text = text.replace("BATCH_FILE_CONCURRENCY=" + DEFAULTS.getFileConcurrency(), "BATCH_FILE_CONCURRENCY=" + b.getFileConcurrency());
-            text = text.replace("BATCH_MIN_DELAY_MS="  + DEFAULTS.getMinDelayMs(),    "BATCH_MIN_DELAY_MS="  + b.getMinDelayMs());
-            text = text.replace("BATCH_MAX_DELAY_MS="  + DEFAULTS.getMaxDelayMs(),    "BATCH_MAX_DELAY_MS="  + b.getMaxDelayMs());
-            text = text.replace("BATCH_MEMORY_LIMIT="  + DEFAULTS.getMemoryLimit(),   "BATCH_MEMORY_LIMIT="  + b.getMemoryLimit());
-            return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
-        } catch (Exception e) {
-            return f;
-        }
+        // BATCH_* keys only appear in .env, dist.env and docker-compose.yml
+        String path = f.path();
+        if (!path.endsWith(".env") && !path.endsWith("dist.env") && !path.endsWith("docker-compose.yml")) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        String text = new String(f.content(), StandardCharsets.UTF_8);
+        text = text.replace("BATCH_REPLICAS="         + DEFAULTS.getReplicas(),         "BATCH_REPLICAS="         + b.getReplicas());
+        text = text.replace("BATCH_FILE_CONCURRENCY=" + DEFAULTS.getFileConcurrency(),  "BATCH_FILE_CONCURRENCY=" + b.getFileConcurrency());
+        text = text.replace("BATCH_MIN_DELAY_MS="     + DEFAULTS.getMinDelayMs(),       "BATCH_MIN_DELAY_MS="     + b.getMinDelayMs());
+        text = text.replace("BATCH_MAX_DELAY_MS="     + DEFAULTS.getMaxDelayMs(),       "BATCH_MAX_DELAY_MS="     + b.getMaxDelayMs());
+        text = text.replace("BATCH_MEMORY_LIMIT="     + DEFAULTS.getMemoryLimit(),      "BATCH_MEMORY_LIMIT="     + b.getMemoryLimit());
+        return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 
     private boolean isDefault(BatchOptions b) {
@@ -53,8 +52,4 @@ public class BatchConfigProcessor implements FileProcessor {
             && b.getMemoryLimit().equals(DEFAULTS.getMemoryLimit());
     }
 
-    private boolean containsNullByte(byte[] content) {
-        for (byte b : content) if (b == 0) return true;
-        return false;
-    }
 }

@@ -1,0 +1,42 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" data-bs-theme="dark" lang="fr">
+<head th:replace="~{layout :: head('Mon compte')}"></head>
+<body>
+<div th:replace="~{layout :: header}"></div>
+<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow border-0">
+        <div class="card-body p-4">
+
+          <div class="d-flex align-items-center gap-3 mb-4">
+            <div class="avatar-circle"
+                 th:text="${username.substring(0,1).toUpperCase()}">U</div>
+            <div>
+              <h4 class="mb-1 fw-bold" th:text="${username}">user</h4>
+              <div class="d-flex flex-wrap gap-1">
+                <span th:each="role : ${roles}"
+                      th:text="${role}"
+                      th:classappend="${role.contains('ADMIN')} ? ' admin'"
+                      class="role-badge">ROLE</span>
+              </div>
+            </div>
+          </div>
+
+          <hr class="border-secondary my-3"/>
+
+          <p class="text-muted small mb-3">
+            Pour changer votre mot de passe, utilisez votre espace Keycloak.
+          </p>
+          <a th:href="${keycloakAccountUrl}" target="_blank" rel="noopener noreferrer"
+             class="btn btn-outline-primary w-100">
+            Changer mon mot de passe (Keycloak) ↗
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

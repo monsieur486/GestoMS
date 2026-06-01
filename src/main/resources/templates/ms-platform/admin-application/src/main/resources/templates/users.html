@@ -1,59 +1,107 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Utilisateurs — admin-application</title>
-  <link rel="stylesheet" th:href="@{/css/app.css}">
-</head>
+<html xmlns:th="http://www.thymeleaf.org" data-bs-theme="dark" lang="fr">
+<head th:replace="~{layout :: head('Utilisateurs')}"></head>
 <body>
 <div th:replace="~{layout :: header}"></div>
-<main>
-  <p><a th:href="@{/}">← Accueil</a></p>
-  <h1>Utilisateurs</h1>
-  <p th:if="${error}" class="error" th:text="${error}">erreur</p>
-  <p th:if="${param.error != null and param.error[0] == 'conflict'}" class="error">Nom d'utilisateur déjà pris.</p>
-  <p th:if="${param.error != null and param.error[0] != 'conflict'}" class="error">Keycloak indisponible.</p>
-  <form th:action="@{/users}" method="get">
-    <input type="text" name="search" th:value="${search}" placeholder="Rechercher…"/>
-    <button type="submit">Rechercher</button>
+<main class="container py-5">
+
+  <h1 class="fw-bold mb-4">Utilisateurs</h1>
+
+  <div th:if="${error}" class="alert alert-danger mb-3" th:text="${error}">erreur</div>
+  <div th:if="${param.error != null and param.error[0] == 'conflict'}" class="alert alert-warning mb-3">
+    Nom d'utilisateur déjà pris.
+  </div>
+  <div th:if="${param.error != null and param.error[0] == 'self'}" class="alert alert-warning mb-3">
+    Vous ne pouvez pas supprimer votre propre compte.
+  </div>
+  <div th:if="${param.error != null and param.error[0] != 'conflict' and param.error[0] != 'self'}"
+       class="alert alert-danger mb-3">Keycloak indisponible.</div>
+
+  <form th:action="@{/users}" method="get" class="d-flex gap-2 mb-4" style="max-width:420px">
+    <input class="form-control" type="text" name="search" th:value="${search}" placeholder="Rechercher un utilisateur…"/>
+    <button type="submit" class="btn btn-outline-primary px-3">Rechercher</button>
   </form>
-  <table th:if="${users}">
-    <thead><tr><th>username</th><th>email</th><th>prénom</th><th>nom</th><th>actif</th><th>actions</th></tr></thead>
-    <tbody>
-      <tr th:each="u : ${users}">
-        <td th:text="${u.username}">user</td>
-        <td th:text="${u.email}">email</td>
-        <td th:text="${u.firstName}">first</td>
-        <td th:text="${u.lastName}">last</td>
-        <td th:text="${u.enabled}">true</td>
-        <td>
-          <a th:href="@{/users/{id}/edit(id=${u.id})}">éditer</a>
-          <a th:href="@{/users/{id}/roles(id=${u.id})}">rôles</a>
-          <form th:if="${u.username != currentUsername}" th:action="@{/users/{id}/delete(id=${u.id})}" method="post"
-                onsubmit="return confirm('Supprimer cet utilisateur ?');">
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-            <button type="submit">Supprimer</button>
-          </form>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-  <p th:if="${users}" class="pager">
-    <a th:if="${hasPrev}" th:href="@{/users(search=${search}, page=${page - 1})}">← Précédent</a>
-    <span>Page <span th:text="${page + 1}">1</span> / <span th:text="${totalPages}">1</span></span>
-    <a th:if="${hasNext}" th:href="@{/users(search=${search}, page=${page + 1})}">Suivant →</a>
-  </p>
-  <h2>Créer un utilisateur</h2>
-  <form th:action="@{/users}" method="post">
-    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-    <label>Username <input type="text" name="username" required/></label>
-    <label>Email <input type="email" name="email"/></label>
-    <label>Prénom <input type="text" name="firstName"/></label>
-    <label>Nom <input type="text" name="lastName"/></label>
-    <label>Mot de passe <input type="password" name="password" required/></label>
-    <button type="submit">Créer</button>
-  </form>
+
+  <div class="table-responsive mb-4" th:if="${users}">
+    <table class="table table-striped table-hover align-middle">
+      <thead>
+        <tr>
+          <th>username</th>
+          <th>email</th>
+          <th>prénom</th>
+          <th>nom</th>
+          <th>actif</th>
+          <th>actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="u : ${users}" th:classappend="${u.username == currentUsername} ? 'self-row'">
+          <td class="fw-semibold" th:text="${u.username}">user</td>
+          <td class="text-muted small" th:text="${u.email}">email</td>
+          <td th:text="${u.firstName}">first</td>
+          <td th:text="${u.lastName}">last</td>
+          <td>
+            <span th:if="${u.enabled}" class="badge" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.35)">actif</span>
+            <span th:unless="${u.enabled}" class="badge" style="background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3)">inactif</span>
+          </td>
+          <td>
+            <div class="d-flex gap-2 flex-wrap">
+              <a th:href="@{/users/{id}/edit(id=${u.id})}" class="btn btn-sm btn-outline-primary">Éditer</a>
+              <a th:href="@{/users/{id}/roles(id=${u.id})}" class="btn btn-sm btn-outline-secondary">Rôles</a>
+              <form th:if="${u.username != currentUsername}"
+                    th:action="@{/users/{id}/delete(id=${u.id})}" method="post"
+                    onsubmit="return confirm('Supprimer cet utilisateur ?');">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div th:if="${users}" class="pager mb-5">
+    <a th:if="${hasPrev}" th:href="@{/users(search=${search}, page=${page - 1})}"
+       class="btn btn-sm btn-outline-secondary">← Précédent</a>
+    <span class="text-muted small">Page <strong th:text="${page + 1}">1</strong> / <span th:text="${totalPages}">1</span></span>
+    <a th:if="${hasNext}" th:href="@{/users(search=${search}, page=${page + 1})}"
+       class="btn btn-sm btn-outline-secondary">Suivant →</a>
+  </div>
+
+  <div class="card shadow border-0">
+    <div class="card-header fw-semibold">Créer un utilisateur</div>
+    <div class="card-body p-4">
+      <form th:action="@{/users}" method="post" class="row g-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <div class="col-sm-6 col-lg-4">
+          <label class="form-label">Username *</label>
+          <input class="form-control" type="text" name="username" required/>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          <label class="form-label">Email</label>
+          <input class="form-control" type="email" name="email"/>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          <label class="form-label">Prénom</label>
+          <input class="form-control" type="text" name="firstName"/>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          <label class="form-label">Nom</label>
+          <input class="form-control" type="text" name="lastName"/>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          <label class="form-label">Mot de passe *</label>
+          <input class="form-control" type="password" name="password" required/>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">Créer l'utilisateur</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

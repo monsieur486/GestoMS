@@ -1,39 +1,50 @@
 <!doctype html>
-<html xmlns:th="http://www.thymeleaf.org" lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Notifications batch — ms-client</title>
-  <link rel="stylesheet" th:href="@{/css/app.css}">
-  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
-</head>
+<html xmlns:th="http://www.thymeleaf.org" data-bs-theme="dark" lang="fr">
+<head th:replace="~{layout :: head('Notifications batch')}"></head>
 <body>
 <div th:replace="~{layout :: header}"></div>
-<main th:attr="data-gateway-url=${gatewayPublicUrl}">
-  <p><a th:href="@{/}">← Accueil</a></p>
-  <h1>Notifications batch</h1>
-  <p id="status" class="info">Connexion…</p>
-  <ul id="events"></ul>
+<main class="container py-5" th:attr="data-gateway-url=${gatewayPublicUrl}">
+
+  <h1 class="fw-bold mb-4">Notifications batch</h1>
+
+  <div class="d-flex align-items-center gap-2 mb-4">
+    <span class="status-dot disconnected" id="statusDot"></span>
+    <span id="statusText" class="text-muted small">Connexion…</span>
+  </div>
+
+  <ul id="events" class="list-group list-group-flush"></ul>
+
 </main>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   const main = document.querySelector('main');
   const gatewayUrl = main.dataset.gatewayUrl;
-  const statusEl = document.getElementById('status');
+  const dot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
   const list = document.getElementById('events');
+
   const client = new StompJs.Client({
     webSocketFactory: () => new SockJS(gatewayUrl + '/service-consumer/ws'),
     reconnectDelay: 2000,
     onConnect: () => {
-      statusEl.textContent = 'Connecté — en attente de notifications…';
+      dot.className = 'status-dot connected';
+      statusText.textContent = 'Connecté — en attente de notifications…';
       client.subscribe('/topic/batch', message => {
         const p = JSON.parse(message.body);
         const li = document.createElement('li');
-        li.textContent = `${p.jobId} - ${p.status} - ${p.generatedCount} fichiers - ${p.totalSeconds}s - ${p.instance}`;
+        li.className = 'list-group-item list-group-item-dark d-flex justify-content-between align-items-center py-2';
+        li.innerHTML =
+          `<span><strong class="text-primary">${p.jobId}</strong> &mdash; ${p.status} &mdash; ${p.generatedCount}&nbsp;fichiers &mdash; ${p.totalSeconds}s</span>` +
+          `<span class="badge rounded-pill" style="background:#8b5cf6">${p.instance}</span>`;
         list.prepend(li);
       });
     },
-    onWebSocketClose: () => { statusEl.textContent = 'Déconnecté — reconnexion…'; }
+    onWebSocketClose: () => {
+      dot.className = 'status-dot disconnected';
+      statusText.textContent = 'Déconnecté — reconnexion…';
+    }
   });
   client.activate();
 </script>

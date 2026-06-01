@@ -381,6 +381,56 @@ class ResourceExpandProcessorTest {
         assertThat(contentOf(dto)).doesNotContain("private Long id");
     }
 
+    // ── Regression: method-parameter id type replacements ────────────────────
+
+    /** Builds a service-a fixture where ResourceAService has realistic Long id method params. */
+    private List<GeneratedFile> serviceAFilesWithServiceParams(String root) {
+        List<GeneratedFile> files = new ArrayList<>(serviceAFiles(root));
+        String svcPath = root + "/service-a/src/main/java/com/mr486/msplatform/servicea/service/ResourceAService.java";
+        files.removeIf(f -> f.path().equals(svcPath));
+        files.add(file(svcPath,
+            "package com.mr486.msplatform.servicea.service;\n" +
+            "public class ResourceAService{\n" +
+            "  public ResourceADto findById(Long id){return toDto(repository.findById(id).orElseThrow());}\n" +
+            "  public ResourceADto update(Long id,ResourceADto dto){ ResourceA e=repository.findById(id).orElseThrow(); return toDto(repository.save(e)); }\n" +
+            "  public void delete(Long id){ repository.deleteById(id); }\n" +
+            "}"));
+        return files;
+    }
+
+    @Test
+    void mongo_service_method_params_use_string_id_not_long() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("catalog", "Product", "/api/products", DatabaseType.MONGO, IdType.LONG)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFilesWithServiceParams("ms-platform"), ctx);
+        GeneratedFile svc = result.stream()
+            .filter(f -> f.path().contains("/catalog/") && f.path().endsWith("ProductService.java"))
+            .findFirst().orElseThrow();
+        String content = contentOf(svc);
+        assertThat(content).as("findById param").contains("findById(String id)");
+        assertThat(content).as("update param").contains("update(String id,");
+        assertThat(content).as("delete param").contains("delete(String id)");
+        assertThat(content).as("no Long id left").doesNotContain("Long id");
+    }
+
+    @Test
+    void uuid_service_method_params_use_uuid_id_not_long() {
+        GenerationContext ctx = ctxWithResources(List.of(
+            resource("order", "Order", "/api/orders", DatabaseType.POSTGRES, IdType.UUID)
+        ));
+        List<GeneratedFile> result = processor.process(serviceAFilesWithServiceParams("ms-platform"), ctx);
+        GeneratedFile svc = result.stream()
+            .filter(f -> f.path().contains("/order/") && f.path().endsWith("OrderService.java"))
+            .findFirst().orElseThrow();
+        String content = contentOf(svc);
+        assertThat(content).as("findById param").contains("findById(UUID id)");
+        assertThat(content).as("update param").contains("update(UUID id,");
+        assertThat(content).as("delete param").contains("delete(UUID id)");
+        assertThat(content).as("no Long id left").doesNotContain("Long id");
+        assertThat(content).as("UUID import").contains("import java.util.UUID");
+    }
+
     @Test
     void mongo_idType_is_always_string_regardless_of_request() {
         GenerationContext ctx = ctxWithResources(List.of(

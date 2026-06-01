@@ -1,0 +1,401 @@
+<!doctype html>
+<html data-bs-theme="dark" lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>GestoMS — Générateur de plateforme microservices</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
+  <style>
+    [data-bs-theme="dark"] {
+      --bs-body-bg: #0d0d15;
+      --bs-body-color: #e2e8f0;
+      --bs-primary: #8b5cf6;
+      --bs-primary-rgb: 139,92,246;
+      --bs-card-bg: #141420;
+      --bs-card-border-color: #2d2d42;
+      --bs-border-color: #2d2d42;
+      --bs-input-bg: #1c1c2a;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes gradientShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+    body { animation: fadeUp .3s ease; }
+
+    /* Hero */
+    .hero {
+      background: radial-gradient(ellipse at 50% 0%, #2d1060 0%, #0d0d15 60%);
+      padding: 4rem 1rem 3rem;
+      text-align: center;
+    }
+    .hero-brand {
+      font-size: clamp(2rem,6vw,3.5rem);
+      font-weight: 800;
+      background: linear-gradient(90deg,#8b5cf6,#22d3ee,#8b5cf6);
+      background-size: 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradientShift 5s ease infinite;
+    }
+    .hero-sub { color:#94a3b8; font-size:1.05rem; margin-top:.5rem; }
+    .version-badge {
+      display:inline-block;
+      background:rgba(139,92,246,.15);
+      border:1px solid rgba(139,92,246,.4);
+      color:#a78bfa;
+      padding:.2rem .7rem;
+      border-radius:99px;
+      font-size:.75rem;
+      font-weight:600;
+      letter-spacing:.05em;
+      margin-top:.75rem;
+    }
+
+    /* Cards */
+    .card { background:var(--bs-card-bg); border-color:var(--bs-card-border-color); }
+    .card-header { background:rgba(139,92,246,.08); border-bottom:1px solid #2d2d42; font-weight:600; }
+
+    /* Forms */
+    .form-control, .form-select {
+      background:#1c1c2a; border-color:#2d2d42; color:#e2e8f0;
+    }
+    .form-control:focus, .form-select:focus {
+      background:#1c1c2a; border-color:#8b5cf6; color:#e2e8f0;
+      box-shadow:0 0 0 .2rem rgba(139,92,246,.25);
+    }
+    .form-control::placeholder { color:#4b5563; }
+    .form-label { color:#94a3b8; font-size:.85rem; }
+    .form-check-input { background-color:#1c1c2a; border-color:#2d2d42; }
+    .form-check-input:checked { background-color:#8b5cf6; border-color:#8b5cf6; }
+
+    /* Buttons */
+    .btn-primary { background:#8b5cf6; border-color:#8b5cf6; }
+    .btn-primary:hover { background:#7c3aed; border-color:#7c3aed; box-shadow:0 0 18px rgba(139,92,246,.4); }
+    .btn-generate {
+      font-size:1.1rem; padding:.8rem 3rem; border-radius:50px;
+      background:linear-gradient(135deg,#8b5cf6,#22d3ee);
+      border:none; color:#fff; font-weight:700;
+      transition:transform .2s, box-shadow .2s;
+    }
+    .btn-generate:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(139,92,246,.4); color:#fff; }
+    .btn-generate:disabled { opacity:.6; transform:none; box-shadow:none; }
+
+    /* Resources table */
+    #resources-body td { vertical-align:middle; padding:.4rem .5rem; }
+    #resources-body select, #resources-body input { font-size:.85rem; padding:.3rem .5rem; }
+    .table th { color:#a78bfa; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }
+
+    /* Status */
+    #status-msg { min-height:2rem; }
+    .spinner-border-sm { width:1rem; height:1rem; }
+
+    /* Section divider */
+    .section-icon { font-size:1.1rem; margin-right:.4rem; }
+  </style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-brand">GestoMS</div>
+  <div class="hero-sub">Générateur de plateforme microservices Spring Boot</div>
+  <div class="version-badge">V5.5</div>
+</div>
+
+<div class="container pb-5" style="max-width:900px">
+
+  <form id="gen-form" novalidate>
+
+    <!-- Section : Projet -->
+    <div class="card mb-4">
+      <div class="card-header"><span class="section-icon">📦</span>Configuration du projet</div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label">Nom du projet</label>
+            <input class="form-control" type="text" id="name" placeholder="ms-platform"/>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">groupId Maven</label>
+            <input class="form-control" type="text" id="groupId" placeholder="com.mr486"/>
+          </div>
+          <div class="col-sm-8">
+            <label class="form-label">Package de base</label>
+            <input class="form-control" type="text" id="basePackage" placeholder="com.mr486.msplatform"/>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Version Java</label>
+            <select class="form-select" id="javaVersion">
+              <option value="17" selected>17</option>
+              <option value="21">21</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section : Fonctionnalités -->
+    <div class="card mb-4">
+      <div class="card-header"><span class="section-icon">✨</span>Fonctionnalités optionnelles</div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="springbootAdmin"/>
+              <label class="form-check-label" for="springbootAdmin">
+                <strong>Spring Boot Admin</strong>
+                <div class="text-muted small">Monitoring UI sur :9100</div>
+              </label>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="clientWebUI"/>
+              <label class="form-check-label" for="clientWebUI">
+                <strong>Interface client (ms-client)</strong>
+                <div class="text-muted small">BFF Thymeleaf sur :8090</div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section : Batch -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><span class="section-icon">⚙️</span>Batch</span>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" id="batchEnabled" checked/>
+          <label class="form-check-label small" for="batchEnabled">Activé</label>
+        </div>
+      </div>
+      <div class="card-body p-4" id="batch-body">
+        <div class="row g-3 mb-3">
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="grafana"/>
+              <label class="form-check-label" for="grafana">
+                <strong>Observabilité</strong>
+                <div class="text-muted small">Loki + Promtail + Grafana :3000</div>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-sm-4">
+            <label class="form-label">Réplicas</label>
+            <input class="form-control" type="number" id="replicas" value="4" min="1" max="20"/>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Concurrence fichiers</label>
+            <input class="form-control" type="number" id="fileConcurrency" value="5" min="1"/>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Mémoire limite</label>
+            <input class="form-control" type="text" id="memoryLimit" value="768m"/>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Délai min (ms)</label>
+            <input class="form-control" type="number" id="minDelayMs" value="500" min="0"/>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Délai max (ms)</label>
+            <input class="form-control" type="number" id="maxDelayMs" value="1500" min="0"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section : Services métier -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><span class="section-icon">🗄️</span>Services métier</span>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="add-resource">
+          + Ajouter un service
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th style="min-width:130px">Service (kebab-case)</th>
+                <th style="min-width:110px">Entité (PascalCase)</th>
+                <th style="min-width:130px">Préfixe route</th>
+                <th style="min-width:100px">Base de données</th>
+                <th style="min-width:90px">Type ID</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="resources-body"></tbody>
+          </table>
+        </div>
+        <div id="no-resource" class="text-muted small text-center py-3">
+          Aucun service — les services par défaut <code>service-a/b/c</code> seront générés.
+        </div>
+      </div>
+    </div>
+
+    <!-- Bouton générer -->
+    <div class="text-center mt-4">
+      <button type="submit" class="btn btn-generate" id="btn-generate">
+        ⚡ Générer la plateforme
+      </button>
+      <div id="status-msg" class="mt-3"></div>
+    </div>
+
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  let resourceCount = 0;
+
+  // Toggle batch body on enabled switch
+  document.getElementById('batchEnabled').addEventListener('change', e => {
+    document.getElementById('batch-body').style.opacity = e.target.checked ? '1' : '.4';
+    document.getElementById('batch-body').querySelectorAll('input,select').forEach(el => {
+      el.disabled = !e.target.checked;
+    });
+  });
+
+  // Add resource row
+  document.getElementById('add-resource').addEventListener('click', () => {
+    const i = resourceCount++;
+    const tbody = document.getElementById('resources-body');
+    const tr = document.createElement('tr');
+    tr.id = `res-${i}`;
+    tr.innerHTML = `
+      <td><input class="form-control form-control-sm" type="text" id="sn-${i}" placeholder="order-service"/></td>
+      <td><input class="form-control form-control-sm" type="text" id="cn-${i}" placeholder="Order"/></td>
+      <td><input class="form-control form-control-sm" type="text" id="rp-${i}" placeholder="auto"/></td>
+      <td>
+        <select class="form-select form-select-sm" id="db-${i}">
+          <option value="POSTGRES" selected>PostgreSQL</option>
+          <option value="MONGO">MongoDB</option>
+          <option value="H2">H2</option>
+        </select>
+      </td>
+      <td>
+        <select class="form-select form-select-sm" id="id-${i}">
+          <option value="LONG" selected>Long</option>
+          <option value="INTEGER">Integer</option>
+          <option value="UUID">UUID</option>
+        </select>
+      </td>
+      <td>
+        <button type="button" class="btn btn-sm btn-outline-danger px-2" onclick="removeResource(${i})">✕</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+    updateNoResourceMsg();
+
+    // Auto-fill route prefix from class name
+    document.getElementById(`cn-${i}`).addEventListener('input', () => {
+      const rp = document.getElementById(`rp-${i}`);
+      const cn = document.getElementById(`cn-${i}`).value.trim();
+      if (!rp.dataset.manual) {
+        rp.placeholder = cn ? `/api/${cn.toLowerCase()}s` : 'auto';
+      }
+    });
+    document.getElementById(`rp-${i}`).addEventListener('input', e => {
+      e.target.dataset.manual = e.target.value ? '1' : '';
+    });
+
+    // Disable idType for MONGO
+    document.getElementById(`db-${i}`).addEventListener('change', () => {
+      const db = document.getElementById(`db-${i}`).value;
+      const idSel = document.getElementById(`id-${i}`);
+      idSel.disabled = db === 'MONGO';
+      if (db === 'MONGO') idSel.value = 'LONG';
+    });
+  });
+
+  function removeResource(i) {
+    document.getElementById(`res-${i}`).remove();
+    updateNoResourceMsg();
+  }
+
+  function updateNoResourceMsg() {
+    const hasRows = document.getElementById('resources-body').children.length > 0;
+    document.getElementById('no-resource').style.display = hasRows ? 'none' : '';
+  }
+
+  // Build payload and submit
+  document.getElementById('gen-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-generate');
+    const status = document.getElementById('status-msg');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Génération en cours…';
+    status.innerHTML = '';
+
+    const name = document.getElementById('name').value.trim() || 'ms-platform';
+
+    const resources = [];
+    document.querySelectorAll('#resources-body tr').forEach(tr => {
+      const i = tr.id.replace('res-', '');
+      const sn = document.getElementById(`sn-${i}`).value.trim();
+      const cn = document.getElementById(`cn-${i}`).value.trim();
+      if (!sn || !cn) return;
+      const rp = document.getElementById(`rp-${i}`).value.trim();
+      const db = document.getElementById(`db-${i}`).value;
+      const id = document.getElementById(`id-${i}`).value;
+      const r = { serviceName: sn, className: cn, databaseType: db, idType: id };
+      if (rp) r.routePrefix = rp;
+      resources.push(r);
+    });
+
+    const batchEnabled = document.getElementById('batchEnabled').checked;
+    const payload = {
+      name,
+      groupId:     document.getElementById('groupId').value.trim()     || 'com.mr486',
+      basePackage: document.getElementById('basePackage').value.trim() || 'com.mr486.msplatform',
+      javaVersion: document.getElementById('javaVersion').value,
+      features: {
+        springbootAdmin: document.getElementById('springbootAdmin').checked,
+        clientWebUI:     document.getElementById('clientWebUI').checked,
+      },
+      batch: {
+        enabled:         batchEnabled,
+        grafana:         document.getElementById('grafana').checked,
+        replicas:        parseInt(document.getElementById('replicas').value)        || 4,
+        fileConcurrency: parseInt(document.getElementById('fileConcurrency').value) || 5,
+        minDelayMs:      parseInt(document.getElementById('minDelayMs').value)      || 500,
+        maxDelayMs:      parseInt(document.getElementById('maxDelayMs').value)      || 1500,
+        memoryLimit:     document.getElementById('memoryLimit').value.trim()        || '768m',
+      },
+      resources,
+    };
+
+    try {
+      const resp = await fetch('/api/generate/platform', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Erreur serveur : ${resp.status} ${resp.statusText}`);
+      }
+
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = name + '.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      status.innerHTML = '<span class="text-success">✓ ZIP téléchargé avec succès.</span>';
+    } catch (err) {
+      status.innerHTML = `<span class="text-danger">✗ ${err.message}</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '⚡ Générer la plateforme';
+    }
+  });
+</script>
+</body>
+</html>
