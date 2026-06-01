@@ -44,29 +44,46 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     private static final Pattern DEPENDS_ON_PATTERN = Pattern.compile("(depends_on: \\[)([^\\]]+)(\\])");
 
+    /**
+     * Point d'entrée du pipeline : réécrit les fichiers transverses (pom racine, docker-compose,
+     * gateway YAML, realm Keycloak, test-all.sh, README, AggregateController, catalogue ms-client)
+     * pour refléter l'ensemble final des services défini dans {@code ctx}.
+     *
+     * @param files liste des fichiers générés en entrée
+     * @param ctx   contexte de génération contenant la requête et le répertoire cible
+     * @return liste des fichiers avec les fichiers transverses réécrits
+     */
     @Override
     public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
-        String rootPomPath  = ctx.getTargetRoot() + "/pom.xml";
-        String composePath  = ctx.getTargetRoot() + "/docker-compose.yml";
-        String gatewayYml   = ctx.getTargetRoot() + "/ms-gateway/src/main/resources/application.yml";
+        String rootPomPath = ctx.getTargetRoot() + "/pom.xml";
+        String composePath = ctx.getTargetRoot() + "/docker-compose.yml";
+        String gatewayYml  = ctx.getTargetRoot() + "/ms-gateway/src/main/resources/application.yml";
         boolean hasResources = hasResources(ctx);
 
         List<GeneratedFile> result = new ArrayList<>(files.size());
         for (GeneratedFile f : files) {
-            if (f.path().equals(rootPomPath))      result.add(rewriteRootPom(f, ctx));
-            else if (f.path().equals(composePath)) result.add(rewriteCompose(f, ctx));
-            else if (f.path().equals(gatewayYml))  result.add(rewriteGatewayYml(f, ctx));
-            else if (hasResources && f.path().endsWith("/keycloak/import/ms-realm-realm.json"))
-                                                    result.add(rewriteRealm(f, ctx));
-            else if (hasResources && f.path().endsWith("/test-all.sh"))
-                                                    result.add(rewriteTestAll(f, ctx));
-            else if (hasResources && f.path().endsWith("/README.md"))
-                                                    result.add(rewriteReadme(f, ctx));
-            else if (hasResources && f.path().contains("/service-consumer/") && f.path().endsWith("AggregateController.java"))
-                                                    result.add(rewriteAggregate(f, ctx));
-            else if (hasResources && f.path().endsWith("/ms-client/src/main/resources/application.yml"))
-                                                    result.add(rewriteClientCatalog(f, ctx));
-            else                                    result.add(f);
+            if (f.path().equals(rootPomPath)) {
+                result.add(rewriteRootPom(f, ctx));
+            } else if (f.path().equals(composePath)) {
+                result.add(rewriteCompose(f, ctx));
+            } else if (f.path().equals(gatewayYml)) {
+                result.add(rewriteGatewayYml(f, ctx));
+            } else if (hasResources && f.path().endsWith("/keycloak/import/ms-realm-realm.json")) {
+                result.add(rewriteRealm(f, ctx));
+            } else if (hasResources && f.path().endsWith("/test-all.sh")) {
+                result.add(rewriteTestAll(f, ctx));
+            } else if (hasResources && f.path().endsWith("/README.md")) {
+                result.add(rewriteReadme(f, ctx));
+            } else if (hasResources
+                    && f.path().contains("/service-consumer/")
+                    && f.path().endsWith("AggregateController.java")) {
+                result.add(rewriteAggregate(f, ctx));
+            } else if (hasResources
+                    && f.path().endsWith("/ms-client/src/main/resources/application.yml")) {
+                result.add(rewriteClientCatalog(f, ctx));
+            } else {
+                result.add(f);
+            }
         }
         return result;
     }
@@ -90,7 +107,10 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         return "test-" + r.getServiceName();
     }
 
-    /** Full gateway URL a client hits: {@code $GATEWAY_URL/<service><routePrefix>} (Path=/<service>/** + StripPrefix=1). */
+    /**
+     * Full gateway URL a client hits: {@code $GATEWAY_URL/<service><routePrefix>}
+     * (Path=/&lt;service&gt;/** + StripPrefix=1).
+     */
     private String gatewayUrl(ResourceModuleRequest r) {
         return "$GATEWAY_URL/" + r.getServiceName() + r.getEffectiveRoutePrefix();
     }
@@ -110,7 +130,10 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             block.append("    <module>").append(m).append("</module>\n");
         }
         block.append("  </modules>");
-        String newText = text.replaceAll("(?s)<modules>.*?</modules>", Matcher.quoteReplacement(block.toString()));
+        String newText = text.replaceAll(
+            "(?s)<modules>.*?</modules>",
+            Matcher.quoteReplacement(block.toString())
+        );
         return new GeneratedFile(f.path(), newText.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 
@@ -402,8 +425,10 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             String line = lines[i];
             if (line.isEmpty()) continue;
             if (!line.startsWith(" ")) { endIdx = i; break; }
-            if (line.length() > 2 && line.charAt(0) == ' ' && line.charAt(1) == ' ' && line.charAt(2) != ' ') {
-                endIdx = i; break;
+            if (line.length() > 2 && line.charAt(0) == ' '
+                    && line.charAt(1) == ' ' && line.charAt(2) != ' ') {
+                endIdx = i;
+                break;
             }
         }
 
@@ -418,8 +443,12 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     // ── Keycloak realm (roles + test users per resource) ──────────────────────
 
-    private static final Set<String> DEFAULT_SERVICE_ROLES = Set.of("USER_SERVICE_A", "USER_SERVICE_B", "USER_SERVICE_C");
-    private static final Set<String> DEFAULT_SERVICE_USERS = Set.of("test-service-a", "test-service-b", "test-service-c");
+    private static final Set<String> DEFAULT_SERVICE_ROLES = Set.of(
+        "USER_SERVICE_A", "USER_SERVICE_B", "USER_SERVICE_C"
+    );
+    private static final Set<String> DEFAULT_SERVICE_USERS = Set.of(
+        "test-service-a", "test-service-b", "test-service-c"
+    );
 
     private GeneratedFile rewriteRealm(GeneratedFile f, GenerationContext ctx) {
         if (ProcessorUtils.containsNullByte(f.content())) return f;
@@ -564,7 +593,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("check_token TOKEN_ADMIN ADMIN\n");
         sb.append("check_token TOKEN_BATCH BATCH\n");
         for (ResourceModuleRequest r : resources) {
-            sb.append("check_token ").append(tokenVar(r)).append(" ").append(tokenVar(r).substring("TOKEN_".length())).append("\n");
+            sb.append("check_token ")
+              .append(tokenVar(r)).append(" ")
+              .append(tokenVar(r).substring("TOKEN_".length())).append("\n");
         }
         sb.append("\n");
 
@@ -581,11 +612,16 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         for (ResourceModuleRequest target : resources) {
             String url = gatewayUrl(target);
             sb.append(assertHttp("ADMIN can access " + target.getServiceName(), "200", "$TOKEN_ADMIN", url));
-            sb.append(assertHttp(target.getServiceName() + " user can access own resource", "200", "$" + tokenVar(target), url));
+            sb.append(assertHttp(
+                target.getServiceName() + " user can access own resource",
+                "200", "$" + tokenVar(target), url
+            ));
             for (ResourceModuleRequest other : resources) {
                 if (other == target) continue;
-                sb.append(assertHttp(other.getServiceName() + " user cannot access " + target.getServiceName(),
-                                     "403", "$" + tokenVar(other), url));
+                sb.append(assertHttp(
+                    other.getServiceName() + " user cannot access " + target.getServiceName(),
+                    "403", "$" + tokenVar(other), url
+                ));
             }
             sb.append("\n");
         }
@@ -603,7 +639,8 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("if [ \"$AGG_STATUS\" != \"200\" ]; then\n  echo \"FAIL ADMIN aggregate expected 200 got $AGG_STATUS\"\n  cat /tmp/aggregate-response.txt\n  exit 1\nfi\n");
         sb.append("echo 'OK ADMIN aggregate -> 200'\n");
         for (ResourceModuleRequest r : resources) {
-            sb.append("assert_contains 'aggregate response' \"$AGG_RESPONSE\" '").append(r.getServiceName()).append("'\n");
+            sb.append("assert_contains 'aggregate response' \"$AGG_RESPONSE\" '")
+              .append(r.getServiceName()).append("'\n");
         }
         sb.append("\n");
 
@@ -611,8 +648,13 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         String firstUrl = gatewayUrl(first);
         if (batchEnabled) {
             sb.append("echo 'Testing batch jobs...'\n");
-            sb.append(assertHttp("BATCH user cannot access " + first.getServiceName(), "403", "$TOKEN_BATCH", firstUrl));
-            sb.append(assertHttp("BATCH job accepted", "202", "$TOKEN_BATCH", "$GATEWAY_URL/service-consumer/api/users/1/batch-jobs", "POST"));
+            sb.append(assertHttp(
+                "BATCH user cannot access " + first.getServiceName(), "403", "$TOKEN_BATCH", firstUrl
+            ));
+            sb.append(assertHttp(
+                "BATCH job accepted", "202", "$TOKEN_BATCH",
+                "$GATEWAY_URL/service-consumer/api/users/1/batch-jobs", "POST"
+            ));
             sb.append("\n");
         }
 
@@ -621,7 +663,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("TOKEN_ADMIN_REFRESHED=$(echo \"$REFRESH_RESPONSE\" | jq -r '.access_token // empty')\n");
         sb.append("if [ -z \"$TOKEN_ADMIN_REFRESHED\" ]; then\n  echo \"FAIL refresh token — no access_token in response\"\n  echo \"$REFRESH_RESPONSE\"\n  exit 1\nfi\n");
         sb.append("echo \"OK refresh token -> new access_token received\"\n");
-        sb.append(assertHttp("Refreshed token works on " + first.getServiceName(), "200", "$TOKEN_ADMIN_REFRESHED", firstUrl));
+        sb.append(assertHttp(
+            "Refreshed token works on " + first.getServiceName(), "200", "$TOKEN_ADMIN_REFRESHED", firstUrl
+        ));
         sb.append("\n");
 
         sb.append("echo 'Testing logout and blacklist...'\n");
@@ -816,7 +860,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     private String firstPackage(String text) {
         for (String line : text.split("\n", -1)) {
             String t = line.trim();
-            if (t.startsWith("package ") && t.endsWith(";")) return t.substring("package ".length(), t.length() - 1).trim();
+            if (t.startsWith("package ") && t.endsWith(";")) {
+                return t.substring("package ".length(), t.length() - 1).trim();
+            }
         }
         return "consumer.controller";
     }
