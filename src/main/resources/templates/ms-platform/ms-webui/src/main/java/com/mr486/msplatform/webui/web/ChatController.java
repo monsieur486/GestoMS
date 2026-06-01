@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Contrôleur du chat temps réel : affiche l'historique et diffuse les messages via STOMP/WebSocket.
@@ -51,9 +52,21 @@ public class ChatController {
     @MessageMapping("/chat.send")
     @SendTo("/topic/chat")
     public ChatMessage send(ChatMessage in, Principal principal) {
-        ChatMessage message = new ChatMessage(principal.getName(), in.text());
+        ChatMessage message = new ChatMessage(principal.getName(), in.text(), System.currentTimeMillis());
         chatHistory.add(message);
         return message;
+    }
+
+    /**
+     * Diffuse un signal de frappe portant l'utilisateur authentifié (non persisté).
+     *
+     * @param principal le Principal de l'expéditeur
+     * @return une map {@code {"user": <nom>}} diffusée sur {@code /topic/typing}
+     */
+    @MessageMapping("/chat.typing")
+    @SendTo("/topic/typing")
+    public Map<String, String> typing(Principal principal) {
+        return Map.of("user", principal.getName());
     }
 
     /**
