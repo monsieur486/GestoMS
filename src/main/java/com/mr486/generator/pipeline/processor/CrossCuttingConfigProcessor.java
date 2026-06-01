@@ -725,17 +725,52 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         StringBuilder puts = new StringBuilder();
         for (int i = 0; i < resources.size(); i++) {
             ResourceModuleRequest r = resources.get(i);
-            if (i > 0) calls.append(",");
-            calls.append("webClientBuilder.build().get().uri(\"lb://").append(r.getServiceName()).append(routePrefix(r))
-                 .append("\").header(HttpHeaders.AUTHORIZATION, authorization).retrieve().bodyToMono(String.class)");
-            puts.append("result.put(\"").append(r.getServiceName()).append("\",(String)results[").append(i).append("]);");
+            calls.append("                call(\"lb://").append(r.getServiceName()).append(routePrefix(r))
+                 .append("\", authorization)").append(i < resources.size() - 1 ? ",\n" : "\n");
+            puts.append("                result.put(\"").append(r.getServiceName())
+                .append("\", (String) results[").append(i).append("]);\n");
         }
 
-        String body =
-            "package " + pkg + ";\n" +
-            "import lombok.RequiredArgsConstructor;import org.springframework.http.HttpHeaders;import org.springframework.security.access.prepost.PreAuthorize;import org.springframework.web.bind.annotation.*;import org.springframework.web.reactive.function.client.WebClient;import reactor.core.publisher.Mono;import java.util.*;\n" +
-            "@RestController @RequiredArgsConstructor @RequestMapping(\"/api\")\n" +
-            "public class AggregateController{ private final WebClient.Builder webClientBuilder; @GetMapping(\"/aggregate\") @PreAuthorize(\"hasRole('ADMIN')\") public Mono<Map<String,String>> aggregate(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization){ return Mono.zip(List.of(" + calls + "), results->{ Map<String,String> result=new LinkedHashMap<>(); " + puts + " return result; }); }}";
+        String body = ""
+            + "package " + pkg + ";\n\n"
+            + "import lombok.RequiredArgsConstructor;\n"
+            + "import org.springframework.http.HttpHeaders;\n"
+            + "import org.springframework.security.access.prepost.PreAuthorize;\n"
+            + "import org.springframework.web.bind.annotation.*;\n"
+            + "import org.springframework.web.reactive.function.client.WebClient;\n"
+            + "import reactor.core.publisher.Mono;\n"
+            + "import java.util.LinkedHashMap;\n"
+            + "import java.util.List;\n"
+            + "import java.util.Map;\n\n"
+            + "/**\n"
+            + " * Contrôleur d'agrégation : interroge en parallèle les services métier et fusionne leurs réponses.\n"
+            + " */\n"
+            + "@RestController\n@RequiredArgsConstructor\n@RequestMapping(\"/api\")\n"
+            + "public class AggregateController {\n\n"
+            + "    private final WebClient.Builder webClientBuilder;\n\n"
+            + "    /**\n"
+            + "     * Agrège les réponses des services métier configurés en une seule map.\n"
+            + "     *\n"
+            + "     * @param authorization l'en-tête {@code Authorization} propagé aux services appelés\n"
+            + "     * @return une map {nom de service → corps de réponse}\n"
+            + "     */\n"
+            + "    @GetMapping(\"/aggregate\")\n    @PreAuthorize(\"hasRole('ADMIN')\")\n"
+            + "    public Mono<Map<String, String>> aggregate(\n"
+            + "            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {\n"
+            + "        return Mono.zip(List.of(\n"
+            + calls
+            + "            ), results -> {\n"
+            + "                Map<String, String> result = new LinkedHashMap<>();\n"
+            + puts
+            + "                return result;\n"
+            + "            });\n"
+            + "    }\n\n"
+            + "    private Mono<String> call(String uri, String authorization) {\n"
+            + "        return webClientBuilder.build().get().uri(uri)\n"
+            + "            .header(HttpHeaders.AUTHORIZATION, authorization)\n"
+            + "            .retrieve().bodyToMono(String.class);\n"
+            + "    }\n"
+            + "}\n";
         return new GeneratedFile(f.path(), body.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 
