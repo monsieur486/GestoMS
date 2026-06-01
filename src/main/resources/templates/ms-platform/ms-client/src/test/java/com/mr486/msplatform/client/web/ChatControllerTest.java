@@ -11,6 +11,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Tests unitaires de {@link ChatController} :
+ * vérification que l'auteur d'un message est toujours pris du Principal.
+ */
 class ChatControllerTest {
 
     @Test

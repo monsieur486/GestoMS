@@ -20,6 +20,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
+/**
+ * Contrôleur de connexion BFF : délègue l'authentification à ms-auth,
+ * peuple le contexte Spring Security et stocke les tokens en session.
+ */
 @Controller
 public class LoginController {
 
@@ -31,11 +35,28 @@ public class LoginController {
         this.securityContextRepository = securityContextRepository;
     }
 
+    /**
+     * Affiche le formulaire de connexion.
+     *
+     * @return le nom de la vue {@code login}
+     */
     @GetMapping("/login")
     public String loginForm() {
         return "login";
     }
 
+    /**
+     * Traite la soumission du formulaire de connexion :
+     * appelle ms-auth, régénère l'id de session, peuple le contexte Spring Security
+     * et stocke les tokens access/refresh en session.
+     *
+     * @param username le nom d'utilisateur saisi
+     * @param password le mot de passe saisi
+     * @param request  la requête HTTP (régénération de session)
+     * @param response la réponse HTTP (sauvegarde du contexte de sécurité)
+     * @param model    le modèle Thymeleaf (messages d'erreur)
+     * @return une redirection vers {@code /} en cas de succès, ou la vue {@code login} avec erreur
+     */
     @PostMapping("/login")
     public String doLogin(@RequestParam String username,
                           @RequestParam String password,

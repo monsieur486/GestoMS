@@ -18,6 +18,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+/**
+ * Tests unitaires de {@link GatewayClient} : succès, refresh-retry sur 401,
+ * expiration de session et cas d'erreur backend (403, indisponible).
+ */
 class GatewayClientTest {
 
     private static final String PATH = "/service-consumer/api/aggregate";

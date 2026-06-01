@@ -22,6 +22,11 @@ public class ChatHistory {
         this.redis = redis;
     }
 
+    /**
+     * Ajoute un message à l'historique Redis et tronque à {@value #MAX} entrées (best-effort).
+     *
+     * @param message le message à persister
+     */
     public void add(ChatMessage message) {
         try {
             String json = mapper.writeValueAsString(message);
@@ -32,6 +37,11 @@ public class ChatHistory {
         }
     }
 
+    /**
+     * Retourne les messages récents depuis Redis (best-effort : liste vide si Redis est indisponible).
+     *
+     * @return la liste des derniers messages, jamais {@code null}
+     */
     public List<ChatMessage> recent() {
         List<ChatMessage> result = new ArrayList<>();
         try {

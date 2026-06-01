@@ -22,6 +22,13 @@ public class MsAuthLogoutHandler implements LogoutHandler {
         this.msAuthClient = msAuthClient;
     }
 
+    /**
+     * Révoque les tokens auprès de ms-auth avant l'invalidation de la session HTTP.
+     *
+     * @param request        la requête HTTP courante (session encore accessible)
+     * @param response       la réponse HTTP courante (non utilisée directement)
+     * @param authentication l'objet d'authentification Spring Security courant
+     */
     @Override
     public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
         HttpSession session = request.getSession(false);

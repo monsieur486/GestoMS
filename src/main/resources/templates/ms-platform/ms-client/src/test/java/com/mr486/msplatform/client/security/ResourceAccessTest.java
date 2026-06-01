@@ -8,6 +8,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Tests unitaires de {@link ResourceAccess} : filtrage du catalogue selon les rôles ADMIN et utilisateur. */
 class ResourceAccessTest {
 
     private static final List<ResourceEntry> CATALOG = List.of(

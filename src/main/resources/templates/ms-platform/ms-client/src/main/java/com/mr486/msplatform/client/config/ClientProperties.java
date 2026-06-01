@@ -8,5 +8,13 @@ import java.util.List;
 @ConfigurationProperties(prefix = "client")
 public record ClientProperties(List<ResourceEntry> resources) {
 
+    /**
+     * Entrée du catalogue décrivant un service CRUD exposé par le client.
+     *
+     * @param serviceName  nom du service (utilisé comme segment d'URL dans le gateway)
+     * @param routePrefix  préfixe de route REST de la ressource (ex. {@code /api/orders})
+     * @param label        libellé affiché dans le menu de navigation
+     * @param role         nom du rôle (sans le préfixe {@code ROLE_}) requis pour accéder à la ressource
+     */
     public record ResourceEntry(String serviceName, String routePrefix, String label, String role) {}
 }

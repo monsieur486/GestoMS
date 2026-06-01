@@ -87,9 +87,12 @@ public class GatewayClient {
     /** Signal interne : 401 reçu (déclenche le refresh-retry). */
     private static class UnauthorizedSignal extends RuntimeException {}
 
+    /** Levée lorsque la session a expiré et que le refresh a échoué (redirection vers /login). */
     public static class SessionExpiredException extends RuntimeException {}
 
+    /** Levée lorsque le gateway retourne 403 Forbidden. */
     public static class BackendForbiddenException extends RuntimeException {}
 
+    /** Levée lorsque le backend est injoignable ou retourne une erreur serveur. */
     public static class BackendUnavailableException extends RuntimeException {}
 }

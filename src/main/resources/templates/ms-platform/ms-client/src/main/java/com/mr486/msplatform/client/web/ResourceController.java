@@ -20,6 +20,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Contrôleur CRUD générique des ressources métier :
+ * liste les entrées accessibles et délègue les opérations GET/POST au service via le gateway.
+ */
 @Controller
 @RequestMapping("/resources")
 public class ResourceController {
@@ -33,6 +37,13 @@ public class ResourceController {
         this.clientProperties = clientProperties;
     }
 
+    /**
+     * Affiche la liste des ressources accessibles par l'utilisateur courant.
+     *
+     * @param authentication l'objet d'authentification Spring Security courant
+     * @param model          le modèle Thymeleaf
+     * @return le nom de la vue {@code resources}
+     */
     @GetMapping
     public String index(Authentication authentication, Model model) {
         model.addAttribute("resources",
@@ -40,6 +51,15 @@ public class ResourceController {
         return "resources";
     }
 
+    /**
+     * Affiche la liste des entités d'une ressource donnée en appelant le service via le gateway.
+     *
+     * @param serviceName    le nom du service cible (segment d'URL)
+     * @param authentication l'objet d'authentification Spring Security courant
+     * @param request        la requête HTTP (session utilisée pour le Bearer token)
+     * @param model          le modèle Thymeleaf
+     * @return la vue {@code resource}, ou une redirection si la ressource est inaccessible
+     */
     @GetMapping("/{serviceName}")
     public String list(@PathVariable String serviceName, Authentication authentication,
                        HttpServletRequest request, Model model) {
@@ -62,6 +82,16 @@ public class ResourceController {
         return "resource";
     }
 
+    /**
+     * Crée une nouvelle entité dans le service cible via le gateway.
+     *
+     * @param serviceName    le nom du service cible (segment d'URL)
+     * @param name           le nom de la nouvelle entité
+     * @param description    la description de la nouvelle entité
+     * @param authentication l'objet d'authentification Spring Security courant
+     * @param request        la requête HTTP (session utilisée pour le Bearer token)
+     * @return une redirection vers la liste, ou vers /login si la session a expiré
+     */
     @PostMapping("/{serviceName}")
     public String create(@PathVariable String serviceName, @RequestParam String name,
                          @RequestParam String description, Authentication authentication,

@@ -13,6 +13,12 @@ public final class JwtRoles {
 
     private JwtRoles() {}
 
+    /**
+     * Extrait les rôles {@code realm_access.roles} du payload d'un token JWT (décodage base64url).
+     *
+     * @param accessToken le token JWT brut (peut être {@code null})
+     * @return la liste des noms de rôles ; liste vide si le token est {@code null} ou illisible
+     */
     public static List<String> realmRoles(String accessToken) {
         List<String> roles = new ArrayList<>();
         if (accessToken == null) return roles;

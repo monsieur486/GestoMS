@@ -12,6 +12,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Contrôleur de la vue d'agrégation consommateur :
+ * appelle {@code /service-consumer/api/aggregate} via le gateway et affiche les réponses JSON.
+ */
 @Controller
 public class ConsumerController {
 
@@ -22,6 +26,13 @@ public class ConsumerController {
         this.gatewayClient = gatewayClient;
     }
 
+    /**
+     * Affiche la page consommateur avec le résultat agrégé de tous les services.
+     *
+     * @param request la requête HTTP (session utilisée pour le Bearer token)
+     * @param model   le modèle Thymeleaf
+     * @return la vue {@code consumer}, ou une redirection si la session a expiré
+     */
     @GetMapping("/consumer")
     public String consumer(HttpServletRequest request, Model model) {
         HttpSession session = request.getSession(false);

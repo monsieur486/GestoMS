@@ -27,6 +27,15 @@ public class MsAuthClient {
         this.gatewayUrl = gatewayUrl;
     }
 
+    /**
+     * Authentifie l'utilisateur auprès de ms-auth et retourne les tokens.
+     *
+     * @param username le nom d'utilisateur
+     * @param password le mot de passe
+     * @return les tokens d'accès et de rafraîchissement
+     * @throws MsAuthClient.InvalidCredentialsException si les identifiants sont invalides (401/400)
+     * @throws MsAuthClient.AuthUnavailableException    si ms-auth est injoignable ou retourne une erreur serveur
+     */
     public MsAuthTokens login(String username, String password) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -50,6 +59,13 @@ public class MsAuthClient {
         }
     }
 
+    /**
+     * Effectue la rotation du refresh token et retourne une nouvelle paire de tokens.
+     *
+     * @param opaqueRefreshToken le refresh token opaque courant (peut être {@code null})
+     * @return les nouveaux tokens d'accès et de rafraîchissement
+     * @throws MsAuthClient.AuthUnavailableException si ms-auth est injoignable ou retourne un corps vide
+     */
     public MsAuthTokens refresh(String opaqueRefreshToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -64,6 +80,12 @@ public class MsAuthClient {
         return body;
     }
 
+    /**
+     * Notifie ms-auth de la déconnexion de l'utilisateur (best-effort : les erreurs sont ignorées).
+     *
+     * @param accessToken        l'access token JWT à invalider
+     * @param opaqueRefreshToken le refresh token opaque à révoquer (peut être {@code null})
+     */
     public void logout(String accessToken, String opaqueRefreshToken) {
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -77,7 +99,9 @@ public class MsAuthClient {
         }
     }
 
+    /** Levée lorsque les identifiants fournis sont invalides (401 ou 400 retourné par ms-auth). */
     public static class InvalidCredentialsException extends RuntimeException {}
 
+    /** Levée lorsque ms-auth est injoignable ou retourne une erreur serveur. */
     public static class AuthUnavailableException extends RuntimeException {}
 }
