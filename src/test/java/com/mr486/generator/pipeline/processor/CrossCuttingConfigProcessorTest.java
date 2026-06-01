@@ -607,7 +607,7 @@ class CrossCuttingConfigProcessorTest {
         List<GeneratedFile> result = processor.process(
                 List.of(file(TESTALL_PATH, "old", true)), GenerationContext.from(req));
         String s = testAllOf(result);
-        assertThat(s).contains("wait_for 'ms-webui'").contains("Client OK");
+        assertThat(s).contains("wait_for 'ms-webui'").contains("WebUI OK");
     }
 
     @Test
@@ -617,7 +617,7 @@ class CrossCuttingConfigProcessorTest {
         List<GeneratedFile> result = processor.process(
                 List.of(file(TESTALL_PATH, "old", true)), GenerationContext.from(req));
         String s = testAllOf(result);
-        assertThat(s).doesNotContain("ms-webui").doesNotContain("Client OK");
+        assertThat(s).doesNotContain("ms-webui").doesNotContain("WebUI OK");
     }
 
     // ── AggregateController regeneration ─────────────────────────────────────

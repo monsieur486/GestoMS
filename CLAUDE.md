@@ -61,14 +61,14 @@ POST /api/generate/platform
 
 **`PlatformVersions`:** Bound to `platform.versions` in `application.yml`. The Java field defaults must equal the literal values in the template files — `VersionInjectionProcessor` uses a fresh (default) instance as the search string and the injected bean as the replacement.
 
-**Feature flags:** `keycloak`, `redis`, `rabbitmq`, `websocket` are always-on (no toggle). Only `springbootAdmin` and `clientWebUI` are optional. Legacy flag names in requests are silently ignored (`FAIL_ON_UNKNOWN_PROPERTIES=false`).
+**Feature flags:** `keycloak`, `redis`, `rabbitmq`, `websocket` are always-on (no toggle). Only `springbootAdmin` and `webUI` are optional. Legacy flag names in requests are silently ignored (`FAIL_ON_UNKNOWN_PROPERTIES=false`).
 
 **Extending with a new feature flag:** Update 5 places — `FeatureFilterProcessor` (path filter), `CrossCuttingConfigProcessor.desiredModules` (root pom), `.blocksToRemove` (compose), `.volumesToRemove`, and `.rewriteGatewayYml`.
 
 ### Template modules
 
 Permanent (always generated): `ms-eureka`, `ms-gateway`, `ms-auth`, `keycloak`, `common-lib`, `service-consumer`, `admin-application`  
-Conditional: `ms-admin` (`springbootAdmin`), `ms-client` (`clientWebUI`), `observability/` (`batch.grafana`)  
+Conditional: `ms-admin` (`springbootAdmin`), `ms-webui` (`webUI`), `observability/` (`batch.grafana`)  
 Default services (replaced by `resources[]`): `service-a`, `service-b`, `service-c`  
 Always included: `service-batch` (unless `batch.enabled=false`)
 

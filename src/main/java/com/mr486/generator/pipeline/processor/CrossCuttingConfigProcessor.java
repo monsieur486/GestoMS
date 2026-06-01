@@ -629,7 +629,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("echo 'Testing infrastructure...'\n");
         sb.append("curl -fs http://localhost:8761 >/dev/null && echo 'Eureka OK'\n");
         if (feat.isSpringbootAdmin()) sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
-        if (feat.isWebUI()) sb.append("curl -fs http://localhost:8090/login >/dev/null && echo 'Client OK'\n");
+        if (feat.isWebUI()) sb.append("curl -fs http://localhost:8090/login >/dev/null && echo 'WebUI OK'\n");
         sb.append("curl -fs http://localhost:9300/login >/dev/null && echo 'Admin-app OK'\n"); // toujours installé
         sb.append("\n");
 
