@@ -76,9 +76,9 @@ Oracle de non-régression : on fige la sortie complète du service pour une matr
 
 **Files:** Create `pipeline/processor/YamlBlocks.java` + test ; Modify `CrossCuttingConfigProcessor`.
 
-- [ ] **Step 1 (test d'abord).** `YamlBlocksTest` : `removeYamlBlock(text, headerPredicate)` retire un bloc (en-tête + lignes plus indentées) et rien d'autre. Cas repris des comportements actuels de `removeServiceBlock` (460), `removeVolumeEntry` (235), `removeGatewayRoute` (392). Voir échouer.
-- [ ] **Step 2.** Implémenter le balayeur unique paramétré (indentation-aware). Vert.
-- [ ] **Step 3.** Réécrire les 3 méthodes pour déléguer à `removeYamlBlock`. `mvn verify` vert (golden inclus). Constater dans `target/pmd.xml` la chute des `NPath`/`Cyclomatic` sur removeGatewayRoute/removeServiceBlock. **Commit** : `refactor(processor): factorise le retrait de bloc YAML par lignes`.
+- [x] **Step 1 (test d'abord).** `YamlBlocksTest` (5 cas : service compose, route passerelle, absence, fin de texte, ligne vide interne). `removeVolumeEntry` **écarté** — c'est un regex une-ligne, pas un scanner de bloc. Vu au RED (4/5). Piège relevé : le comportement historique laisse un `\n` final quand le bloc est en fin de texte → attente de test corrigée pour rester fidèle (pas l'implémentation).
+- [x] **Step 2.** `YamlBlocks.removeBlock(text, isStart, isBoundary)` (deux `Predicate<String>`), décomposé en `indexOfStart`/`indexOfBoundary`/`rejoinWithout` pour ne PAS déplacer la complexité dans une méthode unique flaggée. Vert (5/5), `YamlBlocks` 0 violation PMD.
+- [x] **Step 3.** `removeGatewayRoute`/`removeServiceBlock` délèguent (prédicats à l'identique). `mvn verify` : **golden 7/7 vert**, 158 tests, Checkstyle 0. **PMD 71 → 65** (les 6 `Cognitive/Cyclomatic/NPath` des 2 méthodes éliminées, rien ajouté). **Commit à faire** : `refactor(processor): factorise le retrait de bloc YAML par lignes (YamlBlocks)`.
 
 ---
 

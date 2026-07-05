@@ -387,44 +387,10 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
      * next sibling `- id:` or any line with strictly less indent (e.g. the `eureka:` top-level key).
      */
     private String removeGatewayRoute(String text, String routeId) {
-        String[] lines = text.split("\n", -1);
         String startMarker = "            - id: " + routeId;
-        int startIdx = -1;
-        for (int i = 0; i < lines.length; i++) {
-            if (lines[i].equals(startMarker)) {
-                startIdx = i;
-                break;
-            }
-        }
-        if (startIdx == -1) {
-            return text;
-        }
-        int endIdx = lines.length;
-        for (int i = startIdx + 1; i < lines.length; i++) {
-            String line = lines[i];
-            if (line.startsWith("            - id:")) {
-                endIdx = i;
-                break;
-            }
-            if (line.isEmpty()) {
-                continue;
-            }
-            if (!line.startsWith("              ")) {
-                endIdx = i;
-                break;
-            }
-        }
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < lines.length; i++) {
-            if (i >= startIdx && i < endIdx) {
-                continue;
-            }
-            out.append(lines[i]);
-            if (i < lines.length - 1) {
-                out.append("\n");
-            }
-        }
-        return out.toString();
+        return YamlBlocks.removeBlock(text,
+            line -> line.equals(startMarker),
+            line -> line.startsWith("            - id:") || !line.startsWith("              "));
     }
 
     /**
@@ -455,52 +421,15 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
      * line plus everything more deeply indented, including trailing blank lines).
      */
     private String removeServiceBlock(String text, String blockName) {
-        String[] lines = text.split("\n", -1);
         String startMarker = "  " + blockName + ":";
-
-        int startIdx = -1;
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            if (line.equals(startMarker)
+        return YamlBlocks.removeBlock(text,
+            line -> line.equals(startMarker)
                 || (line.startsWith(startMarker)
                     && line.length() > startMarker.length()
-                    && Character.isWhitespace(line.charAt(startMarker.length())))) {
-                startIdx = i;
-                break;
-            }
-        }
-        if (startIdx == -1) {
-            return text;
-        }
-
-        int endIdx = lines.length;
-        for (int i = startIdx + 1; i < lines.length; i++) {
-            String line = lines[i];
-            if (line.isEmpty()) {
-                continue;
-            }
-            if (!line.startsWith(" ")) {
-                endIdx = i;
-                break;
-            }
-            if (line.length() > 2 && line.charAt(0) == ' '
-                    && line.charAt(1) == ' ' && line.charAt(2) != ' ') {
-                endIdx = i;
-                break;
-            }
-        }
-
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < lines.length; i++) {
-            if (i >= startIdx && i < endIdx) {
-                continue;
-            }
-            out.append(lines[i]);
-            if (i < lines.length - 1) {
-                out.append("\n");
-            }
-        }
-        return out.toString();
+                    && Character.isWhitespace(line.charAt(startMarker.length()))),
+            line -> !line.startsWith(" ")
+                || (line.length() > 2 && line.charAt(0) == ' '
+                    && line.charAt(1) == ' ' && line.charAt(2) != ' '));
     }
 
     // ── Keycloak realm (roles + test users per resource) ──────────────────────
