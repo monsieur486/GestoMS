@@ -28,7 +28,10 @@ import org.junit.jupiter.api.Test;
  */
 class CrossCuttingConfigProcessorTest {
 
-    private final CrossCuttingConfigProcessor processor = new CrossCuttingConfigProcessor();
+    // Rewriters extraits, injectés comme le fait Spring ; complété au fil des extractions (Task 3).
+    private final CrossCuttingConfigProcessor processor = new CrossCuttingConfigProcessor(List.of(
+        new RootPomRewriter(), new ComposeRewriter(), new GatewayRewriter(), new RealmRewriter(),
+        new TestAllRewriter(), new ReadmeRewriter(), new AggregateRewriter(), new WebUiCatalogRewriter()));
 
     private static final String SAMPLE_POM =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +

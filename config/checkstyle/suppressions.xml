@@ -13,10 +13,11 @@
 <suppressions>
 
   <!-- Gros blocs de construction de chaînes (script test-all.sh, YAML Mongo, blocs
-       docker-compose) : indentation/wrap non pertinents. À résoudre à la source en
-       externalisant ces gabarits en ressources template (chantier #6). -->
-  <suppress files="CrossCuttingConfigProcessor\.java" checks="Indentation|OperatorWrap"/>
+       docker-compose, template AggregateController) : indentation/wrap non pertinents. Concerne
+       ResourceExpandProcessor et les CrossCuttingRewriter extraits qui portent ces gabarits.
+       À résoudre à la source en externalisant ces gabarits en ressources template (chantier #6). -->
   <suppress files="ResourceExpandProcessor\.java" checks="Indentation|OperatorWrap"/>
+  <suppress files="Rewriter\.java" checks="Indentation|OperatorWrap"/>
 
   <!-- Sources de test : littéraux d'entrée et de sortie attendue volumineux (YAML,
        docker-compose, realm JSON) indentés selon leur propre format. -->

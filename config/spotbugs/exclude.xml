@@ -17,12 +17,12 @@
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
     </Match>
 
-    <!-- POTENTIAL_XML_INJECTION dans rewriteRootPom : les valeurs injectées dans le pom
+    <!-- POTENTIAL_XML_INJECTION dans RootPomRewriter : les valeurs injectées dans le pom
          XML (name du module) proviennent soit de littéraux, soit de serviceName, désormais
          contraint par @Pattern ^[a-z0-9][a-z0-9-]{0,63}$ (aucun métacaractère XML possible).
          L'injection est fermée en amont par la validation Jakarta. -->
     <Match>
-        <Class name="com.mr486.generator.pipeline.processor.CrossCuttingConfigProcessor"/>
+        <Class name="com.mr486.generator.pipeline.processor.RootPomRewriter"/>
         <Bug pattern="POTENTIAL_XML_INJECTION"/>
     </Match>
 
