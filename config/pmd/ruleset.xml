@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<ruleset name="Maison"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0
+                             https://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+
+  <description>
+    Ruleset PMD maison — reprend les catégories intégrées bestpractices,
+    design et errorprone (autant de garde-fous), et en exclut les règles
+    qui heurtent des choix maison assumés ou produisent du bruit :
+      - tests multi-asserts et tests via Mockito.verify (on asserte le
+        comportement, pas « un assert par test ») ;
+      - GuardLogStatement : les logs sont déjà en SLF4J paramétré ({}) ;
+      - LawOfDemeter / DataClass / LoosePackageCoupling : bruyants et en
+        conflit avec les DTO/entités de frontière ;
+      - AvoidDuplicateLiterals / AvoidFieldNameMatchingMethodName :
+        littéraux répétés de tests et résolveurs statiques volontaires.
+    TooManyMethods est exclue du bloc design puis re-référencée pour porter la
+    limite dure « 6/10 méthodes » de la doctrine (cf. conventions.md §3, S) :
+    seuil machine à 10, avec tolérance à 15 pour les classes de test.
+    Objectif : 0 violation. Rapport non bloquant (cf. pom.xml).
+  </description>
+
+  <rule ref="category/java/bestpractices.xml">
+    <exclude name="UnitTestContainsTooManyAsserts"/>
+    <exclude name="UnitTestShouldIncludeAssert"/>
+    <exclude name="GuardLogStatement"/>
+  </rule>
+
+  <rule ref="category/java/design.xml">
+    <exclude name="LawOfDemeter"/>
+    <exclude name="DataClass"/>
+    <exclude name="LoosePackageCoupling"/>
+    <!-- Re-référencée ci-dessous avec le seuil maison + tolérance tests. -->
+    <exclude name="TooManyMethods"/>
+  </rule>
+
+  <!--
+    Limite dure « 10 méthodes » de la doctrine SOLID (S) — hors getters/setters,
+    que PMD ne compte pas. La limite douce à 6 reste un déclencheur de revue
+    humain (non mécanisable ici : PMD n'offre qu'un seuil). Tolérance tests :
+    une classe *Test / *Tests / *IT peut monter à 15 méthodes ; au-delà, la
+    violation revient et invite à factoriser aussi la classe de test.
+  -->
+  <rule ref="category/java/design.xml/TooManyMethods">
+    <properties>
+      <property name="maxmethods" value="10"/>
+      <property name="violationSuppressXPath"
+                value="ancestor-or-self::ClassDeclaration[
+                         (ends-with(@SimpleName, 'Test')
+                          or ends-with(@SimpleName, 'Tests')
+                          or ends-with(@SimpleName, 'IT'))
+                         and count(ClassBody/MethodDeclaration) &lt;= 15]"/>
+    </properties>
+  </rule>
+
+  <rule ref="category/java/errorprone.xml">
+    <exclude name="AvoidDuplicateLiterals"/>
+    <exclude name="AvoidFieldNameMatchingMethodName"/>
+  </rule>
+
+</ruleset>

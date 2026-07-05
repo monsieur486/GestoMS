@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Filtre d'exclusion SpotBugs (+ FindSecBugs) — faux positifs justifiés.
+  On n'exclut que ce qu'on a vérifié comme non pertinent, au cas par cas.
+  Rapport non bloquant (cf. pom.xml). Objectif : 0 anomalie réelle.
+-->
+<FindBugsFilter>
+
+    <!-- EI_EXPOSE_REP / EI_EXPOSE_REP2 : les getters/setters générés par Lombok @Data
+         sur les DTO/porteurs de données, et les collaborateurs injectés par Spring
+         (constructeurs @RequiredArgsConstructor), « exposent leur représentation
+         interne ». Non pertinent ici : le générateur est en mémoire, mono-requête et
+         sans état mutable partagé entre frontières de confiance — les DTO sont désérialisés
+         par Jackson puis lus, jamais partagés ni mutés par un tiers. Défendre par la copie
+         défensive alourdirait des porteurs de données sans bénéfice de sécurité réel. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- POTENTIAL_XML_INJECTION dans rewriteRootPom : les valeurs injectées dans le pom
+         XML (name du module) proviennent soit de littéraux, soit de serviceName, désormais
+         contraint par @Pattern ^[a-z0-9][a-z0-9-]{0,63}$ (aucun métacaractère XML possible).
+         L'injection est fermée en amont par la validation Jakarta. -->
+    <Match>
+        <Class name="com.mr486.generator.pipeline.processor.CrossCuttingConfigProcessor"/>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+    </Match>
+
+</FindBugsFilter>

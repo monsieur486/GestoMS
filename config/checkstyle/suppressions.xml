@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!--
+  Suppressions ciblées.
+
+  Les règles Indentation et OperatorWrap (style Google, 4 espaces) ne conviennent pas
+  aux LITTÉRAUX DE CHAÎNES MULTI-LIGNES : scripts bash, gabarits YAML et sorties
+  attendues sont indentés selon leur propre grammaire, pas selon celle de Java.
+-->
+<suppressions>
+
+  <!-- Gros blocs de construction de chaînes (script test-all.sh, YAML Mongo, blocs
+       docker-compose) : indentation/wrap non pertinents. À résoudre à la source en
+       externalisant ces gabarits en ressources template (chantier #6). -->
+  <suppress files="CrossCuttingConfigProcessor\.java" checks="Indentation|OperatorWrap"/>
+  <suppress files="ResourceExpandProcessor\.java" checks="Indentation|OperatorWrap"/>
+
+  <!-- Sources de test : littéraux d'entrée et de sortie attendue volumineux (YAML,
+       docker-compose, realm JSON) indentés selon leur propre format. -->
+  <suppress files="[\\/]src[\\/]test[\\/]" checks="Indentation|OperatorWrap"/>
+
+</suppressions>
