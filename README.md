@@ -304,6 +304,20 @@ Quand `enabled: false`, `service-batch/` (module + bloc docker-compose) est excl
 
 Quand `resources` est non vide, les modules `service-a/b/c` par défaut + leurs blocs docker-compose + entrées de volumes sont supprimés et remplacés par un bloc par resource (POSTGRES/MONGO obtiennent un bloc `*-db` et un volume nommé ; H2 n'en a pas).
 
+### Validation des entrées
+
+La requête est validée (`@Valid`) **avant** tout traitement du pipeline. Comme ces valeurs sont injectées dans des chemins d'archive, des scripts bash et le code/pom générés, elles sont contraintes à des listes blanches strictes qui excluent path traversal, métacaractères shell et sauts de ligne (CRLF). Une requête invalide reçoit **`400 Bad Request`** sans qu'aucun fichier ne soit généré.
+
+| Champ | Contrainte |
+| ----- | ---------- |
+| `name` | vide ou `^[a-z0-9][a-z0-9-]{0,63}$` (kebab-case ; vide → `ms-platform`) |
+| `groupId`, `basePackage` | obligatoire, `^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$` (identifiant Java pointé) |
+| `javaVersion` | obligatoire, `17` ou `21` |
+| `resources` | au plus 20 entrées ; chaque entrée est validée en cascade |
+| `resources[].serviceName` | obligatoire, `^[a-z0-9][a-z0-9-]{0,63}$` (kebab-case) |
+| `resources[].className` | obligatoire, `^[A-Z][A-Za-z0-9]{0,63}$` (PascalCase) |
+| `resources[].routePrefix` | vide ou `^(/[a-z0-9/-]{0,128})?$` |
+
 ### Exemple minimal — 1 service, tout par défaut
 
 ```bash
