@@ -1,13 +1,19 @@
 package com.mr486.generator.pipeline.processor;
 
-import com.mr486.generator.dto.*;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.contentOf;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.defaultCtx;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.file;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.mr486.generator.dto.DatabaseType;
+import com.mr486.generator.dto.IdType;
+import com.mr486.generator.dto.PlatformGenerationRequest;
+import com.mr486.generator.dto.ResourceModuleRequest;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.zip.GeneratedFile;
-import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
-import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * Vérifie que {@link ResourceExpandProcessor} clone correctement le module
@@ -81,8 +87,11 @@ class ResourceExpandProcessorTest {
     private ResourceModuleRequest resource(String serviceName, String className, String route,
                                            DatabaseType db, IdType id) {
         ResourceModuleRequest r = new ResourceModuleRequest();
-        r.setServiceName(serviceName); r.setClassName(className);
-        r.setRoutePrefix(route); r.setDatabaseType(db); r.setIdType(id);
+        r.setServiceName(serviceName);
+        r.setClassName(className);
+        r.setRoutePrefix(route);
+        r.setDatabaseType(db);
+        r.setIdType(id);
         return r;
     }
 
@@ -126,9 +135,11 @@ class ResourceExpandProcessorTest {
     @Test
     void null_routePrefix_defaults_to_api_plural() {
         ResourceModuleRequest r = new ResourceModuleRequest();
-        r.setServiceName("order-service"); r.setClassName("Order");
+        r.setServiceName("order-service");
+        r.setClassName("Order");
         // routePrefix left null
-        r.setDatabaseType(DatabaseType.POSTGRES); r.setIdType(IdType.LONG);
+        r.setDatabaseType(DatabaseType.POSTGRES);
+        r.setIdType(IdType.LONG);
         GenerationContext ctx = ctxWithResources(List.of(r));
         List<GeneratedFile> result = processor.process(serviceAFiles("ms-platform"), ctx);
         result.stream()

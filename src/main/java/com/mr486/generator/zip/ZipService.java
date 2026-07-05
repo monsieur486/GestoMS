@@ -1,15 +1,15 @@
 package com.mr486.generator.zip;
 
+import java.io.ByteArrayOutputStream;
+import java.util.List;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.springframework.stereotype.Service;
-import java.io.ByteArrayOutputStream;
-import java.util.List;
 
 /**
  * Sérialise la liste des fichiers produits par le pipeline en une archive ZIP en mémoire.
- * <p>
- * Utilise Apache Commons Compress plutôt que {@code java.util.zip} pour préserver le bit Unix
+ *
+ * <p>Utilise Apache Commons Compress plutôt que {@code java.util.zip} pour préserver le bit Unix
  * exécutable des fichiers concernés (mvnw, scripts shell).
  */
 @Service
@@ -23,10 +23,12 @@ public class ZipService {
      */
     public byte[] zip(List<GeneratedFile> files) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-             ZipArchiveOutputStream zip = new ZipArchiveOutputStream(out)) {
+                ZipArchiveOutputStream zip = new ZipArchiveOutputStream(out)) {
             for (GeneratedFile file : files) {
                 ZipArchiveEntry entry = new ZipArchiveEntry(file.path());
-                if (file.executable()) entry.setUnixMode(0755);
+                if (file.executable()) {
+                    entry.setUnixMode(0755);
+                }
                 zip.putArchiveEntry(entry);
                 zip.write(file.content());
                 zip.closeArchiveEntry();

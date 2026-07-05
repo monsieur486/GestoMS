@@ -5,18 +5,18 @@ import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.pipeline.TemplateLoader;
 import com.mr486.generator.zip.GeneratedFile;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import java.util.List;
 
 /**
  * Orchestrateur du pipeline de génération.
- * <p>
- * Charge le modèle puis applique chaque {@link FileProcessor} dans l'ordre fourni par Spring
+ *
+ * <p>Charge le modèle puis applique chaque {@link FileProcessor} dans l'ordre fourni par Spring
  * ({@link org.springframework.core.annotation.Order @Order}). La sortie est une liste de fichiers
  * prête à être empaquetée par {@link com.mr486.generator.zip.ZipService}.
- * <p>
- * Cette classe reste délibérément minimaliste — chaque préoccupation est encapsulée dans son
+ *
+ * <p>Cette classe reste délibérément minimaliste — chaque préoccupation est encapsulée dans son
  * propre processor, donc ajouter une nouvelle fonctionnalité ne touche pas ce service.
  */
 @Service

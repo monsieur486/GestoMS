@@ -6,24 +6,24 @@ import com.mr486.generator.dto.ResourceModuleRequest;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.zip.GeneratedFile;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Dérive un service métier par entrée de {@code resources[]} en clonant le template {@code service-a/}
  * et en appliquant les substitutions nominales, le type de base et le type d'identifiant.
- * <p>
- * Si la requête ne contient pas de ressource, les services par défaut (service-a/b/c) sont conservés
+ *
+ * <p>Si la requête ne contient pas de ressource, les services par défaut (service-a/b/c) sont conservés
  * tels quels. Sinon, les trois services par défaut sont retirés et remplacés par autant de copies
  * que d'entrées. Le sous-dossier {@code service-batch/} et {@code service-consumer/} présents en
  * tant que sous-projets de service-a sont volontairement exclus du clonage (ce sont des patches).
- * <p>
- * Mode H2 : retire la clause {@code ON CONFLICT(...) DO NOTHING} du seed SQL (incompatible H2),
+ *
+ * <p>Mode H2 : retire la clause {@code ON CONFLICT(...) DO NOTHING} du seed SQL (incompatible H2),
  * configure le datasource en mémoire et active la console.
  * Mode MongoDB : remplace l'entité JPA par un {@code @Document}, supprime les fichiers Liquibase,
  * ajuste le pom et l'application.yml.
@@ -45,7 +45,9 @@ public class ResourceExpandProcessor implements FileProcessor {
     @Override
     public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
         List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
-        if (resources == null || resources.isEmpty()) return files;
+        if (resources == null || resources.isEmpty()) {
+            return files;
+        }
 
         String root = ctx.getTargetRoot();
         List<GeneratedFile> serviceATemplate = extractServiceATemplate(files, root);
@@ -96,7 +98,9 @@ public class ResourceExpandProcessor implements FileProcessor {
             String newPath    = transformPath(f.path(), res, root);
             byte[] newContent = transformContent(f.content(), res);
             newContent = applyDatabaseType(newPath, newContent, res, basePackage);
-            if (newContent == null) continue;  // file removed (e.g., changelog for Mongo)
+            if (newContent == null) {
+                continue;  // file removed (e.g., changelog for Mongo)
+            }
             newPath    = applyMongoPathRename(newPath, res);
             newContent = applyIdType(newPath, newContent, res);
             generated.add(new GeneratedFile(newPath, newContent, f.executable()));
@@ -127,20 +131,22 @@ public class ResourceExpandProcessor implements FileProcessor {
     // ── Content transformations ───────────────────────────────────────────
 
     private byte[] transformContent(byte[] content, ResourceModuleRequest res) {
-        if (ProcessorUtils.containsNullByte(content)) return content;
+        if (ProcessorUtils.containsNullByte(content)) {
+            return content;
+        }
         String text = new String(content, StandardCharsets.UTF_8);
         text = applyBaseReplacements(text, res);
         return text.getBytes(StandardCharsets.UTF_8);
     }
 
     private String applyBaseReplacements(String text, ResourceModuleRequest res) {
-        String serviceClass   = ProcessorUtils.toPascalCase(res.getServiceName());
-        String servicePackage = toConcatLower(res.getServiceName());
-        String serviceSnake   = res.getServiceName().replace("-", "_");
-        String serviceScream  = serviceSnake.toUpperCase();
-        String entityPlural   = res.getClassName().toLowerCase() + "s";
-        String entityLower    = res.getClassName().toLowerCase();
-        String routePrefix    = res.getEffectiveRoutePrefix();
+        final String serviceClass   = ProcessorUtils.toPascalCase(res.getServiceName());
+        final String servicePackage = toConcatLower(res.getServiceName());
+        final String serviceSnake   = res.getServiceName().replace("-", "_");
+        final String serviceScream  = serviceSnake.toUpperCase(Locale.ROOT);
+        final String entityPlural   = res.getClassName().toLowerCase(Locale.ROOT) + "s";
+        final String entityLower    = res.getClassName().toLowerCase(Locale.ROOT);
+        final String routePrefix    = res.getEffectiveRoutePrefix();
 
         // Longest/most-specific first
         text = text.replace("USER_SERVICE_A",    "USER_" + serviceScream);
@@ -171,7 +177,9 @@ public class ResourceExpandProcessor implements FileProcessor {
     protected byte[] applyDatabaseType(String path, byte[] content,
                                        ResourceModuleRequest res, String basePackage) {
         DatabaseType db = res.getDatabaseType();
-        if (db == null) return content;
+        if (db == null) {
+            return content;
+        }
         return switch (db) {
             case POSTGRES -> content;
             case H2       -> applyH2(path, content, res);
@@ -180,11 +188,13 @@ public class ResourceExpandProcessor implements FileProcessor {
     }
 
     private byte[] applyH2(String path, byte[] content, ResourceModuleRequest res) {
-        if (ProcessorUtils.containsNullByte(content)) return content;
+        if (ProcessorUtils.containsNullByte(content)) {
+            return content;
+        }
         String text = new String(content, StandardCharsets.UTF_8);
         String dbName    = res.getServiceName().replace("-", "") + "db";
         String snake     = res.getServiceName().replace("-", "_");
-        String snakeUp   = snake.toUpperCase();
+        String snakeUp   = snake.toUpperCase(Locale.ROOT);
 
         if (path.endsWith("pom.xml")) {
             text = text.replace(
@@ -270,7 +280,8 @@ public class ResourceExpandProcessor implements FileProcessor {
         "    name: {SERVICE_NAME}\n" +
         "  data:\n" +
         "    mongodb:\n" +
-        "      uri: ${{SERVICE_UPPER}_MONGO_URI:mongodb://{SERVICE_SNAKE}:{SERVICE_SNAKE}@localhost:27017/{SERVICE_SNAKE}_db?authSource=admin}\n" +
+        "      uri: ${{SERVICE_UPPER}_MONGO_URI:mongodb://{SERVICE_SNAKE}:{SERVICE_SNAKE}" +
+        "@localhost:27017/{SERVICE_SNAKE}_db?authSource=admin}\n" +
         "  security:\n" +
         "    oauth2:\n" +
         "      resourceserver:\n" +
@@ -288,20 +299,26 @@ public class ResourceExpandProcessor implements FileProcessor {
         "        include: health,info\n";
 
     private static final String MONGO_POM_DEPS =
-        "<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-mongodb</artifactId></dependency>\n" +
+        "<dependency><groupId>org.springframework.boot</groupId>" +
+        "<artifactId>spring-boot-starter-data-mongodb</artifactId></dependency>\n" +
         "    <dependency><groupId>io.mongock</groupId><artifactId>mongock-springboot-v3</artifactId></dependency>\n" +
-        "    <dependency><groupId>io.mongock</groupId><artifactId>mongodb-springdata-v4-driver</artifactId></dependency>";
+        "    <dependency><groupId>io.mongock</groupId>" +
+        "<artifactId>mongodb-springdata-v4-driver</artifactId></dependency>";
 
     private byte[] applyMongo(String path, byte[] content, ResourceModuleRequest res, String basePackage) {
-        if (ProcessorUtils.containsNullByte(content)) return content;
-        String servicePackage = toConcatLower(res.getServiceName());
-        String serviceSnake   = res.getServiceName().replace("-", "_");
-        String serviceUpper   = serviceSnake.toUpperCase();
-        String collection     = res.getClassName().toLowerCase() + "s";
-        String pkg            = basePackage + "." + servicePackage;
+        if (ProcessorUtils.containsNullByte(content)) {
+            return content;
+        }
+        final String servicePackage = toConcatLower(res.getServiceName());
+        final String serviceSnake   = res.getServiceName().replace("-", "_");
+        final String serviceUpper   = serviceSnake.toUpperCase(Locale.ROOT);
+        final String collection     = res.getClassName().toLowerCase(Locale.ROOT) + "s";
+        final String pkg            = basePackage + "." + servicePackage;
 
         // Remove Liquibase changelog files — return null signals generateService to skip
-        if (path.contains("/db/changelog/")) return null;
+        if (path.contains("/db/changelog/")) {
+            return null;
+        }
 
         if (path.endsWith("application.yml")) {
             String yml = MONGO_APP_YML_TEMPLATE
@@ -313,7 +330,8 @@ public class ResourceExpandProcessor implements FileProcessor {
         if (path.endsWith("pom.xml") && !ProcessorUtils.containsNullByte(content)) {
             String text = new String(content, StandardCharsets.UTF_8);
             text = text.replace(
-                "<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>",
+                "<dependency><groupId>org.springframework.boot</groupId>"
+                    + "<artifactId>spring-boot-starter-data-jpa</artifactId></dependency>",
                 MONGO_POM_DEPS);
             text = text.replace(
                 "<dependency><groupId>org.liquibase</groupId><artifactId>liquibase-core</artifactId></dependency>", "");
@@ -361,9 +379,15 @@ public class ResourceExpandProcessor implements FileProcessor {
      */
     protected byte[] applyIdType(String path, byte[] content, ResourceModuleRequest res) {
         IdType idType = res.getIdType();
-        if (idType == null || idType == IdType.LONG) return content;
-        if (res.getDatabaseType() == DatabaseType.MONGO) return content;
-        if (ProcessorUtils.containsNullByte(content)) return content;
+        if (idType == null || idType == IdType.LONG) {
+            return content;
+        }
+        if (res.getDatabaseType() == DatabaseType.MONGO) {
+            return content;
+        }
+        if (ProcessorUtils.containsNullByte(content)) {
+            return content;
+        }
         String text = new String(content, StandardCharsets.UTF_8);
         String result = switch (idType) {
             case INTEGER -> applyIntegerType(text, res);
@@ -414,6 +438,6 @@ public class ResourceExpandProcessor implements FileProcessor {
      * @return nom concaténé en minuscules
      */
     protected String toConcatLower(String kebab) {
-        return kebab.replace("-", "").replace("_", "").toLowerCase();
+        return kebab.replace("-", "").replace("_", "").toLowerCase(Locale.ROOT);
     }
 }

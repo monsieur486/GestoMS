@@ -1,13 +1,13 @@
 package com.mr486.generator.model;
 
 import com.mr486.generator.dto.PlatformGenerationRequest;
-import lombok.Value;
 import java.util.Objects;
+import lombok.Value;
 
 /**
  * État immuable partagé entre tous les processors d'un pipeline de génération.
- * <p>
- * Calculé une seule fois en amont par {@link com.mr486.generator.service.PlatformGeneratorService},
+ *
+ * <p>Calculé une seule fois en amont par {@link com.mr486.generator.service.PlatformGeneratorService},
  * puis transmis à chaque appel de {@link com.mr486.generator.pipeline.FileProcessor#process}.
  * Contient la requête utilisateur brute plus deux préfixes de chemin déjà normalisés.
  */

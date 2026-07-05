@@ -6,8 +6,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Versions centralisées injectées dans la plateforme générée.
- * <p>
- * Bean Spring lié au bloc {@code platform.versions} d'{@code application.yml}. Les valeurs par défaut
+ *
+ * <p>Bean Spring lié au bloc {@code platform.versions} d'{@code application.yml}. Les valeurs par défaut
  * des champs ci-dessous DOIVENT rester égales aux littéraux présents dans le template
  * ({@code docker-compose.yml}, {@code Dockerfile}, poms) : le VersionInjectionProcessor (Task 2)
  * s'en sert à la fois comme constante de recherche (une instance neuve = littéraux du template) et,

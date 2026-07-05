@@ -1,11 +1,15 @@
 package com.mr486.generator.pipeline.processor;
 
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.contentOf;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.ctxWithPackage;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.defaultCtx;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.file;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.zip.GeneratedFile;
-import org.junit.jupiter.api.Test;
 import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
-import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * Vérifie que {@link PackagePlaceholderProcessor} remplace correctement les
@@ -67,7 +71,11 @@ class PackagePlaceholderProcessorTest {
     @Test
     void replaces_java_version_in_pom() {
         GenerationContext ctx = GenerationContext.from(
-            new com.mr486.generator.dto.PlatformGenerationRequest() {{ setJavaVersion("21"); }}
+            new com.mr486.generator.dto.PlatformGenerationRequest() {
+                {
+                    setJavaVersion("21");
+                }
+            }
         );
         List<GeneratedFile> input = List.of(
             file("ms-platform/pom.xml", "<java.version>17</java.version>")

@@ -4,17 +4,16 @@ import com.mr486.generator.dto.BatchOptions;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.zip.GeneratedFile;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Injecte les valeurs de {@link BatchOptions} dans les fichiers de configuration de la plateforme
  * ({@code .env}, blocs {@code docker-compose.yml}).
- * <p>
- * Court-circuité si le batch est désactivé (le service est déjà supprimé par
+ *
+ * <p>Court-circuité si le batch est désactivé (le service est déjà supprimé par
  * {@link FeatureFilterProcessor}) ou si toutes les valeurs sont égales aux défauts du template.
  */
 @Component
@@ -26,16 +25,24 @@ public class BatchConfigProcessor implements FileProcessor {
     @Override
     public List<GeneratedFile> process(List<GeneratedFile> files, GenerationContext ctx) {
         BatchOptions b = ctx.getRequest().getBatch();
-        if (!b.isEnabled()) return files;
-        if (isDefault(b)) return files;
+        if (!b.isEnabled()) {
+            return files;
+        }
+        if (isDefault(b)) {
+            return files;
+        }
         return files.stream().map(f -> replace(f, b)).toList();
     }
 
     private GeneratedFile replace(GeneratedFile f, BatchOptions b) {
         // BATCH_* keys only appear in .env, dist.env and docker-compose.yml
         String path = f.path();
-        if (!path.endsWith(".env") && !path.endsWith("dist.env") && !path.endsWith("docker-compose.yml")) return f;
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (!path.endsWith(".env") && !path.endsWith("dist.env") && !path.endsWith("docker-compose.yml")) {
+            return f;
+        }
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
         String text = new String(f.content(), StandardCharsets.UTF_8);
         text = text.replace(
             "BATCH_REPLICAS=" + DEFAULTS.getReplicas(),

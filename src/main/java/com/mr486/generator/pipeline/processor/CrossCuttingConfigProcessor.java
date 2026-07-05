@@ -12,22 +12,22 @@ import com.mr486.generator.dto.ResourceModuleRequest;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.zip.GeneratedFile;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Synchronise les fichiers transverses qui référencent les services par leur nom :
  * pom racine ({@code <modules>}), {@code docker-compose.yml} et {@code ms-gateway/.../application.yml}.
- * <p>
- * Sans ce processor, les autres étapes laissent des références fantômes :
+ *
+ * <p>Sans ce processor, les autres étapes laissent des références fantômes :
  * <ul>
  *   <li>modules listés dans le pom racine alors que le dossier a été retiré → {@code mvn package} échoue ;</li>
  *   <li>blocs Docker Compose pointant vers des services absents ou {@code depends_on} orphelins → {@code docker compose up} refuse le fichier ;</li>
@@ -96,11 +96,11 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── Per-resource naming helpers ───────────────────────────────────────────
 
     private String roleName(ResourceModuleRequest r) {
-        return "USER_" + r.getServiceName().replace("-", "_").toUpperCase();
+        return "USER_" + r.getServiceName().replace("-", "_").toUpperCase(Locale.ROOT);
     }
 
     private String tokenVar(ResourceModuleRequest r) {
-        return "TOKEN_" + r.getServiceName().replace("-", "_").toUpperCase();
+        return "TOKEN_" + r.getServiceName().replace("-", "_").toUpperCase(Locale.ROOT);
     }
 
     private String testUser(ResourceModuleRequest r) {
@@ -123,7 +123,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── Root pom <modules> ────────────────────────────────────────────────────
 
     private GeneratedFile rewriteRootPom(GeneratedFile f, GenerationContext ctx) {
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
         String text = new String(f.content(), StandardCharsets.UTF_8);
         StringBuilder block = new StringBuilder("<modules>\n");
         for (String m : desiredModules(ctx)) {
@@ -139,9 +141,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     private List<String> desiredModules(GenerationContext ctx) {
         PlatformGenerationRequest req = ctx.getRequest();
-        FeatureOptions f = req.getFeatures();
-        BatchOptions b = req.getBatch();
-        boolean hasResources = hasResources(ctx);
+        final FeatureOptions f = req.getFeatures();
+        final BatchOptions b = req.getBatch();
+        final boolean hasResources = hasResources(ctx);
 
         List<String> modules = new ArrayList<>();
         modules.add("common-lib");
@@ -155,11 +157,19 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             modules.add("service-c");
         }
         modules.add("service-consumer");
-        if (b.isEnabled())            modules.add("service-batch");
-        if (f.isSpringbootAdmin())    modules.add("ms-admin");
-        if (f.isWebUI())              modules.add("ms-webui");
+        if (b.isEnabled()) {
+            modules.add("service-batch");
+        }
+        if (f.isSpringbootAdmin()) {
+            modules.add("ms-admin");
+        }
+        if (f.isWebUI()) {
+            modules.add("ms-webui");
+        }
         if (hasResources) {
-            for (ResourceModuleRequest r : req.getResources()) modules.add(r.getServiceName());
+            for (ResourceModuleRequest r : req.getResources()) {
+                modules.add(r.getServiceName());
+            }
         }
         return modules;
     }
@@ -167,7 +177,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── docker-compose service blocks ─────────────────────────────────────────
 
     private GeneratedFile rewriteCompose(GeneratedFile f, GenerationContext ctx) {
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
         String text = new String(f.content(), StandardCharsets.UTF_8);
         List<String> removedBlocks = blocksToRemove(ctx);
         for (String block : removedBlocks) {
@@ -188,7 +200,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
      * which is removed as a whole block when keycloak=false).
      */
     private String cleanDependsOnReferences(String text, List<String> removedBlocks) {
-        if (removedBlocks.isEmpty()) return text;
+        if (removedBlocks.isEmpty()) {
+            return text;
+        }
         Set<String> removed = new HashSet<>(removedBlocks);
         Matcher m = DEPENDS_ON_PATTERN.matcher(text);
         StringBuffer sb = new StringBuffer();
@@ -197,7 +211,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             List<String> kept = new ArrayList<>();
             for (String dep : deps) {
                 String trimmed = dep.trim();
-                if (!removed.contains(trimmed)) kept.add(trimmed);
+                if (!removed.contains(trimmed)) {
+                    kept.add(trimmed);
+                }
             }
             m.appendReplacement(sb, Matcher.quoteReplacement(
                 m.group(1) + String.join(", ", kept) + m.group(3)
@@ -224,13 +240,23 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         PlatformGenerationRequest req = ctx.getRequest();
         FeatureOptions f = req.getFeatures();
         BatchOptions b = req.getBatch();
-        boolean hasResources = hasResources(ctx);
+        final boolean hasResources = hasResources(ctx);
 
         List<String> blocks = new ArrayList<>();
-        if (!b.isEnabled())          blocks.add("service-batch");
-        if (!b.isGrafana()) { blocks.add("loki"); blocks.add("promtail"); blocks.add("grafana"); }
-        if (!f.isSpringbootAdmin())  blocks.add("ms-admin");
-        if (!f.isWebUI())            blocks.add("ms-webui");
+        if (!b.isEnabled()) {
+            blocks.add("service-batch");
+        }
+        if (!b.isGrafana()) {
+            blocks.add("loki");
+            blocks.add("promtail");
+            blocks.add("grafana");
+        }
+        if (!f.isSpringbootAdmin()) {
+            blocks.add("ms-admin");
+        }
+        if (!f.isWebUI()) {
+            blocks.add("ms-webui");
+        }
         if (hasResources) {
             blocks.add("service-a-db");
             blocks.add("service-b-db");
@@ -243,7 +269,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     private String addResourceBlocks(String text, GenerationContext ctx) {
         PlatformGenerationRequest req = ctx.getRequest();
-        if (req.getResources() == null || req.getResources().isEmpty()) return text;
+        if (req.getResources() == null || req.getResources().isEmpty()) {
+            return text;
+        }
 
         StringBuilder newServices = new StringBuilder();
         StringBuilder newVolumes = new StringBuilder();
@@ -256,12 +284,16 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         if (volIdx >= 0) {
             text = text.substring(0, volIdx + 1) + newServices + text.substring(volIdx + 1);
             if (newVolumes.length() > 0) {
-                if (!text.endsWith("\n")) text = text + "\n";
+                if (!text.endsWith("\n")) {
+                    text = text + "\n";
+                }
                 text = text + newVolumes;
             }
         } else {
             text = (text.endsWith("\n") ? text : text + "\n") + newServices;
-            if (newVolumes.length() > 0) text = text + "\nvolumes:\n" + newVolumes;
+            if (newVolumes.length() > 0) {
+                text = text + "\nvolumes:\n" + newVolumes;
+            }
         }
         return text;
     }
@@ -270,7 +302,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         DatabaseType db = r.getDatabaseType() == null ? DatabaseType.POSTGRES : r.getDatabaseType();
         String name  = r.getServiceName();
         String snake = name.replace("-", "_");
-        String upper = snake.toUpperCase();
+        String upper = snake.toUpperCase(Locale.ROOT);
 
         StringBuilder sb = new StringBuilder();
         switch (db) {
@@ -309,6 +341,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
                   .append(snake).append("_db?authSource=admin\n");
             }
             case H2 -> appendAppService(sb, name, "[ms-eureka, keycloak]");
+            default -> throw new IllegalStateException("Type de base non supporté : " + db);
         }
         sb.append("\n");
         return sb.toString();
@@ -326,14 +359,18 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     private String buildResourceVolumeEntry(ResourceModuleRequest r) {
         DatabaseType db = r.getDatabaseType() == null ? DatabaseType.POSTGRES : r.getDatabaseType();
-        if (db == DatabaseType.H2) return "";
+        if (db == DatabaseType.H2) {
+            return "";
+        }
         return "  " + r.getServiceName().replace("-", "_") + "_db_data:\n";
     }
 
     // ── ms-gateway routes ─────────────────────────────────────────────────────
 
     private GeneratedFile rewriteGatewayYml(GeneratedFile f, GenerationContext ctx) {
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
         String text = new String(f.content(), StandardCharsets.UTF_8);
         PlatformGenerationRequest req = ctx.getRequest();
         boolean hasResources = req.getResources() != null && !req.getResources().isEmpty();
@@ -349,7 +386,7 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     /**
      * Remove a single route block from the gateway's `spring.cloud.gateway.server.webflux.routes:`
-     * list. Each route starts at `            - id: <name>` (12-space indent) and ends at the
+     * list. Each route starts at `            - id: &lt;name&gt;` (12-space indent) and ends at the
      * next sibling `- id:` or any line with strictly less indent (e.g. the `eureka:` top-level key).
      */
     private String removeGatewayRoute(String text, String routeId) {
@@ -357,21 +394,38 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         String startMarker = "            - id: " + routeId;
         int startIdx = -1;
         for (int i = 0; i < lines.length; i++) {
-            if (lines[i].equals(startMarker)) { startIdx = i; break; }
+            if (lines[i].equals(startMarker)) {
+                startIdx = i;
+                break;
+            }
         }
-        if (startIdx == -1) return text;
+        if (startIdx == -1) {
+            return text;
+        }
         int endIdx = lines.length;
         for (int i = startIdx + 1; i < lines.length; i++) {
             String line = lines[i];
-            if (line.startsWith("            - id:")) { endIdx = i; break; }
-            if (line.isEmpty()) continue;
-            if (!line.startsWith("              ")) { endIdx = i; break; }
+            if (line.startsWith("            - id:")) {
+                endIdx = i;
+                break;
+            }
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (!line.startsWith("              ")) {
+                endIdx = i;
+                break;
+            }
         }
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < lines.length; i++) {
-            if (i >= startIdx && i < endIdx) continue;
+            if (i >= startIdx && i < endIdx) {
+                continue;
+            }
             out.append(lines[i]);
-            if (i < lines.length - 1) out.append("\n");
+            if (i < lines.length - 1) {
+                out.append("\n");
+            }
         }
         return out.toString();
     }
@@ -418,13 +472,20 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
                 break;
             }
         }
-        if (startIdx == -1) return text;
+        if (startIdx == -1) {
+            return text;
+        }
 
         int endIdx = lines.length;
         for (int i = startIdx + 1; i < lines.length; i++) {
             String line = lines[i];
-            if (line.isEmpty()) continue;
-            if (!line.startsWith(" ")) { endIdx = i; break; }
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (!line.startsWith(" ")) {
+                endIdx = i;
+                break;
+            }
             if (line.length() > 2 && line.charAt(0) == ' '
                     && line.charAt(1) == ' ' && line.charAt(2) != ' ') {
                 endIdx = i;
@@ -434,9 +495,13 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < lines.length; i++) {
-            if (i >= startIdx && i < endIdx) continue;
+            if (i >= startIdx && i < endIdx) {
+                continue;
+            }
             out.append(lines[i]);
-            if (i < lines.length - 1) out.append("\n");
+            if (i < lines.length - 1) {
+                out.append("\n");
+            }
         }
         return out.toString();
     }
@@ -451,7 +516,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     );
 
     private GeneratedFile rewriteRealm(GeneratedFile f, GenerationContext ctx) {
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
         List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
         try {
             ObjectNode root = (ObjectNode) mapper.readTree(f.content());
@@ -459,7 +526,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             // roles.realm: drop the three demo service roles, add one per resource
             ArrayNode roles = (ArrayNode) root.path("roles").path("realm");
             for (int i = roles.size() - 1; i >= 0; i--) {
-                if (DEFAULT_SERVICE_ROLES.contains(roles.get(i).path("name").asText())) roles.remove(i);
+                if (DEFAULT_SERVICE_ROLES.contains(roles.get(i).path("name").asText())) {
+                    roles.remove(i);
+                }
             }
             for (ResourceModuleRequest r : resources) {
                 roles.add(mapper.createObjectNode().put("name", roleName(r)));
@@ -470,17 +539,26 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             for (int i = users.size() - 1; i >= 0; i--) {
                 ObjectNode u = (ObjectNode) users.get(i);
                 String username = u.path("username").asText();
-                if (DEFAULT_SERVICE_USERS.contains(username)) { users.remove(i); continue; }
+                if (DEFAULT_SERVICE_USERS.contains(username)) {
+                    users.remove(i);
+                    continue;
+                }
                 if ("test-admin".equals(username)) {
                     ArrayNode rr = (ArrayNode) u.get("realmRoles");
                     for (int j = rr.size() - 1; j >= 0; j--) {
-                        if (DEFAULT_SERVICE_ROLES.contains(rr.get(j).asText())) rr.remove(j);
+                        if (DEFAULT_SERVICE_ROLES.contains(rr.get(j).asText())) {
+                            rr.remove(j);
+                        }
                     }
-                    for (ResourceModuleRequest r : resources) rr.add(roleName(r));
+                    for (ResourceModuleRequest r : resources) {
+                        rr.add(roleName(r));
+                    }
                 }
             }
             // add one test user per resource
-            for (ResourceModuleRequest r : resources) users.add(buildRealmUser(r));
+            for (ResourceModuleRequest r : resources) {
+                users.add(buildRealmUser(r));
+            }
 
             byte[] out = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
             return new GeneratedFile(f.path(), out, f.executable());
@@ -511,10 +589,12 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── README (Keycloak users per resource) ────────────────────────────────
 
     private GeneratedFile rewriteReadme(GeneratedFile f, GenerationContext ctx) {
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
 
-        String text = new String(f.content(), StandardCharsets.UTF_8);
-        List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
+        final String text = new String(f.content(), StandardCharsets.UTF_8);
+        final List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
 
         StringBuilder table = new StringBuilder();
         table.append("## Utilisateurs Keycloak\n");
@@ -555,10 +635,10 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
     private GeneratedFile rewriteTestAll(GeneratedFile f, GenerationContext ctx) {
         PlatformGenerationRequest req = ctx.getRequest();
-        List<ResourceModuleRequest> resources = req.getResources();
-        FeatureOptions feat = req.getFeatures();
+        final List<ResourceModuleRequest> resources = req.getResources();
+        final FeatureOptions feat = req.getFeatures();
         BatchOptions batch = req.getBatch();
-        boolean batchEnabled = batch != null && batch.isEnabled();
+        final boolean batchEnabled = batch != null && batch.isEnabled();
 
         StringBuilder sb = new StringBuilder(TEST_ALL_PROLOGUE);
 
@@ -572,8 +652,12 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
             sb.append("wait_for '").append(r.getServiceName()).append("' routed_up ").append(routePath(r)).append("\n");
         }
         sb.append("wait_for 'service-consumer' routed_up service-consumer/api/aggregate\n");
-        if (feat.isSpringbootAdmin()) sb.append("wait_for 'ms-admin' curl -fs http://localhost:9100\n");
-        if (feat.isWebUI()) sb.append("wait_for 'ms-webui' curl -fs http://localhost:8090/login\n");
+        if (feat.isSpringbootAdmin()) {
+            sb.append("wait_for 'ms-admin' curl -fs http://localhost:9100\n");
+        }
+        if (feat.isWebUI()) {
+            sb.append("wait_for 'ms-webui' curl -fs http://localhost:8090/login\n");
+        }
         sb.append("wait_for 'admin-application' curl -fs http://localhost:9300/login\n"); // toujours installé
         sb.append("echo 'Stack is ready.'\n");
         sb.append("echo\n\n");
@@ -617,7 +701,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
                 "200", "$" + tokenVar(target), url
             ));
             for (ResourceModuleRequest other : resources) {
-                if (other == target) continue;
+                if (other == target) {
+                    continue;
+                }
                 sb.append(assertHttp(
                     other.getServiceName() + " user cannot access " + target.getServiceName(),
                     "403", "$" + tokenVar(other), url
@@ -628,15 +714,26 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
 
         sb.append("echo 'Testing infrastructure...'\n");
         sb.append("curl -fs http://localhost:8761 >/dev/null && echo 'Eureka OK'\n");
-        if (feat.isSpringbootAdmin()) sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
-        if (feat.isWebUI()) sb.append("curl -fs http://localhost:8090/login >/dev/null && echo 'WebUI OK'\n");
+        if (feat.isSpringbootAdmin()) {
+            sb.append("curl -fs http://localhost:9100 >/dev/null && echo 'Admin OK'\n");
+        }
+        if (feat.isWebUI()) {
+            sb.append("curl -fs http://localhost:8090/login >/dev/null && echo 'WebUI OK'\n");
+        }
         sb.append("curl -fs http://localhost:9300/login >/dev/null && echo 'Admin-app OK'\n"); // toujours installé
         sb.append("\n");
 
         sb.append("echo 'Testing service-consumer aggregation...'\n");
-        sb.append("AGG_RESPONSE=$(curl -s \\\n  -H \"Authorization: Bearer $TOKEN_ADMIN\" \\\n  \"$GATEWAY_URL/service-consumer/api/aggregate\")\n\n");
-        sb.append("AGG_STATUS=$(curl -s -o /tmp/aggregate-response.txt -w \"%{http_code}\" \\\n  -H \"Authorization: Bearer $TOKEN_ADMIN\" \\\n  \"$GATEWAY_URL/service-consumer/api/aggregate\")\n\n");
-        sb.append("if [ \"$AGG_STATUS\" != \"200\" ]; then\n  echo \"FAIL ADMIN aggregate expected 200 got $AGG_STATUS\"\n  cat /tmp/aggregate-response.txt\n  exit 1\nfi\n");
+        sb.append("AGG_RESPONSE=$(curl -s \\\n"
+                + "  -H \"Authorization: Bearer $TOKEN_ADMIN\" \\\n"
+                + "  \"$GATEWAY_URL/service-consumer/api/aggregate\")\n\n");
+        sb.append("AGG_STATUS=$(curl -s -o /tmp/aggregate-response.txt -w \"%{http_code}\" \\\n"
+                + "  -H \"Authorization: Bearer $TOKEN_ADMIN\" \\\n"
+                + "  \"$GATEWAY_URL/service-consumer/api/aggregate\")\n\n");
+        sb.append("if [ \"$AGG_STATUS\" != \"200\" ]; then\n"
+                + "  echo \"FAIL ADMIN aggregate expected 200 got $AGG_STATUS\"\n"
+                + "  cat /tmp/aggregate-response.txt\n"
+                + "  exit 1\nfi\n");
         sb.append("echo 'OK ADMIN aggregate -> 200'\n");
         for (ResourceModuleRequest r : resources) {
             sb.append("assert_contains 'aggregate response' \"$AGG_RESPONSE\" '")
@@ -661,7 +758,10 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("echo 'Testing refresh token...'\n");
         sb.append("REFRESH_RESPONSE=$(auth_refresh \"$OPAQUE_ADMIN\")\n");
         sb.append("TOKEN_ADMIN_REFRESHED=$(echo \"$REFRESH_RESPONSE\" | jq -r '.access_token // empty')\n");
-        sb.append("if [ -z \"$TOKEN_ADMIN_REFRESHED\" ]; then\n  echo \"FAIL refresh token — no access_token in response\"\n  echo \"$REFRESH_RESPONSE\"\n  exit 1\nfi\n");
+        sb.append("if [ -z \"$TOKEN_ADMIN_REFRESHED\" ]; then\n"
+                + "  echo \"FAIL refresh token — no access_token in response\"\n"
+                + "  echo \"$REFRESH_RESPONSE\"\n"
+                + "  exit 1\nfi\n");
         sb.append("echo \"OK refresh token -> new access_token received\"\n");
         sb.append(assertHttp(
             "Refreshed token works on " + first.getServiceName(), "200", "$TOKEN_ADMIN_REFRESHED", firstUrl
@@ -673,12 +773,23 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("LOGOUT_ACCESS=$(echo \"$LOGOUT_LOGIN\" | jq -r '.access_token // empty')\n");
         sb.append("LOGOUT_OPAQUE=$(echo \"$LOGOUT_LOGIN\" | jq -r '.opaque_refresh_token // empty')\n\n");
         sb.append(assertHttp("Token works before logout", "200", "$LOGOUT_ACCESS", firstUrl));
-        sb.append("LOGOUT_STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" \\\n  -X POST \"$GATEWAY_URL/auth/logout\" \\\n  -H \"Authorization: Bearer $LOGOUT_ACCESS\" \\\n  -H \"Content-Type: application/json\" \\\n  -d \"{\\\"opaque_refresh_token\\\":\\\"$LOGOUT_OPAQUE\\\"}\")\n");
-        sb.append("if [ \"$LOGOUT_STATUS\" != \"204\" ]; then\n  echo \"FAIL logout expected 204 got $LOGOUT_STATUS\"\n  exit 1\nfi\n");
+        sb.append("LOGOUT_STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" \\\n"
+                + "  -X POST \"$GATEWAY_URL/auth/logout\" \\\n"
+                + "  -H \"Authorization: Bearer $LOGOUT_ACCESS\" \\\n"
+                + "  -H \"Content-Type: application/json\" \\\n"
+                + "  -d \"{\\\"opaque_refresh_token\\\":\\\"$LOGOUT_OPAQUE\\\"}\")\n");
+        sb.append("if [ \"$LOGOUT_STATUS\" != \"204\" ]; then\n"
+                + "  echo \"FAIL logout expected 204 got $LOGOUT_STATUS\"\n"
+                + "  exit 1\nfi\n");
         sb.append("echo \"OK logout -> 204\"\n");
         sb.append(assertHttp("Blacklisted token rejected by gateway", "401", "$LOGOUT_ACCESS", firstUrl));
-        sb.append("STALE_REFRESH_STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" \\\n  -X POST \"$GATEWAY_URL/auth/refresh\" \\\n  -H \"Content-Type: application/json\" \\\n  -d \"{\\\"opaque_refresh_token\\\":\\\"$LOGOUT_OPAQUE\\\"}\")\n");
-        sb.append("if [ \"$STALE_REFRESH_STATUS\" != \"401\" ]; then\n  echo \"FAIL stale refresh expected 401 got $STALE_REFRESH_STATUS\"\n  exit 1\nfi\n");
+        sb.append("STALE_REFRESH_STATUS=$(curl -s -o /dev/null -w \"%{http_code}\" \\\n"
+                + "  -X POST \"$GATEWAY_URL/auth/refresh\" \\\n"
+                + "  -H \"Content-Type: application/json\" \\\n"
+                + "  -d \"{\\\"opaque_refresh_token\\\":\\\"$LOGOUT_OPAQUE\\\"}\")\n");
+        sb.append("if [ \"$STALE_REFRESH_STATUS\" != \"401\" ]; then\n"
+                + "  echo \"FAIL stale refresh expected 401 got $STALE_REFRESH_STATUS\"\n"
+                + "  exit 1\nfi\n");
         sb.append("echo \"OK stale refresh token -> 401\"\n\n");
 
         sb.append("echo 'Testing admin user creation + self password change...'\n");
@@ -741,7 +852,8 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
         sb.append("echo 'OK admin2 logs in with new password'\n\n");
 
         sb.append("OLD_PWD_CODE=$(curl -s -o /dev/null -w \"%{http_code}\" -X POST \"$GATEWAY_URL/auth/login\" "
-                + "-H \"Content-Type: application/json\" -d '{\"username\":\"admin2\",\"password\":\"admin2pass\"}')\n");
+                + "-H \"Content-Type: application/json\" "
+                + "-d '{\"username\":\"admin2\",\"password\":\"admin2pass\"}')\n");
         sb.append("if [ \"$OLD_PWD_CODE\" != \"401\" ]; then "
                 + "echo \"FAIL admin2 old password expected 401 got $OLD_PWD_CODE\"; exit 1; fi\n");
         sb.append("echo 'OK admin2 old password rejected -> 401'\n\n");
@@ -852,7 +964,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── service-consumer AggregateController (zip over N resources) ────────────
 
     private GeneratedFile rewriteAggregate(GeneratedFile f, GenerationContext ctx) {
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
         String original = new String(f.content(), StandardCharsets.UTF_8);
         String pkg = firstPackage(original);
         List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
@@ -916,7 +1030,9 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
      * {@code ^webui:} jusqu'à la fin du contenu — pas de chirurgie d'indentation.
      */
     private GeneratedFile rewriteWebUiCatalog(GeneratedFile f, GenerationContext ctx) {
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
         String text = new String(f.content(), StandardCharsets.UTF_8);
         StringBuilder block = new StringBuilder("webui:\n  resources:\n");
         for (ResourceModuleRequest r : ctx.getRequest().getResources()) {

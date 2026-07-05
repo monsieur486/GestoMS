@@ -2,8 +2,8 @@ package com.mr486.generator.dto;
 
 /**
  * Types d'identifiant supportés pour les entités SQL générées.
- * <p>
- * Pour {@link DatabaseType#MONGO}, ce champ est ignoré : les documents Mongo utilisent toujours un
+ *
+ * <p>Pour {@link DatabaseType#MONGO}, ce champ est ignoré : les documents Mongo utilisent toujours un
  * identifiant {@code String}.
  */
 public enum IdType {

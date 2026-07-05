@@ -6,13 +6,13 @@ import java.util.List;
 
 /**
  * Étape unitaire du pipeline de génération.
- * <p>
- * Chaque implémentation est un bean Spring stateless annoté
+ *
+ * <p>Chaque implémentation est un bean Spring stateless annoté
  * {@link org.springframework.core.annotation.Order @Order(N)} ; l'ordre dicte la séquence d'exécution.
  * Une étape transforme une liste de {@link GeneratedFile} (renommage, filtre, ajout, modification de
  * contenu) et renvoie une nouvelle liste — jamais d'effets de bord sur les entrées.
- * <p>
- * Ordre courant des processors :
+ *
+ * <p>Ordre courant des processors :
  * <ol>
  *   <li>{@code @Order(10)}
  *       {@link com.mr486.generator.pipeline.processor.RootRenameProcessor}

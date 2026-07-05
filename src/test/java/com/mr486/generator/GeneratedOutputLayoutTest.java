@@ -1,17 +1,18 @@
 package com.mr486.generator;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.mr486.generator.dto.DatabaseType;
 import com.mr486.generator.dto.IdType;
 import com.mr486.generator.dto.PlatformGenerationRequest;
 import com.mr486.generator.dto.ResourceModuleRequest;
 import com.mr486.generator.service.PlatformGeneratorService;
 import com.mr486.generator.zip.GeneratedFile;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Vérifie que la sortie générée respecte les contraintes de mise en forme Java :
@@ -46,7 +47,9 @@ class GeneratedOutputLayoutTest {
     void no_java_line_exceeds_120_chars_and_no_glued_imports() {
         List<GeneratedFile> files = generateWithResources();
         for (GeneratedFile f : files) {
-            if (!f.path().endsWith(".java")) continue;
+            if (!f.path().endsWith(".java")) {
+                continue;
+            }
             String content = new String(f.content(), StandardCharsets.UTF_8);
             String[] lines = content.split("\n", -1);
             for (int i = 0; i < lines.length; i++) {

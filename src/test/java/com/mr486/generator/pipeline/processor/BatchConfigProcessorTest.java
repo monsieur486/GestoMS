@@ -1,12 +1,16 @@
 package com.mr486.generator.pipeline.processor;
 
-import com.mr486.generator.dto.*;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.contentOf;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.defaultCtx;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.file;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.mr486.generator.dto.BatchOptions;
+import com.mr486.generator.dto.PlatformGenerationRequest;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.zip.GeneratedFile;
-import org.junit.jupiter.api.Test;
 import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
-import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * Vérifie que {@link BatchConfigProcessor} remplace les valeurs batch dans le

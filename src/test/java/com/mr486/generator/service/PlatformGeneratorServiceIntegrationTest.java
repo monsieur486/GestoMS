@@ -1,12 +1,13 @@
 package com.mr486.generator.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.mr486.generator.dto.PlatformGenerationRequest;
 import com.mr486.generator.zip.GeneratedFile;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 class PlatformGeneratorServiceIntegrationTest {

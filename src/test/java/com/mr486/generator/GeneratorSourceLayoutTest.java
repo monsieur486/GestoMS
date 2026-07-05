@@ -1,6 +1,7 @@
 package com.mr486.generator;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -9,13 +10,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 /**
  * Garde-fou de mise en page sur le code source du générateur lui-même
  * ({@code src/main/java} et {@code src/test/java}).
- * <p>
- * Vérifie la convention : aucune ligne de code ne dépasse 120 caractères et aucun import n'est collé
+ *
+ * <p>Vérifie la convention : aucune ligne de code ne dépasse 120 caractères et aucun import n'est collé
  * ({@code ;import }). La largeur est mesurée sur le <b>code seul</b> : le contenu des littéraux de
  * chaîne, des littéraux de caractère, des commentaires et des text blocks est neutralisé avant la
  * mesure. Les bannières de commentaires Unicode et les littéraux de chaîne incassables (templates
@@ -68,7 +69,9 @@ class GeneratorSourceLayoutTest {
         List<Path> files = new ArrayList<>();
         for (String root : SOURCE_ROOTS) {
             Path dir = Path.of(root);
-            if (!Files.isDirectory(dir)) continue;
+            if (!Files.isDirectory(dir)) {
+                continue;
+            }
             try (Stream<Path> walk = Files.walk(dir)) {
                 walk.filter(p -> p.toString().endsWith(".java")).forEach(files::add);
             } catch (IOException e) {
@@ -92,7 +95,12 @@ class GeneratorSourceLayoutTest {
      * sont conservés afin que la structure du code reste mesurable.
      */
     private List<String> stripLiteralsAndComments(String src) {
-        final int NORMAL = 0, LINE_COMMENT = 1, BLOCK_COMMENT = 2, STRING = 3, CHAR = 4, TEXT_BLOCK = 5;
+        final int NORMAL = 0;
+        final int LINE_COMMENT = 1;
+        final int BLOCK_COMMENT = 2;
+        final int STRING = 3;
+        final int CHAR = 4;
+        final int TEXT_BLOCK = 5;
         List<String> lines = new ArrayList<>();
         StringBuilder cur = new StringBuilder();
         int state = NORMAL;
@@ -104,7 +112,9 @@ class GeneratorSourceLayoutTest {
             if (c == '\n') {
                 lines.add(cur.toString());
                 cur.setLength(0);
-                if (state == LINE_COMMENT) state = NORMAL;
+                if (state == LINE_COMMENT) {
+                    state = NORMAL;
+                }
                 i++;
                 continue;
             }

@@ -1,9 +1,10 @@
 package com.mr486.generator.pipeline;
 
-import com.mr486.generator.zip.GeneratedFile;
-import org.junit.jupiter.api.Test;
-import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
+
+import com.mr486.generator.zip.GeneratedFile;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 /**
  * Vérifie que {@link TemplateLoader} charge correctement l'ensemble des fichiers

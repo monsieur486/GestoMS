@@ -1,9 +1,10 @@
 package com.mr486.generator.dto;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Vérifie que {@link FeatureOptions} est correctement désérialisé depuis JSON :

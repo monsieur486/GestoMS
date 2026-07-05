@@ -1,10 +1,16 @@
 package com.mr486.generator.pipeline.processor;
 
+import java.util.Locale;
+
 final class ProcessorUtils {
     private ProcessorUtils() {}
 
     static boolean containsNullByte(byte[] content) {
-        for (byte b : content) if (b == 0) return true;
+        for (byte b : content) {
+            if (b == 0) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -18,7 +24,7 @@ final class ProcessorUtils {
         for (String part : kebab.split("[-_]")) {
             if (!part.isEmpty()) {
                 sb.append(Character.toUpperCase(part.charAt(0)))
-                  .append(part.substring(1).toLowerCase());
+                        .append(part.substring(1).toLowerCase(Locale.ROOT));
             }
         }
         return sb.toString();

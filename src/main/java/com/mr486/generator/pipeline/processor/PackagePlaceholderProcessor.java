@@ -3,11 +3,10 @@ package com.mr486.generator.pipeline.processor;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.zip.GeneratedFile;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Substitue les placeholders d'identité Maven et Java du modèle par les valeurs de la requête.
@@ -39,7 +38,9 @@ public class PackagePlaceholderProcessor implements FileProcessor {
 
         boolean samePackage = SRC_BASE_PKG.equals(tgtBasePkg) && SRC_GROUP_ID.equals(tgtGroupId);
         boolean sameJava    = "17".equals(tgtJavaVer);
-        if (samePackage && sameJava) return files;
+        if (samePackage && sameJava) {
+            return files;
+        }
 
         return files.stream()
             .map(f -> transform(f, tgtBasePkg, tgtGroupId, tgtBasePath, tgtGidPath, tgtJavaVer, sameJava))
@@ -64,7 +65,9 @@ public class PackagePlaceholderProcessor implements FileProcessor {
 
     private byte[] transformContent(byte[] content, String tgtBasePkg, String tgtGroupId,
                                     String tgtJavaVer, boolean sameJava) {
-        if (ProcessorUtils.containsNullByte(content)) return content;
+        if (ProcessorUtils.containsNullByte(content)) {
+            return content;
+        }
         String text = new String(content, StandardCharsets.UTF_8);
         text = text.replace(SRC_BASE_PKG, tgtBasePkg);
         text = text.replace(SRC_GROUP_ID, tgtGroupId);

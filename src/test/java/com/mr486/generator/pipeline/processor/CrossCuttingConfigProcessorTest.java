@@ -1,15 +1,23 @@
 package com.mr486.generator.pipeline.processor;
 
-import com.mr486.generator.dto.*;
-import com.mr486.generator.model.GenerationContext;
-import com.mr486.generator.zip.GeneratedFile;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.contentOf;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.ctxWithFeatures;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.defaultCtx;
+import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.file;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
+import com.mr486.generator.dto.BatchOptions;
+import com.mr486.generator.dto.DatabaseType;
+import com.mr486.generator.dto.FeatureOptions;
+import com.mr486.generator.dto.PlatformGenerationRequest;
+import com.mr486.generator.dto.ResourceModuleRequest;
+import com.mr486.generator.model.GenerationContext;
+import com.mr486.generator.zip.GeneratedFile;
 import java.util.ArrayList;
 import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
-import static com.mr486.generator.pipeline.processor.ProcessorTestHelper.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * Vérifie que {@link CrossCuttingConfigProcessor} réécrit correctement les
@@ -160,7 +168,8 @@ class CrossCuttingConfigProcessorTest {
 
     @Test
     void root_pom_includes_all_default_modules_when_all_features_enabled() {
-        FeatureOptions f = new FeatureOptions(); f.setSpringbootAdmin(true);
+        FeatureOptions f = new FeatureOptions();
+        f.setSpringbootAdmin(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String pom = contentOf(result.stream()
             .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
@@ -205,7 +214,8 @@ class CrossCuttingConfigProcessorTest {
 
     @Test
     void root_pom_excludes_ms_admin_when_admin_disabled() {
-        FeatureOptions f = new FeatureOptions(); f.setSpringbootAdmin(false);
+        FeatureOptions f = new FeatureOptions();
+        f.setSpringbootAdmin(false);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String pom = contentOf(result.stream()
             .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
@@ -215,7 +225,8 @@ class CrossCuttingConfigProcessorTest {
 
     @Test
     void root_pom_includes_ms_client_when_client_web_ui_enabled() {
-        FeatureOptions f = new FeatureOptions(); f.setWebUI(true);
+        FeatureOptions f = new FeatureOptions();
+        f.setWebUI(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String pom = contentOf(result.stream()
             .filter(g -> g.path().endsWith("ms-platform/pom.xml"))
@@ -234,7 +245,8 @@ class CrossCuttingConfigProcessorTest {
 
     @Test
     void compose_keeps_ms_client_block_when_client_web_ui_enabled() {
-        FeatureOptions f = new FeatureOptions(); f.setWebUI(true);
+        FeatureOptions f = new FeatureOptions();
+        f.setWebUI(true);
         List<GeneratedFile> result = processor.process(sampleFiles(), ctxWithFeatures(f));
         String compose = contentOf(result.stream()
             .filter(g -> g.path().endsWith("docker-compose.yml"))
@@ -253,7 +265,8 @@ class CrossCuttingConfigProcessorTest {
 
     @Test
     void root_pom_excludes_service_batch_when_batch_disabled() {
-        BatchOptions b = new BatchOptions(); b.setEnabled(false);
+        BatchOptions b = new BatchOptions();
+        b.setEnabled(false);
         PlatformGenerationRequest req = new PlatformGenerationRequest();
         req.setBatch(b);
         GenerationContext ctx = GenerationContext.from(req);
@@ -267,9 +280,11 @@ class CrossCuttingConfigProcessorTest {
     @Test
     void root_pom_swaps_default_services_for_resources() {
         ResourceModuleRequest r1 = new ResourceModuleRequest();
-        r1.setServiceName("order-service"); r1.setClassName("Order");
+        r1.setServiceName("order-service");
+        r1.setClassName("Order");
         ResourceModuleRequest r2 = new ResourceModuleRequest();
-        r2.setServiceName("product-service"); r2.setClassName("Product");
+        r2.setServiceName("product-service");
+        r2.setClassName("Product");
         PlatformGenerationRequest req = new PlatformGenerationRequest();
         req.setResources(List.of(r1, r2));
         GenerationContext ctx = GenerationContext.from(req);
@@ -301,7 +316,8 @@ class CrossCuttingConfigProcessorTest {
     @Test
     void compose_removes_default_service_blocks_when_resources_provided() {
         ResourceModuleRequest r = new ResourceModuleRequest();
-        r.setServiceName("order-service"); r.setClassName("Order");
+        r.setServiceName("order-service");
+        r.setClassName("Order");
         PlatformGenerationRequest req = new PlatformGenerationRequest();
         req.setResources(List.of(r));
         GenerationContext ctx = GenerationContext.from(req);
@@ -480,11 +496,20 @@ class CrossCuttingConfigProcessorTest {
         "    {\"name\":\"SERVICE\"}\n" +
         "  ] },\n" +
         "  \"users\": [\n" +
-        "    {\"username\":\"test-admin\",\"credentials\":[{\"type\":\"password\",\"value\":\"admin123\",\"temporary\":false}],\"realmRoles\":[\"ADMIN\",\"USER_BATCH\",\"USER_SERVICE_A\",\"USER_SERVICE_B\",\"USER_SERVICE_C\"]},\n" +
-        "    {\"username\":\"test-batch\",\"credentials\":[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_BATCH\"]},\n" +
-        "    {\"username\":\"test-service-a\",\"credentials\":[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_SERVICE_A\"]},\n" +
-        "    {\"username\":\"test-service-b\",\"credentials\":[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_SERVICE_B\"]},\n" +
-        "    {\"username\":\"test-service-c\",\"credentials\":[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_SERVICE_C\"]}\n" +
+        "    {\"username\":\"test-admin\",\"credentials\":"
+        + "[{\"type\":\"password\",\"value\":\"admin123\",\"temporary\":false}],"
+        + "\"realmRoles\":[\"ADMIN\",\"USER_BATCH\",\"USER_SERVICE_A\",\"USER_SERVICE_B\",\"USER_SERVICE_C\"]},\n" +
+        "    {\"username\":\"test-batch\",\"credentials\":"
+        + "[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],\"realmRoles\":[\"USER_BATCH\"]},\n" +
+        "    {\"username\":\"test-service-a\",\"credentials\":"
+        + "[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],"
+        + "\"realmRoles\":[\"USER_SERVICE_A\"]},\n" +
+        "    {\"username\":\"test-service-b\",\"credentials\":"
+        + "[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],"
+        + "\"realmRoles\":[\"USER_SERVICE_B\"]},\n" +
+        "    {\"username\":\"test-service-c\",\"credentials\":"
+        + "[{\"type\":\"password\",\"value\":\"user123\",\"temporary\":false}],"
+        + "\"realmRoles\":[\"USER_SERVICE_C\"]}\n" +
         "  ]\n" +
         "}\n";
 
@@ -495,12 +520,19 @@ class CrossCuttingConfigProcessorTest {
     }
 
     private static JsonNode parse(String json) {
-        try { return new ObjectMapper().readTree(json); }
-        catch (Exception e) { throw new RuntimeException(e); }
+        try {
+            return new ObjectMapper().readTree(json);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static JsonNode userNamed(JsonNode realm, String username) {
-        for (JsonNode u : realm.get("users")) if (username.equals(u.path("username").asText())) return u;
+        for (JsonNode u : realm.get("users")) {
+            if (username.equals(u.path("username").asText())) {
+                return u;
+            }
+        }
         return null;
     }
 
@@ -644,9 +676,11 @@ class CrossCuttingConfigProcessorTest {
     // fixture: SAMPLE_AGG contains a minified imports line — intentionally long, do not reformat
     private static final String SAMPLE_AGG =
         "package com.acme.shop.consumer.controller;\n" +
-        "import lombok.RequiredArgsConstructor;import org.springframework.web.bind.annotation.*;import reactor.core.publisher.Mono;import java.util.*;\n" +
+        "import lombok.RequiredArgsConstructor;import org.springframework.web.bind.annotation.*;"
+        + "import reactor.core.publisher.Mono;import java.util.*;\n" +
         "@RestController @RequiredArgsConstructor @RequestMapping(\"/api\")\n" +
-        "public class AggregateController{ return Mono.zip(uri(\"lb://service-a/api/resources-a\"),uri(\"lb://service-b/api/resources-b\")); }";
+        "public class AggregateController{ return Mono.zip(uri(\"lb://service-a/api/resources-a\"),"
+        + "uri(\"lb://service-b/api/resources-b\")); }";
 
     private String aggOf(List<GeneratedFile> result) {
         return contentOf(result.stream()

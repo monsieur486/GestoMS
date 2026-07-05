@@ -1,6 +1,7 @@
 package com.mr486.generator.pipeline.processor;
 
-import com.mr486.generator.dto.*;
+import com.mr486.generator.dto.FeatureOptions;
+import com.mr486.generator.dto.PlatformGenerationRequest;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.zip.GeneratedFile;
 import java.nio.charset.StandardCharsets;

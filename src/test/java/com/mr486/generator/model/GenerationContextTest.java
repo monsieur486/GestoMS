@@ -1,8 +1,9 @@
 package com.mr486.generator.model;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.mr486.generator.dto.PlatformGenerationRequest;
 import org.junit.jupiter.api.Test;
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Vérifie que {@link GenerationContext#from(PlatformGenerationRequest)} calcule

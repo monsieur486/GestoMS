@@ -4,8 +4,8 @@ import lombok.Data;
 
 /**
  * Bascules d'activation des composants optionnels de la plateforme.
- * <p>
- * keycloak (+ ms-auth), redis, rabbitmq, websocket et admin-application sont désormais TOUJOURS
+ *
+ * <p>keycloak (+ ms-auth), redis, rabbitmq, websocket et admin-application sont désormais TOUJOURS
  * installés et n'ont plus de bascule. L'observabilité (loki + promtail + grafana) est pilotée par
  * {@link BatchOptions#isGrafana()}. Seuls les deux modules ci-dessous restent optionnels.
  */

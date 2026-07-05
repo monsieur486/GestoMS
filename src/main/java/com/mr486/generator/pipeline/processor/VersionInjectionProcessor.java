@@ -4,18 +4,17 @@ import com.mr486.generator.config.PlatformVersions;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.pipeline.FileProcessor;
 import com.mr486.generator.zip.GeneratedFile;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Normalise toutes les versions de la plateforme générée depuis {@link PlatformVersions}.
- * <p>
- * Tourne en dernier ({@code @Order(70)}, après {@link CrossCuttingConfigProcessor}) pour voir
+ *
+ * <p>Tourne en dernier ({@code @Order(70)}, après {@link CrossCuttingConfigProcessor}) pour voir
  * l'ensemble final des fichiers — y compris les blocs {@code image:}/{@code build:} ajoutés
  * dynamiquement par resource. Transformations :
  * <ul>
@@ -64,7 +63,9 @@ public class VersionInjectionProcessor implements FileProcessor {
     }
 
     private GeneratedFile transform(GeneratedFile f) {
-        if (ProcessorUtils.containsNullByte(f.content())) return f;
+        if (ProcessorUtils.containsNullByte(f.content())) {
+            return f;
+        }
         String path = f.path();
         String text = new String(f.content(), StandardCharsets.UTF_8);
         String out = text;
@@ -78,7 +79,9 @@ public class VersionInjectionProcessor implements FileProcessor {
         } else if (path.endsWith("pom.xml")) {
             out = rewritePom(out);
         }
-        if (out.equals(text)) return f;
+        if (out.equals(text)) {
+            return f;
+        }
         return new GeneratedFile(path, out.getBytes(StandardCharsets.UTF_8), f.executable());
     }
 
@@ -115,9 +118,9 @@ public class VersionInjectionProcessor implements FileProcessor {
             String indent = m.group(1);
             String name = m.group(2);
             String repl = indent + "build:\n"
-                + indent + "  context: ./" + name + "\n"
-                + indent + "  args:\n"
-                + indent + "    JAVA_IMAGE: ${JAVA_IMAGE:-" + cfg.getJavaImage() + "}";
+                    + indent + "  context: ./" + name + "\n"
+                    + indent + "  args:\n"
+                    + indent + "    JAVA_IMAGE: ${JAVA_IMAGE:-" + cfg.getJavaImage() + "}";
             m.appendReplacement(sb, Matcher.quoteReplacement(repl));
         }
         m.appendTail(sb);
@@ -131,9 +134,13 @@ public class VersionInjectionProcessor implements FileProcessor {
     }
 
     private String appendEnvVersions(String text) {
-        if (text.contains("# --- image versions ---")) return text;
+        if (text.contains("# --- image versions ---")) {
+            return text;
+        }
         StringBuilder b = new StringBuilder(text);
-        if (!text.endsWith("\n")) b.append("\n");
+        if (!text.endsWith("\n")) {
+            b.append("\n");
+        }
         b.append("\n# --- image versions ---\n");
         b.append("JAVA_IMAGE=").append(cfg.getJavaImage()).append("\n");
         b.append("POSTGRES_VERSION=").append(cfg.getPostgres()).append("\n");
@@ -170,7 +177,9 @@ public class VersionInjectionProcessor implements FileProcessor {
                     + cfg.getSpringBootAdmin() + "</version>"
             },
         };
-        for (String[] r : replacements) text = text.replace(r[0], r[1]);
+        for (String[] r : replacements) {
+            text = text.replace(r[0], r[1]);
+        }
         return text;
     }
 }

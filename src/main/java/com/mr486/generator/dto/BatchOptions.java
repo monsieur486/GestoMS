@@ -4,8 +4,8 @@ import lombok.Data;
 
 /**
  * Paramètres de configuration de {@code service-batch}.
- * <p>
- * Les valeurs sont injectées par le {@link com.mr486.generator.pipeline.processor.BatchConfigProcessor}
+ *
+ * <p>Les valeurs sont injectées par le {@link com.mr486.generator.pipeline.processor.BatchConfigProcessor}
  * dans le {@code .env} et le {@code docker-compose.yml} de la plateforme générée. Quand
  * {@link #enabled} est {@code false}, le service batch est entièrement retiré (au même titre que
  * lorsque {@code features.rabbitmq=false}, car batch dépend de RabbitMQ).
