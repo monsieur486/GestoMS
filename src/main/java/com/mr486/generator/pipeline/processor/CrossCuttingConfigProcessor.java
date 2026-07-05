@@ -96,28 +96,25 @@ public class CrossCuttingConfigProcessor implements FileProcessor {
     // ── Per-resource naming helpers ───────────────────────────────────────────
 
     private String roleName(ResourceModuleRequest r) {
-        return "USER_" + r.getServiceName().replace("-", "_").toUpperCase(Locale.ROOT);
+        return ResourceNaming.from(r).roleName();
     }
 
     private String tokenVar(ResourceModuleRequest r) {
-        return "TOKEN_" + r.getServiceName().replace("-", "_").toUpperCase(Locale.ROOT);
+        return ResourceNaming.from(r).tokenVar();
     }
 
     private String testUser(ResourceModuleRequest r) {
-        return "test-" + r.getServiceName();
+        return ResourceNaming.from(r).testUser();
     }
 
-    /**
-     * Full gateway URL a client hits: {@code $GATEWAY_URL/<service><routePrefix>}
-     * (Path=/&lt;service&gt;/** + StripPrefix=1).
-     */
+    // URL complète frappée par un client : $GATEWAY_URL/<service><routePrefix> (StripPrefix=1).
     private String gatewayUrl(ResourceModuleRequest r) {
-        return "$GATEWAY_URL/" + r.getServiceName() + r.getEffectiveRoutePrefix();
+        return ResourceNaming.from(r).gatewayUrl();
     }
 
-    /** Path under the gateway (no host), as fed to the routed_up readiness probe. */
+    // Chemin sous la passerelle (sans hôte), fourni à la sonde de disponibilité routed_up.
     private String routePath(ResourceModuleRequest r) {
-        return r.getServiceName() + r.getEffectiveRoutePrefix();
+        return ResourceNaming.from(r).routePath();
     }
 
     // ── Root pom <modules> ────────────────────────────────────────────────────

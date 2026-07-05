@@ -111,12 +111,11 @@ public class ResourceExpandProcessor implements FileProcessor {
     // ── Path transformations ──────────────────────────────────────────────
 
     private String transformPath(String path, ResourceModuleRequest res, String root) {
-        String serviceClass   = ProcessorUtils.toPascalCase(res.getServiceName());
-        String servicePackage = toConcatLower(res.getServiceName());
+        ResourceNaming n = ResourceNaming.from(res);
         // More specific replacements first
         path = path.replace(root + "/service-a/", root + "/" + res.getServiceName() + "/");
-        path = path.replace("/servicea/", "/" + servicePackage + "/");
-        path = path.replace("ServiceA", serviceClass);
+        path = path.replace("/servicea/", "/" + n.servicePackage() + "/");
+        path = path.replace("ServiceA", n.serviceClass());
         path = path.replace("ResourceA", res.getClassName());
         return path;
     }
@@ -140,24 +139,18 @@ public class ResourceExpandProcessor implements FileProcessor {
     }
 
     private String applyBaseReplacements(String text, ResourceModuleRequest res) {
-        final String serviceClass   = ProcessorUtils.toPascalCase(res.getServiceName());
-        final String servicePackage = toConcatLower(res.getServiceName());
-        final String serviceSnake   = res.getServiceName().replace("-", "_");
-        final String serviceScream  = serviceSnake.toUpperCase(Locale.ROOT);
-        final String entityPlural   = res.getClassName().toLowerCase(Locale.ROOT) + "s";
-        final String entityLower    = res.getClassName().toLowerCase(Locale.ROOT);
-        final String routePrefix    = res.getEffectiveRoutePrefix();
+        final ResourceNaming n = ResourceNaming.from(res);
 
         // Longest/most-specific first
-        text = text.replace("USER_SERVICE_A",    "USER_" + serviceScream);
-        text = text.replace("SERVICE_A",          serviceScream);
-        text = text.replace("resources_a",        entityPlural);
-        text = text.replace("resource_a",         entityLower);
-        text = text.replace("/api/resources-a",   routePrefix);
+        text = text.replace("USER_SERVICE_A",    n.roleName());
+        text = text.replace("SERVICE_A",          n.scream());
+        text = text.replace("resources_a",        n.entityPlural());
+        text = text.replace("resource_a",         n.entityLower());
+        text = text.replace("/api/resources-a",   n.routePrefix());
         text = text.replace("service-a",          res.getServiceName());
-        text = text.replace("service_a",          serviceSnake);
-        text = text.replace("servicea",           servicePackage);
-        text = text.replace("ServiceA",           serviceClass);
+        text = text.replace("service_a",          n.snake());
+        text = text.replace("servicea",           n.servicePackage());
+        text = text.replace("ServiceA",           n.serviceClass());
         text = text.replace("ResourceA",          res.getClassName());
         return text;
     }
@@ -309,7 +302,7 @@ public class ResourceExpandProcessor implements FileProcessor {
         if (ProcessorUtils.containsNullByte(content)) {
             return content;
         }
-        final String servicePackage = toConcatLower(res.getServiceName());
+        final String servicePackage = ResourceNaming.from(res).servicePackage();
         final String serviceSnake   = res.getServiceName().replace("-", "_");
         final String serviceUpper   = serviceSnake.toUpperCase(Locale.ROOT);
         final String collection     = res.getClassName().toLowerCase(Locale.ROOT) + "s";
@@ -428,16 +421,4 @@ public class ResourceExpandProcessor implements FileProcessor {
         return text;
     }
 
-    // ── Utilities ─────────────────────────────────────────────────────────
-
-    /**
-     * Convertit un nom kebab-case ou snake_case en minuscules sans séparateur
-     * (ex. : {@code "service-a"} → {@code "servicea"}).
-     *
-     * @param kebab nom en kebab-case ou snake_case
-     * @return nom concaténé en minuscules
-     */
-    protected String toConcatLower(String kebab) {
-        return kebab.replace("-", "").replace("_", "").toLowerCase(Locale.ROOT);
-    }
 }

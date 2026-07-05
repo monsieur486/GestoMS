@@ -66,9 +66,9 @@ Oracle de non-régression : on fige la sortie complète du service pour une matr
 
 **Files:** Create `model/ResourceNaming.java` + `ResourceNamingTest.java` ; Modify les deux processors.
 
-- [ ] **Step 1 (test d'abord).** `ResourceNamingTest` : `ResourceNaming.from(res)` expose `serviceName`, `snake`, `scream`, `entityLower`, `entityPlural`, `serviceClass`, `servicePackage`, `roleName`, `tokenVar`, `testUser`, `gatewayUrl`, `routePath`. Cas : `order-service`/`Order` → valeurs attendues explicites (ré-encoder les helpers actuels lignes 98-119 de CrossCutting et 143-147 de Expand). Voir échouer.
-- [ ] **Step 2.** Implémenter le `record` (fabrique statique `from`, `Locale.ROOT`). Vert.
-- [ ] **Step 3.** Remplacer les helpers de nommage de `CrossCuttingConfigProcessor` (roleName/tokenVar/testUser/gatewayUrl/routePath) et les recalculs de `applyBaseReplacements` par `ResourceNaming`. `mvn verify` : golden + 143 tests verts. **Commit** : `refactor(processor): extrait ResourceNaming (noms dérivés par ressource)`.
+- [x] **Step 1 (test d'abord).** `ResourceNamingTest` (3 tests) ré-encode les formules historiques (order-service/Order → order_service/ORDER_SERVICE/orderservice/USER_ORDER_SERVICE…, gatewayUrl/routePath défaut + préfixe explicite). Vu au RED (3 NPE, `from` renvoyait null).
+- [x] **Step 2.** `record ResourceNaming(serviceName, className, routePrefix)` en package `pipeline.processor` (accès à `ProcessorUtils.toPascalCase` package-private) ; dérivés en méthodes, `Locale.ROOT`. Vert (3/3).
+- [x] **Step 3.** CrossCutting : les 5 helpers délèguent à `ResourceNaming` (call sites intacts, suppression en Task 3). Expand : `transformPath`/`applyBaseReplacements`/`applyMongo` consomment `ResourceNaming` ; `toConcatLower` (mort) supprimé. `mvn verify` : **golden 7/7 vert** (sortie identique), 153 tests, Checkstyle 0, `ResourceNaming` 0 violation PMD. **Commit à faire** : `refactor(processor): extrait ResourceNaming (noms dérivés par ressource)`.
 
 ---
 
