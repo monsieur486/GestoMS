@@ -118,11 +118,11 @@ Oracle de non-régression : on fige la sortie complète du service pour une matr
 
 ## Task 5 : Vérification finale & clôture
 
-- [ ] `mvn clean verify site` : BUILD SUCCESS, 143+ tests, golden vert, **Checkstyle 0**, **JaCoCo ≥ 80 %**.
-- [ ] Lire `target/pmd.xml` : les familles `GodClass`/`TooManyMethods`/`Cyclomatic`/`NPath`/`Cognitive` sur les deux processors doivent être à **0** (résidu éventuel : `TestAllRewriter` sous `@SuppressWarnings` justifié, à documenter).
-- [ ] Lire `target/spotbugsXml.xml` : pas de nouvelle anomalie ; `REC_CATCH_EXCEPTION` de rewriteRealm résolu si le catch a été resserré.
-- [ ] Mémoire : compléter `docs/claude-memory/cross_cutting_config_pattern.md` (le dispatcher + les rewriters remplacent le God class ; la note dual-source `test-all.sh` pointe désormais `TestAllRewriter`) et créer une entrée `resource_expand_db_variants` mise à jour (stratégies). Miroir + commit selon `sync_memory_to_repo`.
-- [ ] **Commit final** : `docs(memory): acte le passage des processors en dispatcher + stratégies`.
+- [x] `mvn clean verify` : **BUILD SUCCESS**, 158 tests, golden 7/7 vert, **Checkstyle 0**, **JaCoCo 96.6 % instr / 82.2 % branches** (≥ 80 %).
+- [x] Lu `target/pmd.xml` : familles `GodClass`/`TooManyMethods`/`Cyclomatic`/`NPath`/`Cognitive` sur les deux processors = **0**. PMD total 71 → 45. Résidus assumés : `RealmRewriter` (boucles imbriquées) et `TestAllRewriter` (`@SuppressWarnings` justifié).
+- [x] Lu `target/spotbugsXml.xml` : `REC_CATCH_EXCEPTION` de `RealmRewriter` **résolu** (catch resserré sur `IOException`, commit `22416e4`) ; reste `CT_CONSTRUCTOR_THROW` sur `TemplateLoader` (préexistant, hors périmètre).
+- [x] Mémoire : `cross_cutting_config_pattern` (dispatcher + 8 rewriters, dual-source `test-all.sh` → `TestAllRewriter`, extension → beans) et `resource_expand_db_variants` (stratégies `DbVariant`/`IdVariant`) complétées ; nouvelle entrée `processors_slimming_refactor_2026_07_06` + index `MEMORY.md`. Miroir `docs/claude-memory/` fait.
+- [x] **Commit final** : `docs(memory): acte le passage des processors en dispatcher + stratégies`.
 
 ---
 
