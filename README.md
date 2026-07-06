@@ -249,10 +249,20 @@ flowchart TD
 
 ---
 
+## Prérequis
+
+- **JDK 17** (le pom cible `java.version = 17`).
+- **Maven via le wrapper `./mvnw`** fourni dans le dépôt — aucune installation de Maven
+  requise (le wrapper télécharge la version épinglée au premier appel).
+- **Rien d'autre pour le générateur** : il est *sans état* (aucune base, aucun `.env`, aucun
+  conteneur). Il démarre sur `:8080` et renvoie le ZIP en mémoire à chaque appel.
+- **Docker / Docker Compose** n'est requis que pour **exécuter la plateforme générée**
+  (voir « Tester la plateforme générée »), jamais pour lancer le générateur lui-même.
+
 ## Lancer le générateur
 
 ```bash
-mvn clean package
+./mvnw clean package
 java -jar target/*.jar
 ```
 
