@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mr486.generator.dto.ResourceModuleRequest;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.zip.GeneratedFile;
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import org.springframework.core.annotation.Order;
@@ -85,7 +86,7 @@ public class RealmRewriter implements CrossCuttingRewriter {
 
             byte[] out = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
             return new GeneratedFile(f.path(), out, f.executable());
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new IllegalStateException("Failed to rewrite Keycloak realm " + f.path(), e);
         }
     }
