@@ -29,6 +29,7 @@ public class RealmRewriter implements CrossCuttingRewriter {
     private static final Set<String> DEFAULT_SERVICE_USERS = Set.of(
         "test-service-a", "test-service-b", "test-service-c"
     );
+    private static final String ADMIN_USERNAME = "test-admin";
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -46,48 +47,53 @@ public class RealmRewriter implements CrossCuttingRewriter {
         List<ResourceModuleRequest> resources = ctx.getRequest().getResources();
         try {
             ObjectNode root = (ObjectNode) mapper.readTree(f.content());
-
-            // roles.realm: drop the three demo service roles, add one per resource
-            ArrayNode roles = (ArrayNode) root.path("roles").path("realm");
-            for (int i = roles.size() - 1; i >= 0; i--) {
-                if (DEFAULT_SERVICE_ROLES.contains(roles.get(i).path("name").asText())) {
-                    roles.remove(i);
-                }
-            }
-            for (ResourceModuleRequest r : resources) {
-                roles.add(mapper.createObjectNode().put("name", ResourceNaming.from(r).roleName()));
-            }
-
-            // users: drop demo service users, re-point test-admin's roles
-            ArrayNode users = (ArrayNode) root.get("users");
-            for (int i = users.size() - 1; i >= 0; i--) {
-                ObjectNode u = (ObjectNode) users.get(i);
-                String username = u.path("username").asText();
-                if (DEFAULT_SERVICE_USERS.contains(username)) {
-                    users.remove(i);
-                    continue;
-                }
-                if ("test-admin".equals(username)) {
-                    ArrayNode rr = (ArrayNode) u.get("realmRoles");
-                    for (int j = rr.size() - 1; j >= 0; j--) {
-                        if (DEFAULT_SERVICE_ROLES.contains(rr.get(j).asText())) {
-                            rr.remove(j);
-                        }
-                    }
-                    for (ResourceModuleRequest r : resources) {
-                        rr.add(ResourceNaming.from(r).roleName());
-                    }
-                }
-            }
-            // add one test user per resource
-            for (ResourceModuleRequest r : resources) {
-                users.add(buildRealmUser(r));
-            }
-
+            rewriteRealmRoles((ArrayNode) root.path("roles").path("realm"), resources);
+            rewriteUsers((ArrayNode) root.get("users"), resources);
             byte[] out = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
             return new GeneratedFile(f.path(), out, f.executable());
         } catch (IOException e) {
             throw new IllegalStateException("Failed to rewrite Keycloak realm " + f.path(), e);
+        }
+    }
+
+    // Retire les rôles de démonstration des services par défaut et ajoute un rôle par ressource.
+    private void rewriteRealmRoles(ArrayNode roles, List<ResourceModuleRequest> resources) {
+        for (int i = roles.size() - 1; i >= 0; i--) {
+            if (DEFAULT_SERVICE_ROLES.contains(roles.get(i).path("name").asText())) {
+                roles.remove(i);
+            }
+        }
+        for (ResourceModuleRequest r : resources) {
+            roles.add(mapper.createObjectNode().put("name", ResourceNaming.from(r).roleName()));
+        }
+    }
+
+    // Retire les utilisateurs de démonstration, repointe test-admin, ajoute un utilisateur de test par ressource.
+    private void rewriteUsers(ArrayNode users, List<ResourceModuleRequest> resources) {
+        for (int i = users.size() - 1; i >= 0; i--) {
+            ObjectNode u = (ObjectNode) users.get(i);
+            String username = u.path("username").asText();
+            if (DEFAULT_SERVICE_USERS.contains(username)) {
+                users.remove(i);
+            } else if (ADMIN_USERNAME.equals(username)) {
+                repointAdminRoles(u, resources);
+            }
+        }
+        for (ResourceModuleRequest r : resources) {
+            users.add(buildRealmUser(r));
+        }
+    }
+
+    // Remplace les rôles de service par défaut de test-admin par un rôle par ressource.
+    private void repointAdminRoles(ObjectNode adminUser, List<ResourceModuleRequest> resources) {
+        ArrayNode rr = (ArrayNode) adminUser.get("realmRoles");
+        for (int j = rr.size() - 1; j >= 0; j--) {
+            if (DEFAULT_SERVICE_ROLES.contains(rr.get(j).asText())) {
+                rr.remove(j);
+            }
+        }
+        for (ResourceModuleRequest r : resources) {
+            rr.add(ResourceNaming.from(r).roleName());
         }
     }
 
