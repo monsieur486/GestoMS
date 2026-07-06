@@ -25,7 +25,10 @@ import org.junit.jupiter.api.Test;
  */
 class ResourceExpandProcessorTest {
 
-    private final ResourceExpandProcessor processor = new ResourceExpandProcessor();
+    // Variants injectés comme le fait Spring (stratégies de base et d'identifiant).
+    private final ResourceExpandProcessor processor = new ResourceExpandProcessor(
+        List.of(new PostgresVariant(), new H2Variant(), new MongoVariant()),
+        List.of(new IntegerIdVariant(), new UuidIdVariant()));
 
     // Simulates service-a files (after PackagePlaceholderProcessor)
     private List<GeneratedFile> serviceAFiles(String root) {

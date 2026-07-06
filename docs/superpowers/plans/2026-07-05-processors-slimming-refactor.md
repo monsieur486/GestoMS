@@ -109,9 +109,10 @@ Oracle de non-régression : on fige la sortie complète du service pour une matr
 
 **Files:** Create `expand/{DbVariant,PostgresVariant,H2Variant,MongoVariant,IdVariant,LongIdVariant,IntegerIdVariant,UuidIdVariant}.java` + tests ; Modify `ResourceExpandProcessor`.
 
-- [ ] **Step 1 (test d'abord).** `MongoVariantTest`, `H2Variant Test`, `UuidIdVariantTest`… : chaque stratégie applique ses substitutions à un contenu d'exemple (repris de applyMongo/applyH2/applyUuidType actuels). Voir échouer.
-- [ ] **Step 2.** Implémenter `DbVariant` (interface `byte[] apply(path, content, res, naming)`) avec Postgres (no-op ciblé), H2, Mongo ; `applyMongo` décomposé en étapes nommées dans `MongoVariant`. Idem `IdVariant` pour le `switch(idType)`. Mapper par enum (`Map<DatabaseType, DbVariant>`, `Map<IdType, IdVariant>`), injecté par constructeur.
-- [ ] **Step 3.** `ResourceExpandProcessor` : orchestration seule (extract template, remove defaults, clone, path transform, délègue db+id aux stratégies). `mvn verify` : golden + 143 verts, `GodClass`/`TooManyMethods`/`NPath applyMongo` disparus. Scinder `ResourceExpandProcessorTest` par stratégie. **Commit(s)** : `refactor(expand): stratégies DbVariant/IdVariant (switch enum → polymorphisme)`.
+> **Écart au plan (assumé) :** golden-master + les 28 tests existants de `ResourceExpandProcessorTest` (H2/Mongo/UUID/Integer via `process()`) servent d'oracle — pas de `*VariantTest` unitaires séparés (refactor à comportement constant, couverture préservée). Dispatch par recherche linéaire sur `type()` (N≤3) au lieu d'`EnumMap` — évite un constructeur manuel, `@RequiredArgsConstructor` suffit.
+
+- [x] **Step 1-2.** `DbVariant` (Postgres no-op, H2, Mongo) + `IdVariant` (Integer, UUID), beans `@Component` avec discriminant `type()`. `applyMongo` **décomposé** (`apply` → gardes + `applyJava`/`applicationYml`/`pom`/`entity`/`repository`/`otherJava`) : NPath effondré. `null` sentinelle (changelog) conservée avec `@SuppressWarnings` justifié (byte[], pas une collection).
+- [x] **Step 3.** `ResourceExpandProcessor` : orchestration seule, injecte `List<DbVariant>`/`List<IdVariant>` et dispatche par `type()` ; `transformContent`+`applyBaseReplacements` fusionnés (≤10 méthodes) ; 5 `AvoidReassigningParameters` corrigés par chaînage sur locale. `mvn verify` : **golden 7/7 vert**, 158 tests, Checkstyle 0. **`GodClass`/`TooManyMethods`/`NPath applyMongo` disparus** (ResourceExpandProcessor + variants : 0 violation PMD). PMD 56 → 46. Suppression Checkstyle Indentation étendue aux `*Variant.java` (gabarits DB). **Commit à faire** : `refactor(expand): stratégies DbVariant/IdVariant (switch enum → polymorphisme)`.
 
 ---
 

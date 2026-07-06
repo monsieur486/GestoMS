@@ -18,6 +18,7 @@
        À résoudre à la source en externalisant ces gabarits en ressources template (chantier #6). -->
   <suppress files="ResourceExpandProcessor\.java" checks="Indentation|OperatorWrap"/>
   <suppress files="Rewriter\.java" checks="Indentation|OperatorWrap"/>
+  <suppress files="Variant\.java" checks="Indentation|OperatorWrap"/>
 
   <!-- Sources de test : littéraux d'entrée et de sortie attendue volumineux (YAML,
        docker-compose, realm JSON) indentés selon leur propre format. -->
