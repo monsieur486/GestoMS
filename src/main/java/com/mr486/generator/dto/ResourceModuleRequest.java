@@ -8,7 +8,8 @@ import lombok.Data;
 /**
  * Spécification d'un service métier à générer dynamiquement.
  *
- * <p>Si {@link com.mr486.generator.dto.PlatformGenerationRequest#getResources()} contient au moins
+ * <p>Si la liste {@code resources} de {@link com.mr486.generator.dto.PlatformGenerationRequest}
+ * contient au moins
  * une instance, {@link com.mr486.generator.pipeline.processor.ResourceExpandProcessor} retire les
  * services par défaut (service-a/b/c) et clone le template service-a une fois par entrée, en
  * appliquant les transformations de noms, type de base et type d'identifiant.
@@ -37,7 +38,14 @@ public class ResourceModuleRequest {
      *  Ignoré pour Mongo (toujours String). */
     private IdType idType;
 
-    /** Retourne {@link #routePrefix} s'il est défini, sinon dérive {@code /api/{classNameLower}s}. */
+    /**
+     * Retourne {@link #routePrefix} s'il est défini, sinon dérive {@code /api/{classNameLower}s}.
+     *
+     * <p><b>Exemple :</b> pour {@code className="Order"} sans {@code routePrefix}, retourne
+     * {@code "/api/orders"} ; avec {@code routePrefix="/v2/orders"}, retourne cette valeur.
+     *
+     * @return le préfixe de route effectif, jamais {@code null}
+     */
     public String getEffectiveRoutePrefix() {
         return (routePrefix != null && !routePrefix.isBlank())
             ? routePrefix
