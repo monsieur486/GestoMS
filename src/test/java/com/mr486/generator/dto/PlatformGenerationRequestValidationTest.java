@@ -61,7 +61,7 @@ class PlatformGenerationRequestValidationTest {
         PlatformGenerationRequest req = new PlatformGenerationRequest();
         req.setName("a\r\nSet-Cookie: x=y");
         assertThat(validator.validate(req))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("name"));
+            .anyMatch(v -> "name".equals(v.getPropertyPath().toString()));
     }
 
     @Test
@@ -69,7 +69,7 @@ class PlatformGenerationRequestValidationTest {
         PlatformGenerationRequest req = new PlatformGenerationRequest();
         req.setJavaVersion("17; rm -rf /");
         assertThat(validator.validate(req))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("javaVersion"));
+            .anyMatch(v -> "javaVersion".equals(v.getPropertyPath().toString()));
     }
 
     @Test
@@ -77,7 +77,7 @@ class PlatformGenerationRequestValidationTest {
         PlatformGenerationRequest req = new PlatformGenerationRequest();
         req.setGroupId("com.mr486; drop table");
         assertThat(validator.validate(req))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("groupId"));
+            .anyMatch(v -> "groupId".equals(v.getPropertyPath().toString()));
     }
 
     @Test
@@ -93,7 +93,7 @@ class PlatformGenerationRequestValidationTest {
             .collect(Collectors.toList());
         req.setResources(many);
         assertThat(validator.validate(req))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("resources"));
+            .anyMatch(v -> "resources".equals(v.getPropertyPath().toString()));
     }
 
     @Test

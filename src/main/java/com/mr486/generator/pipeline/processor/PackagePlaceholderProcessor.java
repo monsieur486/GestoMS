@@ -58,9 +58,8 @@ public class PackagePlaceholderProcessor implements FileProcessor {
 
     private String transformPath(String path, String tgtBasePath, String tgtGidPath) {
         // longer first to avoid partial replacement
-        path = path.replace(SRC_BASE_PATH, tgtBasePath);
-        path = path.replace(SRC_GID_PATH, tgtGidPath);
-        return path;
+        return path.replace(SRC_BASE_PATH, tgtBasePath)
+                   .replace(SRC_GID_PATH, tgtGidPath);
     }
 
     private byte[] transformContent(byte[] content, String tgtBasePkg, String tgtGroupId,

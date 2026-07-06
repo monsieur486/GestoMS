@@ -1,6 +1,7 @@
 package com.mr486.generator.pipeline;
 
 import com.mr486.generator.zip.GeneratedFile;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -58,24 +59,12 @@ public final class TemplateLoader {
         try {
             Resource[] resources = new PathMatchingResourcePatternResolver().getResources(LOCATION_PATTERN);
             for (Resource r : resources) {
-                if (!r.isReadable()) {
-                    continue;                 // écarte les répertoires (filesystem)
+                GeneratedFile file = toGeneratedFile(r);
+                if (file != null) {
+                    byPath.putIfAbsent(file.path(), file);
                 }
-                String url = r.getURL().toString();
-                int idx = url.indexOf(TEMPLATE_PREFIX);
-                if (idx < 0) {
-                    continue;
-                }
-                String path = url.substring(idx + "templates/".length());  // -> "ms-platform/..."
-                if (path.isEmpty() || path.endsWith("/")) {
-                    continue;        // écarte les répertoires (jar)
-                }
-                path = decodeDotfile(path);
-                byte[] content = r.getContentAsByteArray();
-                boolean executable = path.endsWith(".sh") || path.endsWith("mvnw");
-                byPath.putIfAbsent(path, new GeneratedFile(path, content, executable));
             }
-        } catch (Exception ex) {
+        } catch (IOException ex) {
             throw new IllegalStateException("Unable to load platform template", ex);
         }
         if (byPath.isEmpty()) {
@@ -84,6 +73,25 @@ public final class TemplateLoader {
         List<GeneratedFile> files = new ArrayList<>(byPath.values());
         files.sort(Comparator.comparing(GeneratedFile::path));
         return files;
+    }
+
+    // Convertit une ressource du classpath en fichier du modèle, ou null si à écarter (répertoire, hors préfixe).
+    private static GeneratedFile toGeneratedFile(Resource r) throws IOException {
+        if (!r.isReadable()) {
+            return null;                      // écarte les répertoires (filesystem)
+        }
+        String url = r.getURL().toString();
+        int idx = url.indexOf(TEMPLATE_PREFIX);
+        if (idx < 0) {
+            return null;
+        }
+        String path = url.substring(idx + "templates/".length());  // -> "ms-platform/..."
+        if (path.isEmpty() || path.endsWith("/")) {
+            return null;                      // écarte les répertoires (jar)
+        }
+        path = decodeDotfile(path);
+        boolean executable = path.endsWith(".sh") || path.endsWith("mvnw");
+        return new GeneratedFile(path, r.getContentAsByteArray(), executable);
     }
 
     /** Décode le préfixe {@code dot-} du dernier segment en {@code .} (voir convention dotfiles). */

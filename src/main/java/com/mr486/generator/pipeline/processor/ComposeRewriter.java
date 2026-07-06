@@ -48,9 +48,7 @@ public class ComposeRewriter implements CrossCuttingRewriter {
             text = removeServiceBlock(text, block);
         }
         text = cleanDependsOnReferences(text, removedBlocks);
-        for (String vol : volumesToRemove(ctx)) {
-            text = removeVolumeEntry(text, vol);
-        }
+        text = removeDefaultVolumes(text, ctx);
         text = addResourceBlocks(text, ctx);
         return new GeneratedFile(f.path(), text.getBytes(StandardCharsets.UTF_8), f.executable());
     }
@@ -80,19 +78,16 @@ public class ComposeRewriter implements CrossCuttingRewriter {
         return sb.toString();
     }
 
-    // Volumes de base des services par défaut à retirer quand des ressources les remplacent.
-    private List<String> volumesToRemove(GenerationContext ctx) {
-        List<String> vols = new ArrayList<>();
-        if (CrossCuttingRewriter.hasResources(ctx)) {
-            vols.add("service_a_db_data");
-            vols.add("service_b_db_data");
+    // Retire les volumes des services par défaut (indentés à 2) remplacés par des ressources.
+    private String removeDefaultVolumes(String text, GenerationContext ctx) {
+        if (!CrossCuttingRewriter.hasResources(ctx)) {
+            return text;
         }
-        return vols;
-    }
-
-    // Retire une entrée de volume nommée (ligne indentée à 2).
-    private String removeVolumeEntry(String text, String volumeName) {
-        return text.replaceAll("(?m)^  " + Pattern.quote(volumeName) + ":[^\\n]*\\n?", "");
+        String out = text;
+        for (String vol : List.of("service_a_db_data", "service_b_db_data")) {
+            out = out.replaceAll("(?m)^  " + Pattern.quote(vol) + ":[^\\n]*\\n?", "");
+        }
+        return out;
     }
 
     // Blocs de services à retirer selon features/batch/resources.
@@ -141,22 +136,23 @@ public class ComposeRewriter implements CrossCuttingRewriter {
             newVolumes.append(buildResourceVolumeEntry(r));
         }
 
-        int volIdx = text.indexOf("\nvolumes:");
+        String out = text;
+        int volIdx = out.indexOf("\nvolumes:");
         if (volIdx >= 0) {
-            text = text.substring(0, volIdx + 1) + newServices + text.substring(volIdx + 1);
+            out = out.substring(0, volIdx + 1) + newServices + out.substring(volIdx + 1);
             if (newVolumes.length() > 0) {
-                if (!text.endsWith("\n")) {
-                    text = text + "\n";
+                if (!out.endsWith("\n")) {
+                    out = out + "\n";
                 }
-                text = text + newVolumes;
+                out = out + newVolumes;
             }
         } else {
-            text = (text.endsWith("\n") ? text : text + "\n") + newServices;
+            out = (out.endsWith("\n") ? out : out + "\n") + newServices;
             if (newVolumes.length() > 0) {
-                text = text + "\nvolumes:\n" + newVolumes;
+                out = out + "\nvolumes:\n" + newVolumes;
             }
         }
-        return text;
+        return out;
     }
 
     // Construit le bloc compose (base + service applicatif) d'une ressource selon son type de base.

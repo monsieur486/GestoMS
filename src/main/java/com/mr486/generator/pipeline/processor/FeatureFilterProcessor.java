@@ -42,9 +42,6 @@ public class FeatureFilterProcessor implements FileProcessor {
         if (!b.isGrafana() && rel.startsWith("observability/")) {
             return false;
         }
-        if (!b.isEnabled() && rel.startsWith("service-batch/")) {
-            return false;
-        }
-        return true;
+        return b.isEnabled() || !rel.startsWith("service-batch/");
     }
 }

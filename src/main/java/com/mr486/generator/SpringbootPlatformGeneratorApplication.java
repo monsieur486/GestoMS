@@ -12,6 +12,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * de {@link com.mr486.generator.pipeline.FileProcessor}.
  */
 @SpringBootApplication
+// Faux positif PMD : une classe @SpringBootApplication est un bean de configuration
+// instancié par Spring, elle ne peut pas être une classe utilitaire à constructeur privé.
+@SuppressWarnings("PMD.UseUtilityClass")
 public class SpringbootPlatformGeneratorApplication {
     /**
      * Démarre le contexte Spring Boot du générateur.

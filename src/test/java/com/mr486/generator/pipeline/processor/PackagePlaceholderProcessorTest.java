@@ -70,13 +70,10 @@ class PackagePlaceholderProcessorTest {
 
     @Test
     void replaces_java_version_in_pom() {
-        GenerationContext ctx = GenerationContext.from(
-            new com.mr486.generator.dto.PlatformGenerationRequest() {
-                {
-                    setJavaVersion("21");
-                }
-            }
-        );
+        com.mr486.generator.dto.PlatformGenerationRequest req =
+            new com.mr486.generator.dto.PlatformGenerationRequest();
+        req.setJavaVersion("21");
+        GenerationContext ctx = GenerationContext.from(req);
         List<GeneratedFile> input = List.of(
             file("ms-platform/pom.xml", "<java.version>17</java.version>")
         );

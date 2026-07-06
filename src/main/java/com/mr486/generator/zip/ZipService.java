@@ -1,6 +1,7 @@
 package com.mr486.generator.zip;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.List;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
@@ -21,6 +22,7 @@ public class ZipService {
      * @param files liste ordonnée des fichiers à empaqueter
      * @return octets du ZIP, prêts à être renvoyés au client HTTP
      */
+    @SuppressWarnings("PMD.AvoidUsingOctalValues") // 0755 est un mode de permission Unix, octal voulu
     public byte[] zip(List<GeneratedFile> files) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream();
                 ZipArchiveOutputStream zip = new ZipArchiveOutputStream(out)) {
@@ -35,7 +37,7 @@ public class ZipService {
             }
             zip.finish();
             return out.toByteArray();
-        } catch (Exception ex) {
+        } catch (IOException ex) {
             throw new IllegalStateException("Unable to create ZIP", ex);
         }
     }

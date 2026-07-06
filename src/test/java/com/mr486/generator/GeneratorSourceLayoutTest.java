@@ -94,6 +94,12 @@ class GeneratorSourceLayoutTest {
      * commentaires (ligne et bloc) et des text blocks ayant été retiré. Les délimiteurs de chaîne
      * sont conservés afin que la structure du code reste mesurable.
      */
+    // Analyseur d'états caractère par caractère : sa complexité et ses comparaisons à des
+    // littéraux de caractères ('"', '/', '\n'…) sont intrinsèques à un lexer, non factorisables.
+    @SuppressWarnings({
+        "PMD.NcssCount", "PMD.CognitiveComplexity", "PMD.CyclomaticComplexity",
+        "PMD.AvoidLiteralsInIfCondition"
+    })
     private List<String> stripLiteralsAndComments(String src) {
         final int NORMAL = 0;
         final int LINE_COMMENT = 1;

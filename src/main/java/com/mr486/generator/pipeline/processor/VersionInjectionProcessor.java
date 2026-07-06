@@ -86,23 +86,23 @@ public class VersionInjectionProcessor implements FileProcessor {
     }
 
     private String rewriteComposeImages(String text) {
-        text = replaceImage(text, "postgres",
+        String out = replaceImage(text, "postgres",
                 TEMPLATE.getPostgres(), cfg.getPostgres(), "POSTGRES_VERSION");
-        text = replaceImage(text, "quay.io/keycloak/keycloak",
+        out = replaceImage(out, "quay.io/keycloak/keycloak",
                 TEMPLATE.getKeycloak(), cfg.getKeycloak(), "KEYCLOAK_VERSION");
-        text = replaceImage(text, "rabbitmq",
+        out = replaceImage(out, "rabbitmq",
                 TEMPLATE.getRabbitmq(), cfg.getRabbitmq(), "RABBITMQ_VERSION");
-        text = replaceImage(text, "redis",
+        out = replaceImage(out, "redis",
                 TEMPLATE.getRedis(), cfg.getRedis(), "REDIS_VERSION");
-        text = replaceImage(text, "mongo",
+        out = replaceImage(out, "mongo",
                 TEMPLATE.getMongo(), cfg.getMongo(), "MONGO_VERSION");
-        text = replaceImage(text, "grafana/loki",
+        out = replaceImage(out, "grafana/loki",
                 TEMPLATE.getLoki(), cfg.getLoki(), "LOKI_VERSION");
-        text = replaceImage(text, "grafana/promtail",
+        out = replaceImage(out, "grafana/promtail",
                 TEMPLATE.getPromtail(), cfg.getPromtail(), "PROMTAIL_VERSION");
-        text = replaceImage(text, "grafana/grafana",
+        out = replaceImage(out, "grafana/grafana",
                 TEMPLATE.getGrafana(), cfg.getGrafana(), "GRAFANA_VERSION");
-        return text;
+        return out;
     }
 
     private String replaceImage(String text, String repo, String templateTag, String cfgTag, String var) {
@@ -177,9 +177,10 @@ public class VersionInjectionProcessor implements FileProcessor {
                     + cfg.getSpringBootAdmin() + "</version>"
             },
         };
+        String out = text;
         for (String[] r : replacements) {
-            text = text.replace(r[0], r[1]);
+            out = out.replace(r[0], r[1]);
         }
-        return text;
+        return out;
     }
 }

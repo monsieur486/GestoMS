@@ -12,7 +12,7 @@ import java.util.List;
  * {@link GeneratedFile} à partir de chaînes, lecture de contenu, et
  * construction de contextes de génération préconfigurés.
  */
-public class ProcessorTestHelper {
+public final class ProcessorTestHelper {
 
     private ProcessorTestHelper() {}
 

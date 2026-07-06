@@ -15,6 +15,7 @@ import com.mr486.generator.dto.PlatformGenerationRequest;
 import com.mr486.generator.dto.ResourceModuleRequest;
 import com.mr486.generator.model.GenerationContext;
 import com.mr486.generator.zip.GeneratedFile;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -525,8 +526,8 @@ class CrossCuttingConfigProcessorTest {
     private static JsonNode parse(String json) {
         try {
             return new ObjectMapper().readTree(json);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
         }
     }
 

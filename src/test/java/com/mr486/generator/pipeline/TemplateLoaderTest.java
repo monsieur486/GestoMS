@@ -20,15 +20,15 @@ class TemplateLoaderTest {
         List<GeneratedFile> files = loader.load();
         // .gitignore is excluded by Maven's default resource excludes unless disabled in the pom;
         // .env must survive the directory walk too. Both are required by the generated platform.
-        assertThat(files).anyMatch(f -> f.path().equals("ms-platform/.gitignore"));
-        assertThat(files).anyMatch(f -> f.path().equals("ms-platform/.env"));
+        assertThat(files).anyMatch(f -> "ms-platform/.gitignore".equals(f.path()));
+        assertThat(files).anyMatch(f -> "ms-platform/.env".equals(f.path()));
     }
 
     @Test
     void loads_nested_files_with_full_relative_path() {
         List<GeneratedFile> files = loader.load();
-        assertThat(files).anyMatch(f -> f.path().equals("ms-platform/keycloak/import/ms-realm-realm.json"));
-        assertThat(files).anyMatch(f -> f.path().equals("ms-platform/pom.xml"));
+        assertThat(files).anyMatch(f -> "ms-platform/keycloak/import/ms-realm-realm.json".equals(f.path()));
+        assertThat(files).anyMatch(f -> "ms-platform/pom.xml".equals(f.path()));
     }
 
     @Test
