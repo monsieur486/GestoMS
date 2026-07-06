@@ -29,7 +29,7 @@ import org.springframework.stereotype.Component;
  * {@code maven-jar-plugin} les écarteraient silencieusement du jar — donc de la génération.
  */
 @Component
-public class TemplateLoader {
+public final class TemplateLoader {
 
     /** Préfixe classpath du modèle ; tout chemin émis commence par {@code ms-platform/}. */
     private static final String TEMPLATE_PREFIX = "templates/ms-platform/";
