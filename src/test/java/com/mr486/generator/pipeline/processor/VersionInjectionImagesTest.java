@@ -12,13 +12,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Vérifie que {@link VersionInjectionProcessor} injecte correctement les
- * versions d'images dans docker-compose (interpolation env), les Dockerfiles
- * (ARG JAVA_IMAGE), les fichiers .env (bloc de versions), et les pom.xml
- * (parent Spring Boot, spring-cloud, mongock) — et que ces transformations
- * sont idempotentes.
+ * Vérifie que {@link VersionInjectionProcessor} injecte les versions d'images dans
+ * docker-compose (interpolation env), les Dockerfiles (ARG JAVA_IMAGE) et les fichiers
+ * {@code .env} (bloc de versions) — et que ces transformations sont idempotentes.
  */
-class VersionInjectionProcessorTest {
+class VersionInjectionImagesTest {
 
     private final VersionInjectionProcessor processor =
         new VersionInjectionProcessor(new PlatformVersions());   // défauts = littéraux template
@@ -93,53 +91,6 @@ class VersionInjectionProcessorTest {
         String out = run("ms-platform/dist.env", "REDIS_HOST=redis\n");
         assertThat(out).contains("# --- image versions ---");
         assertThat(out).contains("KEYCLOAK_VERSION=26.5.6");
-    }
-
-    @Test
-    void root_pom_parent_and_properties_are_noop_at_defaults() {
-        String src = "<parent><groupId>org.springframework.boot</groupId>"
-            + "<artifactId>spring-boot-starter-parent</artifactId><version>3.5.5</version><relativePath/></parent>"
-            + "<properties><java.version>17</java.version>"
-            + "<spring-cloud.version>2025.0.0</spring-cloud.version>"
-            + "<mongock.version>5.5.1</mongock.version></properties>";
-        String out = run("ms-platform/pom.xml", src);
-        assertThat(out).isEqualTo(src);
-    }
-
-    @Test
-    void root_pom_properties_rewritten_when_config_overridden() {
-        PlatformVersions cfg = new PlatformVersions();
-        cfg.setSpringBoot("3.6.0");
-        cfg.setSpringCloud("2025.1.0");
-        cfg.setMongock("5.6.0");
-        VersionInjectionProcessor p = new VersionInjectionProcessor(cfg);
-        String src = "<parent><groupId>org.springframework.boot</groupId>"
-            + "<artifactId>spring-boot-starter-parent</artifactId><version>3.5.5</version><relativePath/></parent>"
-            + "<spring-cloud.version>2025.0.0</spring-cloud.version>"
-            + "<mongock.version>5.5.1</mongock.version>";
-        String out = contentOf(p.process(List.of(file("ms-platform/pom.xml", src)), defaultCtx()).get(0));
-        assertThat(out).contains("<artifactId>spring-boot-starter-parent</artifactId><version>3.6.0</version>");
-        assertThat(out).contains("<spring-cloud.version>2025.1.0</spring-cloud.version>");
-        assertThat(out).contains("<mongock.version>5.6.0</mongock.version>");
-    }
-
-    @Test
-    void ms_admin_pom_spring_boot_admin_rewritten_when_overridden() {
-        PlatformVersions cfg = new PlatformVersions();
-        cfg.setSpringBootAdmin("3.6.0");
-        VersionInjectionProcessor p = new VersionInjectionProcessor(cfg);
-        String src = "<dependency><groupId>de.codecentric</groupId>"
-            + "<artifactId>spring-boot-admin-starter-server</artifactId><version>3.5.5</version></dependency>";
-        String out = contentOf(
-            p.process(List.of(file("ms-platform/ms-admin/pom.xml", src)), defaultCtx()).get(0));
-        assertThat(out).contains(
-            "<artifactId>spring-boot-admin-starter-server</artifactId><version>3.6.0</version>");
-    }
-
-    @Test
-    void java_version_property_is_left_untouched() {
-        String out = run("ms-platform/pom.xml", "<properties><java.version>21</java.version></properties>");
-        assertThat(out).contains("<java.version>21</java.version>");
     }
 
     @Test
