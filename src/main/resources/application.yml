@@ -1,15 +1,33 @@
+# Catalogue des versions d'images et de dépendances injectées dans la plateforme générée
+# (lié à PlatformVersions). Chaque valeur est un défaut load-bearing : il DOIT rester égal
+# au littéral présent dans les templates, sinon VersionInjectionProcessor réécrit les fichiers.
+# Surcharge sans rebuild via variable d'environnement relaxed binding PLATFORM_VERSIONS_<CHAMP>
+# (ex. PLATFORM_VERSIONS_POSTGRES=15).
 platform:
   versions:
+    # Image de base des Dockerfile et argument de build JAVA_IMAGE
     java-image: eclipse-temurin:17-jre
+    # Version du parent spring-boot-starter-parent (pom racine)
     spring-boot: 3.5.5
+    # Version de la BOM spring-cloud (<spring-cloud.version> du pom racine)
     spring-cloud: 2025.0.0
+    # Version de Mongock (<mongock.version> du pom racine)
     mongock: 5.5.1
+    # Version de spring-boot-admin-starter-server (module ms-admin)
     spring-boot-admin: 3.5.5
+    # Version de l'image PostgreSQL
     postgres: "16"
+    # Version de l'image Keycloak
     keycloak: 26.5.6
+    # Version de l'image RabbitMQ
     rabbitmq: 3.13-management
+    # Version de l'image Redis
     redis: 7-alpine
+    # Version de l'image MongoDB
     mongo: "7"
+    # Version de l'image Grafana Loki (agrégation de logs)
     loki: 3.2.1
+    # Version de l'image Grafana Promtail (collecteur de logs)
     promtail: 3.2.1
+    # Version de l'image Grafana (tableaux de bord)
     grafana: 11.2.2
