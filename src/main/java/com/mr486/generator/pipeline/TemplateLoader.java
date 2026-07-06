@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Component;
  * {@code maven-jar-plugin} les écarteraient silencieusement du jar — donc de la génération.
  */
 @Component
+@Slf4j
 public final class TemplateLoader {
 
     /** Préfixe classpath du modèle ; tout chemin émis commence par {@code ms-platform/}. */
@@ -43,6 +45,7 @@ public final class TemplateLoader {
      */
     public TemplateLoader() {
         this.cache = loadFromClasspath();
+        log.info("modèle de plateforme chargé : {} fichiers", cache.size());
     }
 
     /**

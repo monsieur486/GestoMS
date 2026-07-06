@@ -7,6 +7,7 @@ import com.mr486.generator.pipeline.TemplateLoader;
 import com.mr486.generator.zip.GeneratedFile;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PlatformGeneratorService {
 
     private final TemplateLoader loader;
@@ -30,15 +32,22 @@ public class PlatformGeneratorService {
     /**
      * Exécute le pipeline complet et retourne la liste finale des fichiers.
      *
+     * <p><b>Exemple :</b> pour une requête avec deux {@code resources[]}, charge le modèle puis
+     * applique chaque processor dans l'ordre {@code @Order} ; la sortie contient les modules clonés
+     * et les fichiers transversaux réécrits, prêts pour le ZIP.
+     *
      * @param request requête JSON validée
      * @return fichiers de la plateforme générée, prêts pour le ZIP
      */
     public List<GeneratedFile> generate(PlatformGenerationRequest request) {
         GenerationContext ctx = GenerationContext.from(request);
         List<GeneratedFile> files = loader.load();
+        log.debug("modèle chargé : {} fichiers, {} processor(s) à appliquer", files.size(), processors.size());
         for (FileProcessor processor : processors) {
             files = processor.process(files, ctx);
+            log.debug("processor {} appliqué : {} fichiers", processor.getClass().getSimpleName(), files.size());
         }
+        log.info("pipeline terminé : {} fichiers générés", files.size());
         return files;
     }
 }

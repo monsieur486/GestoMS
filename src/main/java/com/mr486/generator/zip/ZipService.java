@@ -3,6 +3,7 @@ package com.mr486.generator.zip;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
  * exécutable des fichiers concernés (mvnw, scripts shell).
  */
 @Service
+@Slf4j
 public class ZipService {
     /**
      * Crée le ZIP final. Les chemins sont écrits tels quels, sans ré-encodage ; le bit exécutable
@@ -36,7 +38,9 @@ public class ZipService {
                 zip.closeArchiveEntry();
             }
             zip.finish();
-            return out.toByteArray();
+            byte[] archive = out.toByteArray();
+            log.debug("ZIP créé : {} entrées, {} octets", files.size(), archive.length);
+            return archive;
         } catch (IOException ex) {
             throw new IllegalStateException("Unable to create ZIP", ex);
         }
